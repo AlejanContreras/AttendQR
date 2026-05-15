@@ -92,4 +92,4 @@ Desarrollar una primera versión funcional enfocada en:
 
 ## Autor
 
-Alejandro Contreras
+John Contreras
