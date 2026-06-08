@@ -1,0 +1,65 @@
+# =============================================================================
+# AttendQR – Apache Rewrite Rules
+# Ubicación: Public/.htaccess
+# Compatible con Apache 2.4+ / XAMPP / PHP puro (sin frameworks)
+# =============================================================================
+
+Options -Indexes
+RewriteEngine On
+
+# -----------------------------------------------------------------------------
+# 1. Base de montaje del proyecto
+#
+# Debe coincidir con la ruta desde la raíz del servidor hasta la carpeta
+# Public/ donde reside este archivo.
+#
+# XAMPP con subdirectorio:  RewriteBase /AttendQR/Public/
+# XAMPP en raíz:            RewriteBase /
+# Servidor de producción:   RewriteBase /   (o el subdirectorio que aplique)
+#
+# ► AJUSTAR ESTE VALOR SI SE CAMBIA DE ENTORNO ◄
+# -----------------------------------------------------------------------------
+RewriteBase /AttendQR/Public/
+
+# -----------------------------------------------------------------------------
+# 2. Permitir acceso directo a archivos y carpetas físicas existentes
+#    (assets estáticos, imágenes, CSS, JS, etc.)
+# -----------------------------------------------------------------------------
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# -----------------------------------------------------------------------------
+# 3. Canalizar todas las rutas /api y /api/* hacia api.php
+#
+#    /api                     → api.php  (health check)
+#    /api/auth/login          → api.php
+#    /api/asistencias/reg...  → api.php
+#    /api/qr/token-activo     → api.php
+#    /api/sesiones/15         → api.php
+#
+#    REQUEST_URI permanece intacto; api.php lo parsea dinámicamente.
+# -----------------------------------------------------------------------------
+RewriteRule ^api(/.*)?$ api.php [L,QSA]
+
+# -----------------------------------------------------------------------------
+# 4. Cabeceras de seguridad para respuestas de la API
+# -----------------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "no-referrer"
+    Header always set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# 5. Bloquear acceso directo a archivos sensibles
+# -----------------------------------------------------------------------------
+<FilesMatch "^\.env(\..*)?$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "\.(log|sh|sql|bak|swp|DS_Store)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
