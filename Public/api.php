@@ -13,14 +13,14 @@ declare(strict_types=1);
  *   /api/asistencias   → AsistenciaController
  *   /api/sesiones      → SesionController
  *   /api/qr            → QrController
- *   /api/fichas        → FichaController        (pendiente)
- *   /api/aprendices    → AprendizController     (pendiente)
- *   /api/docentes      → DocenteController      (pendiente)
- *   /api/jornadas      → JornadaController      (pendiente)
- *   /api/estadisticas  → EstadisticaController  (pendiente)
- *   /api/tokens        → TokenController        (pendiente)
- *   /api/trimestres    → TrimestreController    (pendiente)
- *   /api/health        → HealthController       (pendiente)
+ *   /api/fichas        → FichaController        
+ *   /api/aprendices    → AprendizController     
+ *   /api/docentes      → DocenteController      
+ *   /api/jornadas      → JornadaController      
+ *   /api/estadisticas  → EstadisticaController  
+ *   /api/tokens        → TokenController        
+ *   /api/trimestres    → TrimestreController    
+ *   /api/health        → HealthController       
  *
  * Convención de despacho:
  *   Segmento 0  → recurso  → selecciona el controlador
