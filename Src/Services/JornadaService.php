@@ -5,82 +5,53 @@ declare(strict_types=1);
 /**
  * AttendQR – JornadaService
  *
- * Responsabilidad: contener la lógica de negocio relacionada con
- * las jornadas académicas del SENA (mañana, tarde, noche, etc.).
- * Una "jornada" define el turno en que se desarrolla la formación.
- *
- * Esta clase NO debe:
- *   - Ejecutar SQL directamente.
- *   - Conocer el router ni los Controllers.
- *   - Acceder a $_POST, $_GET ni $_REQUEST.
- *   - Imprimir JSON, HTML ni usar header() o exit.
- *
- * Flujo esperado:
- *   JornadaController → JornadaService → JornadaRepository → Modelo → Database
+ * Responsabilidad: lógica de negocio del módulo de jornadas académicas.
+ * Flujo: JornadaController → JornadaService → JornadaRepository / FichaRepository → Database
  *
  * Ubicación en el proyecto: Src/Services/JornadaService.php
  */
 class JornadaService
 {
-    // -------------------------------------------------------------------------
-    // Dependencias (se inyectarán cuando existan los Repositories)
-    // -------------------------------------------------------------------------
+    private JornadaRepository $jornadaRepo;
+    private FichaRepository   $fichaRepo;
 
-    // ► AQUÍ: declarar dependencias
-    //
-    // Ejemplo futuro:
-    //   private JornadaRepository $jornadaRepo;
-    //
-    //   public function __construct(JornadaRepository $jornadaRepo)
-    //   {
-    //       $this->jornadaRepo = $jornadaRepo;
-    //   }
-
-    // -------------------------------------------------------------------------
-    // Métodos públicos
-    // -------------------------------------------------------------------------
+    public function __construct()
+    {
+        $this->jornadaRepo = new JornadaRepository();
+        $this->fichaRepo   = new FichaRepository();
+    }
 
     /**
-     * Obtiene los datos completos de una jornada por su ID.
+     * Obtiene los datos de una jornada por su ID.
      *
-     * Reglas de negocio:
-     *   1. Verificar que la jornada existe.
-     *   2. Si no existe, lanzar excepción → 404 en el Controller.
-     *   3. Retornar la jornada con nombre, horarios y estado.
-     *
-     * @param int $idJornada Identificador único de la jornada.
+     * @param int $idJornada Identificador de la jornada.
      * @return array<string, mixed>
+     * @throws \RuntimeException 404 si la jornada no existe.
      */
     public function consultar(int $idJornada): array
     {
-        // ► AQUÍ: llamar a JornadaRepository->obtenerPorId($idJornada)
-        // ► AQUÍ: si no existe, lanzar new \RuntimeException('Jornada no encontrada.', 404)
+        $jornada = $this->jornadaRepo->obtenerPorId($idJornada);
 
-        return [
-            'success'    => true,
-            'message'    => 'JornadaService::consultar() disponible. Pendiente de implementación.',
-            'id_jornada' => $idJornada,
-        ];
+        if ($jornada === null) {
+            throw new \RuntimeException('Jornada no encontrada.', 404);
+        }
+
+        return $jornada;
     }
 
     /**
      * Lista jornadas con filtro opcional de estado.
      *
-     * Reglas de negocio:
-     *   1. Aplicar filtro de estado si fue enviado.
-     *   2. Retornar listado ordenado por hora de inicio ascendente.
-     *
-     * @param string|null $estado Filtro opcional ('activa' | 'inactiva').
+     * @param string|null $estado Filtro por estado ('activa' | 'inactiva').
      * @return array<string, mixed>
      */
     public function listar(?string $estado = null): array
     {
-        // ► AQUÍ: llamar a JornadaRepository->listar($estado)
+        $jornadas = $this->jornadaRepo->listar($estado);
 
         return [
-            'success'       => true,
-            'message'       => 'JornadaService::listar() disponible. Pendiente de implementación.',
-            'filtro_estado' => $estado,
+            'jornadas' => $jornadas,
+            'total'    => count($jornadas),
         ];
     }
 
@@ -88,44 +59,42 @@ class JornadaService
      * Crea una nueva jornada académica.
      *
      * Reglas de negocio:
-     *   1. Verificar que el nombre no está duplicado.
-     *   2. Si se envían horarios, verificar que hora_fin > hora_inicio.
-     *   3. Persistir la jornada con estado 'activa'.
-     *   4. Retornar la jornada creada.
+     *   1. El nombre no puede estar vacío ni duplicado.
+     *   2. Si se envían horarios, hora_fin debe ser posterior a hora_inicio.
      *
-     * @param string      $nombre      Nombre de la jornada (p. ej. 'Mañana').
-     * @param string|null $horaInicio  Hora de inicio en formato 'HH:MM'.
-     * @param string|null $horaFin     Hora de fin en formato 'HH:MM'.
-     * @return array<string, mixed>
+     * @param string      $nombre     Nombre de la jornada (p. ej. 'Mañana').
+     * @param string|null $horaInicio Hora de inicio ('HH:MM').
+     * @param string|null $horaFin    Hora de fin ('HH:MM').
+     * @return array<string, mixed> Datos de la jornada creada.
+     * @throws \RuntimeException 422 si el nombre está vacío.
+     * @throws \RuntimeException 409 si el nombre ya existe.
+     * @throws \RuntimeException 422 si el horario es incoherente.
      */
     public function crear(string $nombre, ?string $horaInicio = null, ?string $horaFin = null): array
     {
         $nombre = trim($nombre);
 
         if ($nombre === '') {
-            return ['success' => false, 'message' => 'El nombre de la jornada no puede estar vacío.'];
+            throw new \RuntimeException('El nombre de la jornada no puede estar vacío.', 422);
         }
 
-        // Validar coherencia de horarios si ambos fueron enviados
-        if ($horaInicio !== null && $horaFin !== null) {
-            if (!$this->esHorarioCoherente($horaInicio, $horaFin)) {
-                return [
-                    'success' => false,
-                    'message' => 'La hora de fin debe ser posterior a la hora de inicio.',
-                ];
-            }
+        if ($this->jornadaRepo->existeNombre($nombre)) {
+            throw new \RuntimeException('Ya existe una jornada con ese nombre.', 409);
         }
 
-        // ► AQUÍ: llamar a JornadaRepository->existeNombre($nombre)
-        // ► AQUÍ: si existe, lanzar new \RuntimeException('Ya existe una jornada con ese nombre.', 409)
-        // ► AQUÍ: llamar a JornadaRepository->crear($nombre, $horaInicio, $horaFin)
+        if ($horaInicio !== null && $horaFin !== null && !$this->esHorarioCoherente($horaInicio, $horaFin)) {
+            throw new \RuntimeException('La hora de fin debe ser posterior a la hora de inicio.', 422);
+        }
 
-        return [
-            'success'     => true,
-            'message'     => 'JornadaService::crear() disponible. Pendiente de implementación.',
+        $id      = $this->jornadaRepo->crear($nombre, $horaInicio, $horaFin);
+        $jornada = $this->jornadaRepo->obtenerPorId($id);
+
+        return $jornada ?? [
+            'id'          => $id,
             'nombre'      => $nombre,
             'hora_inicio' => $horaInicio,
             'hora_fin'    => $horaFin,
+            'estado'      => 'activa',
         ];
     }
 
@@ -133,67 +102,71 @@ class JornadaService
      * Actualiza los datos de una jornada existente (actualización parcial).
      *
      * Reglas de negocio:
-     *   1. Verificar que la jornada existe.
-     *   2. Si se cambia el nombre, verificar que no esté duplicado.
-     *   3. Si se actualizan horarios, verificar coherencia hora_fin > hora_inicio.
-     *   4. Aplicar solo los campos enviados, conservar el resto.
+     *   1. La jornada debe existir.
+     *   2. Si se cambia el nombre, no puede estar duplicado.
+     *   3. Si se actualizan horarios, deben ser coherentes.
      *
-     * @param int                  $idJornada Identificador único de la jornada.
+     * @param int                  $idJornada Identificador de la jornada.
      * @param array<string, mixed> $datos     Campos a actualizar.
      * @return array<string, mixed>
+     * @throws \RuntimeException 404 si la jornada no existe.
+     * @throws \RuntimeException 409 si el nombre ya está en uso.
+     * @throws \RuntimeException 422 si el horario es incoherente.
      */
     public function actualizar(int $idJornada, array $datos): array
     {
-        if (empty($datos)) {
-            return ['success' => false, 'message' => 'No se recibieron datos para actualizar.'];
+        $jornada = $this->jornadaRepo->obtenerPorId($idJornada);
+
+        if ($jornada === null) {
+            throw new \RuntimeException('Jornada no encontrada.', 404);
         }
 
-        // Validar coherencia de horarios si ambos están presentes en la actualización
-        if (isset($datos['hora_inicio'], $datos['hora_fin'])) {
-            if (!$this->esHorarioCoherente((string) $datos['hora_inicio'], (string) $datos['hora_fin'])) {
-                return [
-                    'success' => false,
-                    'message' => 'La hora de fin debe ser posterior a la hora de inicio.',
-                ];
+        if (isset($datos['nombre'])) {
+            $datos['nombre'] = trim((string) $datos['nombre']);
+
+            if ($this->jornadaRepo->existeNombre($datos['nombre'], $idJornada)) {
+                throw new \RuntimeException('Ya existe una jornada con ese nombre.', 409);
             }
         }
 
-        // ► AQUÍ: llamar a JornadaRepository->obtenerPorId($idJornada)
-        // ► AQUÍ: si no existe, lanzar new \RuntimeException('Jornada no encontrada.', 404)
-        // ► AQUÍ: si viene nombre, llamar a JornadaRepository->existeNombre($datos['nombre'])
-        // ► AQUÍ: llamar a JornadaRepository->actualizar($idJornada, $datos)
+        if (isset($datos['hora_inicio'], $datos['hora_fin'])) {
+            if (!$this->esHorarioCoherente((string) $datos['hora_inicio'], (string) $datos['hora_fin'])) {
+                throw new \RuntimeException('La hora de fin debe ser posterior a la hora de inicio.', 422);
+            }
+        }
 
-        return [
-            'success'    => true,
-            'message'    => 'JornadaService::actualizar() disponible. Pendiente de implementación.',
-            'id_jornada' => $idJornada,
-            'datos'      => $datos,
-        ];
+        $this->jornadaRepo->actualizar($idJornada, $datos);
+
+        return $this->jornadaRepo->obtenerPorId($idJornada) ?? $jornada;
     }
 
     /**
      * Elimina una jornada del sistema.
      *
      * Reglas de negocio:
-     *   1. Verificar que la jornada existe.
-     *   2. Verificar que no tiene fichas activas vinculadas.
-     *   3. Proceder con la eliminación.
+     *   1. La jornada debe existir.
+     *   2. No puede tener fichas activas vinculadas.
      *
-     * @param int $idJornada Identificador único de la jornada a eliminar.
+     * @param int $idJornada Identificador de la jornada a eliminar.
      * @return array<string, mixed>
+     * @throws \RuntimeException 404 si la jornada no existe.
+     * @throws \RuntimeException 409 si tiene fichas activas.
      */
     public function eliminar(int $idJornada): array
     {
-        // ► AQUÍ: llamar a JornadaRepository->obtenerPorId($idJornada)
-        // ► AQUÍ: llamar a FichaRepository->contarActivasPorJornada($idJornada)
-        // ► AQUÍ: si tiene fichas activas, lanzar new \RuntimeException('La jornada tiene fichas activas.', 409)
-        // ► AQUÍ: llamar a JornadaRepository->eliminar($idJornada)
+        $jornada = $this->jornadaRepo->obtenerPorId($idJornada);
 
-        return [
-            'success'    => true,
-            'message'    => 'JornadaService::eliminar() disponible. Pendiente de implementación.',
-            'id_jornada' => $idJornada,
-        ];
+        if ($jornada === null) {
+            throw new \RuntimeException('Jornada no encontrada.', 404);
+        }
+
+        if ($this->fichaRepo->contarActivasPorJornada($idJornada) > 0) {
+            throw new \RuntimeException('La jornada tiene fichas activas. Desvincúlelas antes de eliminarla.', 409);
+        }
+
+        $this->jornadaRepo->eliminar($idJornada);
+
+        return ['success' => true, 'message' => 'Jornada eliminada correctamente.'];
     }
 
     // -------------------------------------------------------------------------
@@ -202,32 +175,28 @@ class JornadaService
 
     /**
      * Verifica que la hora de fin sea posterior a la hora de inicio.
-     * Acepta el formato 'HH:MM' (24 horas).
      *
      * @param string $horaInicio Hora de inicio ('HH:MM').
      * @param string $horaFin    Hora de fin ('HH:MM').
-     * @return bool true si la hora de fin es posterior a la de inicio.
+     * @return bool
      */
     private function esHorarioCoherente(string $horaInicio, string $horaFin): bool
     {
-        // Convertir a minutos desde medianoche para comparar de forma segura
-        $minutosInicio = $this->horaAMinutos($horaInicio);
-        $minutosFin    = $this->horaAMinutos($horaFin);
+        $inicio = $this->horaAMinutos($horaInicio);
+        $fin    = $this->horaAMinutos($horaFin);
 
-        // Si alguna hora no es válida, dejar que el Repository valide el formato
-        if ($minutosInicio === null || $minutosFin === null) {
+        if ($inicio === null || $fin === null) {
             return true;
         }
 
-        return $minutosFin > $minutosInicio;
+        return $fin > $inicio;
     }
 
     /**
-     * Convierte una cadena 'HH:MM' a minutos desde medianoche.
-     * Retorna null si el formato no es válido.
+     * Convierte 'HH:MM' a minutos desde medianoche. Retorna null si el formato es inválido.
      *
      * @param string $hora Hora en formato 'HH:MM'.
-     * @return int|null Minutos desde medianoche, o null si el formato es inválido.
+     * @return int|null
      */
     private function horaAMinutos(string $hora): ?int
     {
@@ -237,13 +206,13 @@ class JornadaService
             return null;
         }
 
-        $horas   = (int) $partes[0];
-        $minutos = (int) $partes[1];
+        $h = (int) $partes[0];
+        $m = (int) $partes[1];
 
-        if ($horas < 0 || $horas > 23 || $minutos < 0 || $minutos > 59) {
+        if ($h < 0 || $h > 23 || $m < 0 || $m > 59) {
             return null;
         }
 
-        return $horas * 60 + $minutos;
+        return $h * 60 + $m;
     }
 }

@@ -5,211 +5,133 @@ declare(strict_types=1);
 /**
  * AttendQR – SesionService
  *
- * Responsabilidad: gestionar el ciclo de vida de las sesiones de clase.
- * Una "sesión" representa una clase en curso a la que los aprendices
- * pueden registrar asistencia mediante el código QR generado para ella.
- *
- * Esta clase NO debe:
- *   - Ejecutar SQL directamente.
- *   - Conocer el router ni los Controllers.
- *   - Acceder a $_POST, $_GET ni $_REQUEST.
- *   - Imprimir JSON ni HTML.
- *
- * Flujo esperado cuando se integren las capas inferiores:
- *   SesionController → SesionService → SesionRepository → Modelo → Database
+ * Responsabilidad: lógica de negocio del ciclo de vida de las sesiones de clase.
+ * Flujo: SesionController → SesionService → SesionRepository / QrRepository → Database
  *
  * Ubicación en el proyecto: Src/Services/SesionService.php
  */
 class SesionService
 {
-    // -------------------------------------------------------------------------
-    // Dependencias (se inyectarán cuando se creen los Repositories)
-    // -------------------------------------------------------------------------
+    private SesionRepository $sesionRepo;
+    private QrRepository     $qrRepo;
 
-    // ► AQUÍ: declarar dependencias cuando existan los Repositories
-    //
-    // Ejemplo futuro:
-    //   private SesionRepository  $sesionRepo;
-    //   private FichaRepository   $fichaRepo;
-    //   private DocenteRepository $docenteRepo;
-    //
-    //   public function __construct(
-    //       SesionRepository  $sesionRepo,
-    //       FichaRepository   $fichaRepo,
-    //       DocenteRepository $docenteRepo
-    //   ) {
-    //       $this->sesionRepo  = $sesionRepo;
-    //       $this->fichaRepo   = $fichaRepo;
-    //       $this->docenteRepo = $docenteRepo;
-    //   }
-
-    // -------------------------------------------------------------------------
-    // Métodos públicos del servicio
-    // -------------------------------------------------------------------------
+    public function __construct()
+    {
+        $this->sesionRepo = new SesionRepository();
+        $this->qrRepo     = new QrRepository();
+    }
 
     /**
      * Crea una nueva sesión de clase y la deja en estado 'activa'.
      *
-     * Reglas de negocio que este método deberá aplicar:
-     *   1. Verificar que la materia y el docente existen y están activos.
-     *   2. Verificar que el docente no tiene ya una sesión activa abierta
-     *      para la misma ficha en la misma fecha (evitar duplicados).
-     *   3. Registrar la sesión con estado 'activa' y la hora de apertura.
-     *   4. Retornar el objeto sesión creada.
+     * Reglas de negocio:
+     *   1. La fecha debe tener formato Y-m-d válido.
+     *   2. El docente no puede tener ya una sesión activa en la misma fecha.
      *
-     * @param int    $idMateria  Identificador único de la materia.
-     * @param int    $idDocente  Identificador único del docente que abre la sesión.
-     * @param string $fecha      Fecha de la sesión en formato 'Y-m-d'.
+     * @param int    $idMateria  Identificador de la materia.
+     * @param int    $idDocente  Identificador del docente.
+     * @param string $fecha      Fecha de la sesión (Y-m-d).
      * @return array<string, mixed> Datos de la sesión creada.
+     * @throws \RuntimeException 422 si la fecha no es válida.
+     * @throws \RuntimeException 409 si el docente ya tiene una sesión activa ese día.
      */
     public function crear(int $idMateria, int $idDocente, string $fecha): array
     {
-        // Validar que la fecha tenga el formato correcto antes de persistir
         if (!$this->esFechaValida($fecha)) {
-            // ► AQUÍ: lanzar excepción de validación cuando se implemente el manejo de excepciones
-            return [
-                'success' => false,
-                'message' => "El formato de fecha '{$fecha}' no es válido. Se esperaba Y-m-d.",
-            ];
+            throw new \RuntimeException("El formato de fecha '{$fecha}' no es válido. Se esperaba Y-m-d.", 422);
         }
 
-        // ► AQUÍ: llamar a DocenteRepository->obtenerPorId($idDocente)
-        // ► AQUÍ: verificar que el docente está activo
-        // ► AQUÍ: llamar a SesionRepository->existeActivaParaDocente($idDocente, $fecha)
-        // ► AQUÍ: si ya existe, lanzar new \RuntimeException('El docente ya tiene una sesión activa hoy.', 409)
-        // ► AQUÍ: llamar a SesionRepository->crear($idMateria, $idDocente, $fecha, 'activa', now())
-        //
-        // Ejemplo futuro:
-        //   $docente = $this->docenteRepo->obtenerPorId($idDocente);
-        //   if ($docente['estado'] !== 'activo') {
-        //       throw new \RuntimeException('El docente no está activo.', 422);
-        //   }
-        //   if ($this->sesionRepo->existeActivaParaDocente($idDocente, $fecha)) {
-        //       throw new \RuntimeException('El docente ya tiene una sesión activa en esta fecha.', 409);
-        //   }
-        //   $sesion = $this->sesionRepo->crear($idMateria, $idDocente, $fecha);
-        //   return $sesion;
+        if ($this->sesionRepo->existeActivaParaDocente($idDocente, $fecha)) {
+            throw new \RuntimeException('El docente ya tiene una sesión activa en esta fecha.', 409);
+        }
 
-        return [
-            'success'    => true,
-            'message'    => 'SesionService::crear() disponible. Pendiente de implementación.',
-            'id_materia' => $idMateria,
-            'id_docente' => $idDocente,
-            'fecha'      => $fecha,
-        ];
+        $id     = $this->sesionRepo->crear($idMateria, $idDocente, $fecha);
+        $sesion = $this->sesionRepo->obtenerPorId($id);
+
+        return $sesion ?? ['id' => $id, 'id_materia' => $idMateria, 'id_docente' => $idDocente, 'fecha' => $fecha, 'estado' => 'activa'];
     }
 
     /**
      * Obtiene los datos completos de una sesión por su ID.
      *
-     * Reglas de negocio que este método deberá aplicar:
-     *   1. Buscar la sesión en la base de datos.
-     *   2. Si no existe, lanzar una excepción (→ 404 en el Controller).
-     *   3. Retornar los datos de la sesión enriquecidos con la información
-     *      del docente, la materia y el conteo de asistencias registradas.
-     *
-     * @param int $idSesion Identificador único de la sesión.
-     * @return array<string, mixed> Datos completos de la sesión.
+     * @param int $idSesion Identificador de la sesión.
+     * @return array<string, mixed>
+     * @throws \RuntimeException 404 si la sesión no existe.
      */
     public function consultar(int $idSesion): array
     {
-        // ► AQUÍ: llamar a SesionRepository->obtenerDetalle($idSesion)
-        // ► AQUÍ: si no existe, lanzar new \RuntimeException('Sesión no encontrada.', 404)
-        //
-        // Ejemplo futuro:
-        //   $sesion = $this->sesionRepo->obtenerDetalle($idSesion);
-        //   if (!$sesion) {
-        //       throw new \RuntimeException('Sesión no encontrada.', 404);
-        //   }
-        //   return $sesion;
+        $sesion = $this->sesionRepo->obtenerDetalle($idSesion);
 
-        return [
-            'success'   => true,
-            'message'   => 'SesionService::consultar() disponible. Pendiente de implementación.',
-            'id_sesion' => $idSesion,
-        ];
-    }
-
-    /**
-     * Lista las sesiones del sistema aplicando filtros opcionales.
-     *
-     * Reglas de negocio que este método deberá aplicar:
-     *   1. Aplicar los filtros recibidos (docente, fecha, estado).
-     *   2. Retornar el listado paginado ordenado por fecha y hora descendentes.
-     *   3. Incluir el conteo de asistencias por sesión en el listado.
-     *
-     * @param int|null    $idDocente Filtro opcional por docente.
-     * @param string|null $fecha     Filtro opcional por fecha (Y-m-d).
-     * @param string|null $estado    Filtro opcional por estado ('activa' | 'cerrada').
-     * @return array<string, mixed> Listado de sesiones que cumplen los filtros.
-     */
-    public function listar(
-        ?int    $idDocente = null,
-        ?string $fecha     = null,
-        ?string $estado    = null
-    ): array {
-        // Validar el estado si fue enviado
-        $estadosPermitidos = ['activa', 'cerrada'];
-        if ($estado !== null && !in_array($estado, $estadosPermitidos, true)) {
-            return [
-                'success' => false,
-                'message' => "Estado '{$estado}' no válido. Valores permitidos: " . implode(', ', $estadosPermitidos) . '.',
-            ];
+        if ($sesion === null) {
+            throw new \RuntimeException('Sesión no encontrada.', 404);
         }
 
-        // ► AQUÍ: llamar a SesionRepository->listar($idDocente, $fecha, $estado)
-        //
-        // Ejemplo futuro:
-        //   $sesiones = $this->sesionRepo->listar($idDocente, $fecha, $estado);
-        //   return ['sesiones' => $sesiones, 'total' => count($sesiones)];
+        return $sesion;
+    }
+
+    /**
+     * Lista sesiones con filtros opcionales de docente, fecha y estado.
+     *
+     * @param int|null    $idDocente Filtro por docente.
+     * @param string|null $fecha     Filtro por fecha (Y-m-d).
+     * @param string|null $estado    Filtro por estado ('activa' | 'cerrada').
+     * @return array<string, mixed>
+     * @throws \RuntimeException 422 si el estado no es válido.
+     */
+    public function listar(?int $idDocente = null, ?string $fecha = null, ?string $estado = null): array
+    {
+        $estadosPermitidos = ['activa', 'cerrada'];
+
+        if ($estado !== null && !in_array($estado, $estadosPermitidos, true)) {
+            throw new \RuntimeException(
+                "Estado '{$estado}' no válido. Valores permitidos: " . implode(', ', $estadosPermitidos) . '.',
+                422
+            );
+        }
+
+        $sesiones = $this->sesionRepo->listar($idDocente, $fecha, $estado);
 
         return [
-            'success'          => true,
-            'message'          => 'SesionService::listar() disponible. Pendiente de implementación.',
-            'filtro_docente'   => $idDocente,
-            'filtro_fecha'     => $fecha,
-            'filtro_estado'    => $estado,
+            'sesiones' => $sesiones,
+            'total'    => count($sesiones),
         ];
     }
 
     /**
-     * Cierra una sesión activa e invalida su código QR asociado.
+     * Cierra una sesión activa e invalida todos sus tokens QR asociados.
      *
-     * Reglas de negocio que este método deberá aplicar:
-     *   1. Verificar que la sesión existe.
-     *   2. Verificar que la sesión está en estado 'activa' (no se puede cerrar dos veces).
-     *   3. Registrar la hora de cierre.
-     *   4. Cambiar el estado de la sesión a 'cerrada'.
-     *   5. Invalidar todos los tokens QR asociados a esa sesión.
-     *   6. Retornar la sesión actualizada con el resumen de asistencias.
+     * Reglas de negocio:
+     *   1. La sesión debe existir.
+     *   2. La sesión debe estar en estado 'activa'.
+     *   3. Se invalidan los QR vinculados antes de cerrar.
      *
-     * @param int $idSesion Identificador único de la sesión a cerrar.
-     * @return array<string, mixed> Datos de la sesión cerrada con resumen de asistencias.
+     * @param int $idSesion Identificador de la sesión a cerrar.
+     * @return array<string, mixed>
+     * @throws \RuntimeException 404 si la sesión no existe.
+     * @throws \RuntimeException 409 si la sesión ya está cerrada.
      */
     public function cerrar(int $idSesion): array
     {
-        // ► AQUÍ: llamar a SesionRepository->obtenerPorId($idSesion)
-        // ► AQUÍ: verificar que $sesion['estado'] === 'activa'
-        // ► AQUÍ: si ya está cerrada, lanzar new \RuntimeException('La sesión ya fue cerrada.', 409)
-        // ► AQUÍ: llamar a SesionRepository->cerrar($idSesion, date('Y-m-d H:i:s'))
-        // ► AQUÍ: llamar a QrRepository->invalidarPorSesion($idSesion)
-        //
-        // Ejemplo futuro:
-        //   $sesion = $this->sesionRepo->obtenerPorId($idSesion);
-        //   if (!$sesion) {
-        //       throw new \RuntimeException('Sesión no encontrada.', 404);
-        //   }
-        //   if ($sesion['estado'] !== 'activa') {
-        //       throw new \RuntimeException('La sesión ya fue cerrada.', 409);
-        //   }
-        //   $sesionCerrada = $this->sesionRepo->cerrar($idSesion, date('Y-m-d H:i:s'));
-        //   $this->qrRepo->invalidarPorSesion($idSesion);
-        //   return $sesionCerrada;
+        $sesion = $this->sesionRepo->obtenerPorId($idSesion);
+
+        if ($sesion === null) {
+            throw new \RuntimeException('Sesión no encontrada.', 404);
+        }
+
+        if ((string) $sesion['estado'] !== 'activa') {
+            throw new \RuntimeException('La sesión ya fue cerrada.', 409);
+        }
+
+        $this->qrRepo->invalidarPorSesion($idSesion);
+
+        $horaCierre = date('Y-m-d H:i:s');
+        $this->sesionRepo->cerrar($idSesion, $horaCierre);
 
         return [
-            'success'   => true,
-            'message'   => 'SesionService::cerrar() disponible. Pendiente de implementación.',
-            'id_sesion' => $idSesion,
+            'success'     => true,
+            'id_sesion'   => $idSesion,
+            'hora_cierre' => $horaCierre,
+            'message'     => 'Sesión cerrada correctamente.',
         ];
     }
 
@@ -218,17 +140,15 @@ class SesionService
     // -------------------------------------------------------------------------
 
     /**
-     * Valida que una cadena tenga el formato de fecha 'Y-m-d' y sea una fecha real.
+     * Valida que una cadena tenga el formato Y-m-d y represente una fecha real.
      *
      * @param string $fecha Cadena a validar.
-     * @return bool true si el formato y el valor son válidos, false en caso contrario.
+     * @return bool
      */
     private function esFechaValida(string $fecha): bool
     {
         $dt = \DateTime::createFromFormat('Y-m-d', $fecha);
 
-        // createFromFormat devuelve false si el formato no coincide.
-        // checkdate verifica que la fecha sea real (p. ej. rechaza 2025-02-30).
         return $dt !== false
             && checkdate((int) $dt->format('m'), (int) $dt->format('d'), (int) $dt->format('Y'));
     }

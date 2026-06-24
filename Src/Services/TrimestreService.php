@@ -5,85 +5,54 @@ declare(strict_types=1);
 /**
  * AttendQR – TrimestreService
  *
- * Responsabilidad: contener la lógica de negocio relacionada con
- * los trimestres académicos del sistema.
- * Un "trimestre" define el período lectivo dentro del cual se agrupan
- * las sesiones y se calculan los porcentajes de asistencia.
- *
- * Esta clase NO debe:
- *   - Ejecutar SQL directamente.
- *   - Conocer el router ni los Controllers.
- *   - Acceder a $_POST, $_GET ni $_REQUEST.
- *   - Imprimir JSON, HTML ni usar header() o exit.
- *
- * Flujo esperado:
- *   TrimestreController → TrimestreService → TrimestreRepository → Modelo → Database
+ * Responsabilidad: lógica de negocio del módulo de trimestres académicos.
+ * Flujo: TrimestreController → TrimestreService → TrimestreRepository / SesionRepository → Database
  *
  * Ubicación en el proyecto: Src/Services/TrimestreService.php
  */
 class TrimestreService
 {
-    // -------------------------------------------------------------------------
-    // Dependencias (se inyectarán cuando existan los Repositories)
-    // -------------------------------------------------------------------------
+    private TrimestreRepository $trimestreRepo;
+    private SesionRepository    $sesionRepo;
 
-    // ► AQUÍ: declarar dependencias
-    //
-    // Ejemplo futuro:
-    //   private TrimestreRepository $trimestreRepo;
-    //
-    //   public function __construct(TrimestreRepository $trimestreRepo)
-    //   {
-    //       $this->trimestreRepo = $trimestreRepo;
-    //   }
-
-    // -------------------------------------------------------------------------
-    // Métodos públicos
-    // -------------------------------------------------------------------------
+    public function __construct()
+    {
+        $this->trimestreRepo = new TrimestreRepository();
+        $this->sesionRepo    = new SesionRepository();
+    }
 
     /**
-     * Obtiene los datos completos de un trimestre por su ID.
+     * Obtiene los datos de un trimestre por su ID.
      *
-     * Reglas de negocio:
-     *   1. Verificar que el trimestre existe.
-     *   2. Si no existe, lanzar excepción → 404 en el Controller.
-     *   3. Retornar el trimestre con nombre, fechas, estado y conteo de sesiones.
-     *
-     * @param int $idTrimestre Identificador único del trimestre.
+     * @param int $idTrimestre Identificador del trimestre.
      * @return array<string, mixed>
+     * @throws \RuntimeException 404 si el trimestre no existe.
      */
     public function consultar(int $idTrimestre): array
     {
-        // ► AQUÍ: llamar a TrimestreRepository->obtenerPorId($idTrimestre)
-        // ► AQUÍ: si no existe, lanzar new \RuntimeException('Trimestre no encontrado.', 404)
+        $trimestre = $this->trimestreRepo->obtenerPorId($idTrimestre);
 
-        return [
-            'success'      => true,
-            'message'      => 'TrimestreService::consultar() disponible. Pendiente de implementación.',
-            'id_trimestre' => $idTrimestre,
-        ];
+        if ($trimestre === null) {
+            throw new \RuntimeException('Trimestre no encontrado.', 404);
+        }
+
+        return $trimestre;
     }
 
     /**
      * Lista trimestres con filtros opcionales de año y estado.
      *
-     * Reglas de negocio:
-     *   1. Aplicar filtros de año y estado.
-     *   2. Retornar listado ordenado por fecha de inicio descendente.
-     *
-     * @param int|null    $anio   Filtro opcional por año (p. ej. 2025).
-     * @param string|null $estado Filtro opcional ('activo' | 'cerrado').
+     * @param int|null    $anio   Filtro por año (p. ej. 2025).
+     * @param string|null $estado Filtro por estado ('activo' | 'cerrado').
      * @return array<string, mixed>
      */
     public function listar(?int $anio = null, ?string $estado = null): array
     {
-        // ► AQUÍ: llamar a TrimestreRepository->listar($anio, $estado)
+        $trimestres = $this->trimestreRepo->listar($anio, $estado);
 
         return [
-            'success'       => true,
-            'message'       => 'TrimestreService::listar() disponible. Pendiente de implementación.',
-            'filtro_anio'   => $anio,
-            'filtro_estado' => $estado,
+            'trimestres' => $trimestres,
+            'total'      => count($trimestres),
         ];
     }
 
@@ -91,16 +60,17 @@ class TrimestreService
      * Crea un nuevo trimestre académico.
      *
      * Reglas de negocio:
-     *   1. Verificar que el nombre no está duplicado.
-     *   2. Verificar que fecha_fin es posterior a fecha_inicio.
-     *   3. Verificar que las fechas no se solapan con trimestres existentes.
-     *   4. Persistir el trimestre con estado 'activo'.
-     *   5. Retornar el trimestre creado.
+     *   1. El nombre no puede estar vacío ni duplicado.
+     *   2. Las fechas deben tener formato Y-m-d válido.
+     *   3. La fecha de fin debe ser posterior a la de inicio.
+     *   4. Las fechas no deben solaparse con trimestres existentes.
      *
-     * @param string $nombre      Nombre del trimestre (p. ej. 'Trimestre I – 2025').
-     * @param string $fechaInicio Fecha de inicio en formato 'Y-m-d'.
-     * @param string $fechaFin    Fecha de fin en formato 'Y-m-d'.
-     * @return array<string, mixed>
+     * @param string $nombre      Nombre del trimestre.
+     * @param string $fechaInicio Fecha de inicio (Y-m-d).
+     * @param string $fechaFin    Fecha de fin (Y-m-d).
+     * @return array<string, mixed> Datos del trimestre creado.
+     * @throws \RuntimeException 422 si el nombre está vacío o las fechas son inválidas.
+     * @throws \RuntimeException 409 si el nombre ya existe o las fechas se solapan.
      */
     public function crear(string $nombre, string $fechaInicio, string $fechaFin): array
     {
@@ -109,33 +79,38 @@ class TrimestreService
         $fechaFin    = trim($fechaFin);
 
         if ($nombre === '') {
-            return ['success' => false, 'message' => 'El nombre del trimestre no puede estar vacío.'];
+            throw new \RuntimeException('El nombre del trimestre no puede estar vacío.', 422);
         }
 
         if (!$this->esFechaValida($fechaInicio)) {
-            return ['success' => false, 'message' => "Fecha de inicio '{$fechaInicio}' no tiene el formato Y-m-d."];
+            throw new \RuntimeException("Fecha de inicio '{$fechaInicio}' no tiene el formato Y-m-d.", 422);
         }
 
         if (!$this->esFechaValida($fechaFin)) {
-            return ['success' => false, 'message' => "Fecha de fin '{$fechaFin}' no tiene el formato Y-m-d."];
+            throw new \RuntimeException("Fecha de fin '{$fechaFin}' no tiene el formato Y-m-d.", 422);
         }
 
         if (!$this->esPeriodoCoherente($fechaInicio, $fechaFin)) {
-            return ['success' => false, 'message' => 'La fecha de fin debe ser posterior a la fecha de inicio.'];
+            throw new \RuntimeException('La fecha de fin debe ser posterior a la fecha de inicio.', 422);
         }
 
-        // ► AQUÍ: llamar a TrimestreRepository->existeNombre($nombre)
-        // ► AQUÍ: si existe, lanzar new \RuntimeException('Ya existe un trimestre con ese nombre.', 409)
-        // ► AQUÍ: llamar a TrimestreRepository->existeSolapamiento($fechaInicio, $fechaFin)
-        // ► AQUÍ: si se solapa, lanzar new \RuntimeException('Las fechas se solapan con otro trimestre.', 409)
-        // ► AQUÍ: llamar a TrimestreRepository->crear($nombre, $fechaInicio, $fechaFin)
+        if ($this->trimestreRepo->existeNombre($nombre)) {
+            throw new \RuntimeException('Ya existe un trimestre con ese nombre.', 409);
+        }
 
-        return [
-            'success'      => true,
-            'message'      => 'TrimestreService::crear() disponible. Pendiente de implementación.',
+        if ($this->trimestreRepo->existeSolapamiento($fechaInicio, $fechaFin)) {
+            throw new \RuntimeException('Las fechas se solapan con un trimestre existente.', 409);
+        }
+
+        $id         = $this->trimestreRepo->crear($nombre, $fechaInicio, $fechaFin);
+        $trimestre  = $this->trimestreRepo->obtenerPorId($id);
+
+        return $trimestre ?? [
+            'id'           => $id,
             'nombre'       => $nombre,
             'fecha_inicio' => $fechaInicio,
             'fecha_fin'    => $fechaFin,
+            'estado'       => 'activo',
         ];
     }
 
@@ -143,83 +118,88 @@ class TrimestreService
      * Actualiza los datos de un trimestre existente (actualización parcial).
      *
      * Reglas de negocio:
-     *   1. Verificar que el trimestre existe.
-     *   2. Si se cambia el nombre, verificar que no esté duplicado.
-     *   3. Si se cambian las fechas, re-validar coherencia y solapamiento.
-     *   4. Aplicar solo los campos enviados, conservar el resto.
+     *   1. El trimestre debe existir.
+     *   2. Si se cambia el nombre, no puede estar duplicado.
+     *   3. Si se cambian fechas, deben ser válidas, coherentes y sin solapamiento.
      *
-     * @param int                  $idTrimestre Identificador único del trimestre.
+     * @param int                  $idTrimestre Identificador del trimestre.
      * @param array<string, mixed> $datos       Campos a actualizar.
      * @return array<string, mixed>
+     * @throws \RuntimeException 404 si el trimestre no existe.
+     * @throws \RuntimeException 409/422 si las validaciones fallan.
      */
     public function actualizar(int $idTrimestre, array $datos): array
     {
-        if (empty($datos)) {
-            return ['success' => false, 'message' => 'No se recibieron datos para actualizar.'];
+        $trimestre = $this->trimestreRepo->obtenerPorId($idTrimestre);
+
+        if ($trimestre === null) {
+            throw new \RuntimeException('Trimestre no encontrado.', 404);
         }
 
-        // Validar fechas si fueron enviadas
+        if (isset($datos['nombre'])) {
+            $datos['nombre'] = trim((string) $datos['nombre']);
+
+            if ($this->trimestreRepo->existeNombre($datos['nombre'], $idTrimestre)) {
+                throw new \RuntimeException('Ya existe un trimestre con ese nombre.', 409);
+            }
+        }
+
         if (isset($datos['fecha_inicio']) && !$this->esFechaValida((string) $datos['fecha_inicio'])) {
-            return ['success' => false, 'message' => "Fecha de inicio '{$datos['fecha_inicio']}' no tiene el formato Y-m-d."];
+            throw new \RuntimeException("Fecha de inicio '{$datos['fecha_inicio']}' no tiene el formato Y-m-d.", 422);
         }
 
         if (isset($datos['fecha_fin']) && !$this->esFechaValida((string) $datos['fecha_fin'])) {
-            return ['success' => false, 'message' => "Fecha de fin '{$datos['fecha_fin']}' no tiene el formato Y-m-d."];
+            throw new \RuntimeException("Fecha de fin '{$datos['fecha_fin']}' no tiene el formato Y-m-d.", 422);
         }
 
         if (isset($datos['fecha_inicio'], $datos['fecha_fin'])) {
             if (!$this->esPeriodoCoherente((string) $datos['fecha_inicio'], (string) $datos['fecha_fin'])) {
-                return ['success' => false, 'message' => 'La fecha de fin debe ser posterior a la fecha de inicio.'];
+                throw new \RuntimeException('La fecha de fin debe ser posterior a la fecha de inicio.', 422);
+            }
+
+            if ($this->trimestreRepo->existeSolapamiento((string) $datos['fecha_inicio'], (string) $datos['fecha_fin'], $idTrimestre)) {
+                throw new \RuntimeException('Las fechas se solapan con un trimestre existente.', 409);
             }
         }
 
-        // ► AQUÍ: llamar a TrimestreRepository->obtenerPorId($idTrimestre)
-        // ► AQUÍ: si no existe, lanzar new \RuntimeException('Trimestre no encontrado.', 404)
-        // ► AQUÍ: llamar a TrimestreRepository->actualizar($idTrimestre, $datos)
+        $this->trimestreRepo->actualizar($idTrimestre, $datos);
 
-        return [
-            'success'      => true,
-            'message'      => 'TrimestreService::actualizar() disponible. Pendiente de implementación.',
-            'id_trimestre' => $idTrimestre,
-            'datos'        => $datos,
-        ];
+        return $this->trimestreRepo->obtenerPorId($idTrimestre) ?? $trimestre;
     }
 
     /**
      * Elimina un trimestre del sistema.
      *
      * Reglas de negocio:
-     *   1. Verificar que el trimestre existe.
-     *   2. Verificar que no tiene sesiones o asistencias registradas.
-     *   3. Proceder con la eliminación.
+     *   1. El trimestre debe existir.
+     *   2. No puede tener sesiones asociadas.
      *
-     * @param int $idTrimestre Identificador único del trimestre a eliminar.
+     * @param int $idTrimestre Identificador del trimestre a eliminar.
      * @return array<string, mixed>
+     * @throws \RuntimeException 404 si el trimestre no existe.
+     * @throws \RuntimeException 409 si tiene sesiones registradas.
      */
     public function eliminar(int $idTrimestre): array
     {
-        // ► AQUÍ: llamar a TrimestreRepository->obtenerPorId($idTrimestre)
-        // ► AQUÍ: llamar a SesionRepository->contarPorTrimestre($idTrimestre)
-        // ► AQUÍ: si tiene sesiones, lanzar new \RuntimeException('El trimestre tiene sesiones registradas.', 409)
-        // ► AQUÍ: llamar a TrimestreRepository->eliminar($idTrimestre)
+        $trimestre = $this->trimestreRepo->obtenerPorId($idTrimestre);
 
-        return [
-            'success'      => true,
-            'message'      => 'TrimestreService::eliminar() disponible. Pendiente de implementación.',
-            'id_trimestre' => $idTrimestre,
-        ];
+        if ($trimestre === null) {
+            throw new \RuntimeException('Trimestre no encontrado.', 404);
+        }
+
+        if ($this->sesionRepo->contarPorTrimestre($idTrimestre) > 0) {
+            throw new \RuntimeException('El trimestre tiene sesiones registradas. Elimínelas antes de continuar.', 409);
+        }
+
+        $this->trimestreRepo->eliminar($idTrimestre);
+
+        return ['success' => true, 'message' => 'Trimestre eliminado correctamente.'];
     }
 
     // -------------------------------------------------------------------------
     // Métodos privados de apoyo
     // -------------------------------------------------------------------------
 
-    /**
-     * Valida que una cadena tenga el formato 'Y-m-d' y represente una fecha real.
-     *
-     * @param string $fecha Cadena a validar.
-     * @return bool true si el formato y la fecha son válidos.
-     */
     private function esFechaValida(string $fecha): bool
     {
         $dt = \DateTime::createFromFormat('Y-m-d', $fecha);
@@ -228,14 +208,6 @@ class TrimestreService
             && checkdate((int) $dt->format('m'), (int) $dt->format('d'), (int) $dt->format('Y'));
     }
 
-    /**
-     * Verifica que la fecha de fin sea estrictamente posterior a la de inicio.
-     * Ambas fechas deben haber sido validadas con esFechaValida() antes.
-     *
-     * @param string $fechaInicio Fecha de inicio en formato 'Y-m-d'.
-     * @param string $fechaFin    Fecha de fin en formato 'Y-m-d'.
-     * @return bool true si el período es coherente.
-     */
     private function esPeriodoCoherente(string $fechaInicio, string $fechaFin): bool
     {
         return strtotime($fechaFin) > strtotime($fechaInicio);

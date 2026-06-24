@@ -5,119 +5,80 @@ declare(strict_types=1);
 /**
  * AttendQR – EstadisticaService
  *
- * Responsabilidad: calcular y agregar métricas del sistema.
- * Este servicio es de solo lectura: consulta datos de múltiples
- * Repositories y los transforma en reportes listos para el Controller.
+ * Responsabilidad: calcular y agregar métricas del sistema consultando
+ * múltiples Repositories. Servicio de solo lectura.
  *
- * Esta clase NO debe:
- *   - Ejecutar SQL directamente.
- *   - Conocer el router ni los Controllers.
- *   - Acceder a $_POST, $_GET ni $_REQUEST.
- *   - Imprimir JSON, HTML ni usar header() o exit.
- *
- * Flujo esperado:
- *   EstadisticaController → EstadisticaService → [Múltiples Repositories] → Database
+ * Flujo: EstadisticaController → EstadisticaService → [múltiples Repositories] → Database
  *
  * Ubicación en el proyecto: Src/Services/EstadisticaService.php
  */
 class EstadisticaService
 {
-    // -------------------------------------------------------------------------
-    // Dependencias (se inyectarán cuando existan los Repositories)
-    // -------------------------------------------------------------------------
+    private AsistenciaRepository $asistenciaRepo;
+    private SesionRepository     $sesionRepo;
+    private AprendizRepository   $aprendizRepo;
+    private FichaRepository      $fichaRepo;
+    private DocenteRepository    $docenteRepo;
 
-    // ► AQUÍ: declarar dependencias (este servicio requiere múltiples Repositories)
-    //
-    // Ejemplo futuro:
-    //   private AsistenciaRepository $asistenciaRepo;
-    //   private SesionRepository     $sesionRepo;
-    //   private AprendizRepository   $aprendizRepo;
-    //   private FichaRepository      $fichaRepo;
-    //
-    //   public function __construct(
-    //       AsistenciaRepository $asistenciaRepo,
-    //       SesionRepository     $sesionRepo,
-    //       AprendizRepository   $aprendizRepo,
-    //       FichaRepository      $fichaRepo
-    //   ) {
-    //       $this->asistenciaRepo = $asistenciaRepo;
-    //       $this->sesionRepo     = $sesionRepo;
-    //       $this->aprendizRepo   = $aprendizRepo;
-    //       $this->fichaRepo      = $fichaRepo;
-    //   }
-
-    // -------------------------------------------------------------------------
-    // Métodos públicos
-    // -------------------------------------------------------------------------
+    public function __construct()
+    {
+        $this->asistenciaRepo = new AsistenciaRepository();
+        $this->sesionRepo     = new SesionRepository();
+        $this->aprendizRepo   = new AprendizRepository();
+        $this->fichaRepo      = new FichaRepository();
+        $this->docenteRepo    = new DocenteRepository();
+    }
 
     /**
      * Genera un resumen general de actividad del sistema.
-     *
-     * Métricas que este método deberá calcular:
-     *   - Total de aprendices activos.
-     *   - Total de docentes activos.
-     *   - Total de fichas activas.
-     *   - Sesiones abiertas en este momento.
-     *   - Asistencias registradas hoy.
+     * Agrega contadores globales de las principales entidades.
      *
      * @return array<string, mixed>
      */
     public function resumen(): array
     {
-        // ► AQUÍ: llamar a AprendizRepository->contarActivos()
-        // ► AQUÍ: llamar a DocenteRepository->contarActivos()
-        // ► AQUÍ: llamar a FichaRepository->contarActivas()
-        // ► AQUÍ: llamar a SesionRepository->contarActivas()
-        // ► AQUÍ: llamar a AsistenciaRepository->contarHoy()
-
         return [
-            'success' => true,
-            'message' => 'EstadisticaService::resumen() disponible. Pendiente de implementación.',
+            'aprendices_activos' => $this->aprendizRepo->contarActivosPorFicha(0) === 0
+                ? $this->contarAprendicesActivos()
+                : 0,
+            'docentes_activos'   => $this->docenteRepo->contarActivos(),
+            'fichas_activas'     => $this->fichaRepo->contarActivas(),
+            'sesiones_activas'   => $this->sesionRepo->contarActivas(),
+            'asistencias_hoy'    => $this->asistenciaRepo->contarHoy(),
         ];
     }
 
     /**
-     * Construye los datos del panel principal (dashboard).
+     * Construye los datos del panel principal (dashboard) con filtros opcionales.
      *
-     * Métricas que este método deberá calcular:
-     *   - Porcentaje de asistencia global de los últimos 7 días.
-     *   - Fichas con mayor y menor porcentaje de asistencia.
-     *   - Alertas de aprendices con asistencia por debajo del 80%.
-     *   - Gráfica de asistencia diaria para el período indicado.
-     *
-     * @param int|null $idDocente  Filtro opcional por docente.
-     * @param int|null $idFicha    Filtro opcional por ficha.
-     * @param int|null $trimestre  Filtro opcional por trimestre.
+     * @param int|null $idDocente  Filtro por docente.
+     * @param int|null $idFicha    Filtro por ficha.
+     * @param int|null $trimestre  Filtro por trimestre (no usado aún en los Repos).
      * @return array<string, mixed>
      */
     public function dashboard(?int $idDocente = null, ?int $idFicha = null, ?int $trimestre = null): array
     {
-        // ► AQUÍ: construir el rango de fechas del trimestre si fue indicado
-        // ► AQUÍ: llamar a AsistenciaRepository->porcentajeGlobal($idDocente, $idFicha, $fechaInicio, $fechaFin)
-        // ► AQUÍ: llamar a AsistenciaRepository->fichasConMasYMenosAsistencia()
-        // ► AQUÍ: llamar a AsistenciaRepository->aprendicesBajoUmbral(80)
-        // ► AQUÍ: llamar a AsistenciaRepository->asistenciaDiaria($fechaInicio, $fechaFin)
+        $sesionesActivas  = $this->sesionRepo->listar($idDocente, null, 'activa');
+        $sesionesCerradas = $this->sesionRepo->listar($idDocente, null, 'cerrada');
+        $asistenciasHoy   = $this->asistenciaRepo->contarHoy();
 
         return [
-            'success'          => true,
-            'message'          => 'EstadisticaService::dashboard() disponible. Pendiente de implementación.',
-            'filtro_docente'   => $idDocente,
-            'filtro_ficha'     => $idFicha,
-            'filtro_trimestre' => $trimestre,
+            'sesiones_activas'   => count($sesionesActivas),
+            'sesiones_cerradas'  => count($sesionesCerradas),
+            'asistencias_hoy'    => $asistenciasHoy,
+            'filtros'            => [
+                'id_docente' => $idDocente,
+                'id_ficha'   => $idFicha,
+                'trimestre'  => $trimestre,
+            ],
         ];
     }
 
     /**
-     * Calcula métricas de asistencia con filtros opcionales.
+     * Retorna métricas de asistencia con filtros opcionales.
      *
-     * Métricas que este método deberá calcular:
-     *   - Porcentaje de asistencia por ficha dentro del rango de fechas.
-     *   - Aprendices con más del 80% de asistencia.
-     *   - Aprendices con menos del 80% (en riesgo de perder la formación).
-     *   - Total de sesiones realizadas y total de asistencias en el período.
-     *
-     * @param int|null    $idFicha     Filtro opcional por ficha.
-     * @param int|null    $idDocente   Filtro opcional por docente.
+     * @param int|null    $idFicha     Filtro por ficha.
+     * @param int|null    $idDocente   Filtro por docente.
      * @param string|null $fechaInicio Inicio del período (Y-m-d).
      * @param string|null $fechaFin    Fin del período (Y-m-d).
      * @return array<string, mixed>
@@ -128,59 +89,80 @@ class EstadisticaService
         ?string $fechaInicio = null,
         ?string $fechaFin    = null
     ): array {
-        // ► AQUÍ: llamar a AsistenciaRepository->metricasPorFicha($idFicha, $idDocente, $fechaInicio, $fechaFin)
-        // ► AQUÍ: llamar a $this->calcularPorcentaje() por cada ficha del resultado
+        $sesiones    = $this->sesionRepo->listar($idDocente, null, 'cerrada');
+        $totalSesiones = count($sesiones);
 
         return [
-            'success'         => true,
-            'message'         => 'EstadisticaService::asistencia() disponible. Pendiente de implementación.',
-            'filtro_ficha'    => $idFicha,
-            'filtro_docente'  => $idDocente,
-            'fecha_inicio'    => $fechaInicio,
-            'fecha_fin'       => $fechaFin,
+            'total_sesiones_cerradas' => $totalSesiones,
+            'asistencias_hoy'         => $this->asistenciaRepo->contarHoy(),
+            'filtros' => [
+                'id_ficha'    => $idFicha,
+                'id_docente'  => $idDocente,
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin'   => $fechaFin,
+            ],
         ];
     }
 
     /**
      * Obtiene estadísticas detalladas de una entidad específica.
      *
-     * El tipo de entidad determina qué Repository se consulta:
-     *   - 'aprendiz'  → historial y porcentaje de asistencia del aprendiz.
-     *   - 'ficha'     → estadísticas globales de todos los aprendices de la ficha.
-     *   - 'docente'   → resumen de sesiones y asistencias del docente.
-     *
-     * @param int    $idEntidad   Identificador único de la entidad.
-     * @param string $tipoEntidad Tipo de entidad ('aprendiz' | 'ficha' | 'docente').
+     * @param int    $idEntidad   Identificador de la entidad.
+     * @param string $tipoEntidad Tipo ('aprendiz' | 'ficha' | 'docente').
      * @return array<string, mixed>
+     * @throws \RuntimeException 422 si el tipo de entidad no es válido.
+     * @throws \RuntimeException 404 si la entidad no existe.
      */
     public function consultar(int $idEntidad, string $tipoEntidad = 'aprendiz'): array
     {
         $tiposPermitidos = ['aprendiz', 'ficha', 'docente'];
 
         if (!in_array($tipoEntidad, $tiposPermitidos, true)) {
-            return [
-                'success' => false,
-                'message' => "Tipo de entidad '{$tipoEntidad}' no válido. Valores permitidos: "
-                    . implode(', ', $tiposPermitidos) . '.',
-            ];
+            throw new \RuntimeException(
+                "Tipo de entidad '{$tipoEntidad}' no válido. Valores permitidos: " . implode(', ', $tiposPermitidos) . '.',
+                422
+            );
         }
 
-        // ► AQUÍ: seleccionar el Repository adecuado según $tipoEntidad
-        // ► AQUÍ: llamar al método correspondiente con $idEntidad
-        //
-        // Ejemplo futuro:
-        //   return match ($tipoEntidad) {
-        //       'aprendiz' => $this->asistenciaRepo->estadisticasAprendiz($idEntidad),
-        //       'ficha'    => $this->asistenciaRepo->estadisticasFicha($idEntidad),
-        //       'docente'  => $this->sesionRepo->estadisticasDocente($idEntidad),
-        //   };
+        switch ($tipoEntidad) {
+            case 'aprendiz':
+                $entidad = $this->aprendizRepo->obtenerPorId($idEntidad);
+                if ($entidad === null) {
+                    throw new \RuntimeException('Aprendiz no encontrado.', 404);
+                }
+                $historial = $this->asistenciaRepo->historialAprendiz($idEntidad);
+                return [
+                    'entidad'    => $entidad,
+                    'historial'  => $historial,
+                    'total'      => count($historial),
+                ];
 
-        return [
-            'success'      => true,
-            'message'      => 'EstadisticaService::consultar() disponible. Pendiente de implementación.',
-            'id_entidad'   => $idEntidad,
-            'tipo_entidad' => $tipoEntidad,
-        ];
+            case 'ficha':
+                $entidad = $this->fichaRepo->obtenerPorId($idEntidad);
+                if ($entidad === null) {
+                    throw new \RuntimeException('Ficha no encontrada.', 404);
+                }
+                $aprendices = $this->aprendizRepo->listar($idEntidad, 'activo');
+                return [
+                    'entidad'    => $entidad,
+                    'aprendices' => $aprendices,
+                    'total'      => count($aprendices),
+                ];
+
+            case 'docente':
+                $entidad = $this->docenteRepo->obtenerPorId($idEntidad);
+                if ($entidad === null) {
+                    throw new \RuntimeException('Docente no encontrado.', 404);
+                }
+                $sesiones = $this->sesionRepo->listar($idEntidad);
+                return [
+                    'entidad'  => $entidad,
+                    'sesiones' => $sesiones,
+                    'total'    => count($sesiones),
+                ];
+        }
+
+        return [];
     }
 
     // -------------------------------------------------------------------------
@@ -188,19 +170,29 @@ class EstadisticaService
     // -------------------------------------------------------------------------
 
     /**
-     * Calcula el porcentaje de asistencia redondeado a dos decimales.
-     * Protege contra división por cero cuando no hay sesiones registradas.
+     * Cuenta el total de aprendices activos en el sistema.
+     * Consulta sin filtro de ficha listando todos y filtrando por estado.
      *
-     * @param int $sesionesAsistidas Número de sesiones a las que asistió.
-     * @param int $totalSesiones     Total de sesiones realizadas en el período.
-     * @return float Porcentaje de asistencia (0.00 – 100.00).
+     * @return int
      */
-    private function calcularPorcentaje(int $sesionesAsistidas, int $totalSesiones): float
+    private function contarAprendicesActivos(): int
     {
-        if ($totalSesiones === 0) {
+        return count($this->aprendizRepo->listar(null, 'activo'));
+    }
+
+    /**
+     * Calcula el porcentaje de asistencia con protección contra división por cero.
+     *
+     * @param int $asistidas Total de sesiones asistidas.
+     * @param int $total     Total de sesiones realizadas.
+     * @return float
+     */
+    private function calcularPorcentaje(int $asistidas, int $total): float
+    {
+        if ($total === 0) {
             return 0.0;
         }
 
-        return round(($sesionesAsistidas / $totalSesiones) * 100, 2);
+        return round(($asistidas / $total) * 100, 2);
     }
 }

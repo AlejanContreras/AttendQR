@@ -5,88 +5,55 @@ declare(strict_types=1);
 /**
  * AttendQR – DocenteService
  *
- * Responsabilidad: contener la lógica de negocio relacionada con
- * los docentes / instructores del SENA.
- * Un "docente" es el instructor responsable de fichas de formación
- * y de abrir las sesiones de clase.
- *
- * Esta clase NO debe:
- *   - Ejecutar SQL directamente.
- *   - Conocer el router ni los Controllers.
- *   - Acceder a $_POST, $_GET ni $_REQUEST.
- *   - Imprimir JSON, HTML ni usar header() o exit.
- *
- * Flujo esperado:
- *   DocenteController → DocenteService → DocenteRepository → Modelo → Database
+ * Responsabilidad: lógica de negocio del módulo de docentes.
+ * Flujo: DocenteController → DocenteService → DocenteRepository / SesionRepository → Database
  *
  * Ubicación en el proyecto: Src/Services/DocenteService.php
  */
 class DocenteService
 {
-    // -------------------------------------------------------------------------
-    // Dependencias (se inyectarán cuando existan los Repositories)
-    // -------------------------------------------------------------------------
+    private DocenteRepository $docenteRepo;
+    private SesionRepository  $sesionRepo;
 
-    // ► AQUÍ: declarar dependencias
-    //
-    // Ejemplo futuro:
-    //   private DocenteRepository $docenteRepo;
-    //
-    //   public function __construct(DocenteRepository $docenteRepo)
-    //   {
-    //       $this->docenteRepo = $docenteRepo;
-    //   }
-
-    // -------------------------------------------------------------------------
-    // Métodos públicos
-    // -------------------------------------------------------------------------
-
-    /**
-     * Obtiene los datos completos de un docente por su ID.
-     *
-     * Reglas de negocio:
-     *   1. Verificar que el docente existe.
-     *   2. Si no existe, lanzar excepción → 404 en el Controller.
-     *   3. Retornar datos del docente con especialidad y fichas asignadas.
-     *   4. Nunca incluir la contraseña hasheada en la respuesta.
-     *
-     * @param int $idDocente Identificador único del docente.
-     * @return array<string, mixed>
-     */
-    public function consultar(int $idDocente): array
+    public function __construct()
     {
-        // ► AQUÍ: llamar a DocenteRepository->obtenerPorId($idDocente)
-        // ► AQUÍ: si no existe, lanzar new \RuntimeException('Docente no encontrado.', 404)
-        // ► AQUÍ: eliminar contrasena_hash antes de retornar
-
-        return [
-            'success'    => true,
-            'message'    => 'DocenteService::consultar() disponible. Pendiente de implementación.',
-            'id_docente' => $idDocente,
-        ];
+        $this->docenteRepo = new DocenteRepository();
+        $this->sesionRepo  = new SesionRepository();
     }
 
     /**
-     * Lista docentes con filtros opcionales.
+     * Obtiene los datos públicos de un docente por su ID.
+     * Nunca incluye la contraseña hasheada en la respuesta.
      *
-     * Reglas de negocio:
-     *   1. Aplicar filtros de estado y especialidad.
-     *   2. Retornar listado paginado ordenado por apellido.
-     *   3. Nunca incluir contraseñas en el listado.
+     * @param int $idDocente Identificador del docente.
+     * @return array<string, mixed>
+     * @throws \RuntimeException 404 si el docente no existe.
+     */
+    public function consultar(int $idDocente): array
+    {
+        $docente = $this->docenteRepo->obtenerPorId($idDocente);
+
+        if ($docente === null) {
+            throw new \RuntimeException('Docente no encontrado.', 404);
+        }
+
+        return $docente;
+    }
+
+    /**
+     * Lista docentes con filtros opcionales de estado y especialidad.
      *
-     * @param string|null $estado       Filtro opcional por estado ('activo' | 'inactivo').
-     * @param string|null $especialidad Filtro opcional por especialidad.
+     * @param string|null $estado       Filtro por estado ('activo' | 'inactivo').
+     * @param string|null $especialidad Filtro por especialidad.
      * @return array<string, mixed>
      */
     public function listar(?string $estado = null, ?string $especialidad = null): array
     {
-        // ► AQUÍ: llamar a DocenteRepository->listar($estado, $especialidad)
+        $docentes = $this->docenteRepo->listar($estado, $especialidad);
 
         return [
-            'success'             => true,
-            'message'             => 'DocenteService::listar() disponible. Pendiente de implementación.',
-            'filtro_estado'       => $estado,
-            'filtro_especialidad' => $especialidad,
+            'docentes' => $docentes,
+            'total'    => count($docentes),
         ];
     }
 
@@ -94,24 +61,28 @@ class DocenteService
      * Registra un nuevo docente en el sistema.
      *
      * Reglas de negocio:
-     *   1. Verificar que el documento no está duplicado.
-     *   2. Verificar que el correo no está en uso.
-     *   3. Hashear la contraseña inicial con password_hash().
-     *   4. Crear el docente con estado 'activo'.
-     *   5. Retornar los datos del docente sin la contraseña.
+     *   1. El correo debe tener formato válido.
+     *   2. El documento no puede estar duplicado.
+     *   3. El correo no puede estar en uso.
+     *   4. La contraseña se hashea con BCRYPT antes de persistir.
      *
      * @param string      $documento    Número de documento de identidad.
      * @param string      $nombres      Nombres del docente.
      * @param string      $apellidos    Apellidos del docente.
      * @param string      $correo       Correo electrónico institucional.
+     * @param string      $contrasena   Contraseña en texto plano.
      * @param string|null $especialidad Especialidad o área de formación.
-     * @return array<string, mixed>
+     * @return array<string, mixed> Datos públicos del docente creado.
+     * @throws \RuntimeException 422 si el correo no es válido.
+     * @throws \RuntimeException 409 si el documento ya está registrado.
+     * @throws \RuntimeException 409 si el correo ya está en uso.
      */
     public function registrar(
         string  $documento,
         string  $nombres,
         string  $apellidos,
         string  $correo,
+        string  $contrasena,
         ?string $especialidad = null
     ): array {
         $documento = trim($documento);
@@ -120,24 +91,30 @@ class DocenteService
         $correo    = strtolower(trim($correo));
 
         if (!$this->esCorreoValido($correo)) {
-            return ['success' => false, 'message' => "El correo '{$correo}' no tiene un formato válido."];
+            throw new \RuntimeException("El correo '{$correo}' no tiene un formato válido.", 422);
         }
 
-        // ► AQUÍ: llamar a DocenteRepository->existeDocumento($documento)
-        // ► AQUÍ: si existe, lanzar new \RuntimeException('El documento ya está registrado.', 409)
-        // ► AQUÍ: llamar a DocenteRepository->existeCorreo($correo)
-        // ► AQUÍ: si existe, lanzar new \RuntimeException('El correo ya está en uso.', 409)
-        // ► AQUÍ: generar contraseña inicial y hashearla: password_hash($contrasenaInicial, PASSWORD_BCRYPT)
-        // ► AQUÍ: llamar a DocenteRepository->crear($documento, $nombres, $apellidos, $correo, $hash, $especialidad)
+        if ($this->docenteRepo->existeDocumento($documento)) {
+            throw new \RuntimeException('El documento ya está registrado en el sistema.', 409);
+        }
 
-        return [
-            'success'      => true,
-            'message'      => 'DocenteService::registrar() disponible. Pendiente de implementación.',
+        if ($this->docenteRepo->existeCorreo($correo)) {
+            throw new \RuntimeException('El correo ya está en uso por otro docente.', 409);
+        }
+
+        $contrasenaHash = password_hash($contrasena, PASSWORD_BCRYPT);
+
+        $id      = $this->docenteRepo->crear($documento, $nombres, $apellidos, $correo, $contrasenaHash, $especialidad);
+        $docente = $this->docenteRepo->obtenerPorId($id);
+
+        return $docente ?? [
+            'id'           => $id,
             'documento'    => $documento,
             'nombres'      => $nombres,
             'apellidos'    => $apellidos,
             'correo'       => $correo,
             'especialidad' => $especialidad,
+            'estado'       => 'activo',
         ];
     }
 
@@ -145,71 +122,74 @@ class DocenteService
      * Actualiza los datos de un docente existente (actualización parcial).
      *
      * Reglas de negocio:
-     *   1. Verificar que el docente existe.
-     *   2. Si se actualiza el correo, verificar que no esté en uso por otro docente.
-     *   3. Si se actualiza la contraseña, re-hashearla antes de persistir.
-     *   4. Aplicar solo los campos enviados, conservar el resto.
+     *   1. El docente debe existir.
+     *   2. Si se actualiza el correo, debe ser válido y no estar en uso.
+     *   3. Si se actualiza la contraseña, se re-hashea antes de persistir.
      *
-     * @param int                  $idDocente Identificador único del docente.
+     * @param int                  $idDocente Identificador del docente.
      * @param array<string, mixed> $datos     Campos a actualizar.
-     * @return array<string, mixed>
+     * @return array<string, mixed> Datos actualizados del docente.
+     * @throws \RuntimeException 404 si el docente no existe.
+     * @throws \RuntimeException 422 si el correo enviado no es válido.
+     * @throws \RuntimeException 409 si el correo ya está en uso.
      */
     public function actualizar(int $idDocente, array $datos): array
     {
-        if (empty($datos)) {
-            return ['success' => false, 'message' => 'No se recibieron datos para actualizar.'];
+        $docente = $this->docenteRepo->obtenerPorId($idDocente);
+
+        if ($docente === null) {
+            throw new \RuntimeException('Docente no encontrado.', 404);
         }
 
-        // Sanitizar correo si fue enviado
         if (isset($datos['correo'])) {
             $datos['correo'] = strtolower(trim((string) $datos['correo']));
+
             if (!$this->esCorreoValido($datos['correo'])) {
-                return ['success' => false, 'message' => "El correo '{$datos['correo']}' no tiene un formato válido."];
+                throw new \RuntimeException("El correo '{$datos['correo']}' no tiene un formato válido.", 422);
+            }
+
+            if ($this->docenteRepo->existeCorreo($datos['correo'], $idDocente)) {
+                throw new \RuntimeException('El correo ya está en uso por otro docente.', 409);
             }
         }
 
-        // Si viene una contraseña nueva, hashearla antes de persistir
         if (!empty($datos['contrasena'])) {
-            // ► AQUÍ: $datos['contrasena_hash'] = password_hash($datos['contrasena'], PASSWORD_BCRYPT)
-            // ► AQUÍ: unset($datos['contrasena']) para no persistir texto plano
+            $datos['contrasena_hash'] = password_hash((string) $datos['contrasena'], PASSWORD_BCRYPT);
+            unset($datos['contrasena']);
         }
 
-        // ► AQUÍ: llamar a DocenteRepository->obtenerPorId($idDocente)
-        // ► AQUÍ: si no existe, lanzar new \RuntimeException('Docente no encontrado.', 404)
-        // ► AQUÍ: llamar a DocenteRepository->actualizar($idDocente, $datos)
+        $this->docenteRepo->actualizar($idDocente, $datos);
 
-        return [
-            'success'    => true,
-            'message'    => 'DocenteService::actualizar() disponible. Pendiente de implementación.',
-            'id_docente' => $idDocente,
-            'datos'      => $datos,
-        ];
+        return $this->docenteRepo->obtenerPorId($idDocente) ?? $docente;
     }
 
     /**
      * Elimina un docente del sistema.
      *
      * Reglas de negocio:
-     *   1. Verificar que el docente existe.
-     *   2. Verificar que no tiene sesiones activas abiertas.
-     *   3. Verificar que no tiene fichas vigentes asignadas.
-     *   4. Proceder con la eliminación.
+     *   1. El docente debe existir.
+     *   2. El docente no puede tener sesiones activas abiertas.
      *
-     * @param int $idDocente Identificador único del docente a eliminar.
+     * @param int $idDocente Identificador del docente a eliminar.
      * @return array<string, mixed>
+     * @throws \RuntimeException 404 si el docente no existe.
+     * @throws \RuntimeException 409 si tiene sesiones activas.
      */
     public function eliminar(int $idDocente): array
     {
-        // ► AQUÍ: llamar a DocenteRepository->obtenerPorId($idDocente)
-        // ► AQUÍ: llamar a SesionRepository->contarActivasPorDocente($idDocente)
-        // ► AQUÍ: si tiene sesiones activas, lanzar new \RuntimeException('El docente tiene sesiones activas.', 409)
-        // ► AQUÍ: llamar a DocenteRepository->eliminar($idDocente)
+        $docente = $this->docenteRepo->obtenerPorId($idDocente);
 
-        return [
-            'success'    => true,
-            'message'    => 'DocenteService::eliminar() disponible. Pendiente de implementación.',
-            'id_docente' => $idDocente,
-        ];
+        if ($docente === null) {
+            throw new \RuntimeException('Docente no encontrado.', 404);
+        }
+
+        if ($this->sesionRepo->contarActivasPorDocente($idDocente) > 0) {
+            throw new \RuntimeException('El docente tiene sesiones activas. Ciérrelas antes de eliminarlo.', 409);
+        }
+
+        $this->docenteRepo->eliminar($idDocente);
+
+        return ['success' => true, 'message' => 'Docente eliminado correctamente.'];
     }
 
     // -------------------------------------------------------------------------
@@ -217,10 +197,10 @@ class DocenteService
     // -------------------------------------------------------------------------
 
     /**
-     * Valida el formato básico de un correo electrónico.
+     * Valida el formato de un correo electrónico.
      *
      * @param string $correo Correo a validar.
-     * @return bool true si el formato es válido.
+     * @return bool
      */
     private function esCorreoValido(string $correo): bool
     {
