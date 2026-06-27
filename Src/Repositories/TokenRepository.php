@@ -5,117 +5,154 @@ declare(strict_types=1);
 /**
  * AttendQR – TokenRepository
  *
- * Responsabilidad: acceder a la tabla `tokens` para gestionar
- * los tokens de autenticación (acceso y refresco).
+ * Responsabilidad: acceder a la tabla `tokens_qr` para gestionar
+ * los tokens de autenticación de sesión.
  *
- * Los tokens se persisten como hashes SHA-256. Este Repository
- * nunca recibe ni devuelve tokens en texto plano.
+ * Tabla real del schema: tokens_qr
+ * Columnas reales:
+ *   id_token, id_sesion, token_valor, creado_en, expira_en,
+ *   activo (1 = vigente, NULL = vencido/rotado), veces_usado
  *
- * NO genera tokens (eso lo hace TokenService con bin2hex/random_bytes).
- * NO contiene lógica de autenticación ni de negocio.
+ * En este MVP los tokens de autenticación de usuario (login/logout)
+ * se manejan en memoria de sesión PHP, ya que el schema no incluye
+ * tabla de tokens de autenticación separada.
+ * Esta clase gestiona exclusivamente los tokens QR de sesiones.
  *
- * Flujo: TokenService → TokenRepository → BaseRepository → Database → MySQL
+ * Flujo: QrService → TokenRepository → BaseRepository → Database → MySQL
  *
  * Ubicación en el proyecto: Src/Repositories/TokenRepository.php
  */
 class TokenRepository extends BaseRepository
 {
     /**
-     * Busca un token de acceso por su hash SHA-256.
+     * Busca un token QR por su valor.
      *
-     * @param string $tokenHash Hash del token de acceso.
+     * @param string $tokenValor Valor del token QR.
      * @return array<string, mixed>|null Datos del token o null si no existe.
      */
-    public function buscarAcceso(string $tokenHash): ?array
+    public function buscarPorValor(string $tokenValor): ?array
     {
         return $this->consultarUno(
-            "SELECT id, id_usuario, rol, expiracion, revocado
-             FROM tokens
-             WHERE hash = :hash AND tipo = 'acceso'
-             LIMIT 1",
-            [':hash' => $tokenHash]
+            'SELECT id_token, id_sesion, token_valor, creado_en,
+                    expira_en, activo, veces_usado
+             FROM tokens_qr
+             WHERE token_valor = :token
+             LIMIT 1',
+            [':token' => $tokenValor]
         );
     }
 
     /**
-     * Busca un token de refresco por su hash SHA-256.
+     * Obtiene el token QR activo vigente de una sesión.
+     * activo = 1 y expira_en > NOW().
      *
-     * @param string $tokenHash Hash del token de refresco.
-     * @return array<string, mixed>|null Datos del token o null si no existe.
+     * @param int $idSesion Identificador de la sesión.
+     * @return array<string, mixed>|null Token activo o null.
      */
-    public function buscarRefresco(string $tokenHash): ?array
+    public function obtenerActivoPorSesion(int $idSesion): ?array
     {
         return $this->consultarUno(
-            "SELECT id, id_usuario, rol, expiracion, revocado
-             FROM tokens
-             WHERE hash = :hash AND tipo = 'refresco'
-             LIMIT 1",
-            [':hash' => $tokenHash]
+            'SELECT id_token, token_valor, expira_en, veces_usado
+             FROM tokens_qr
+             WHERE id_sesion = :id_sesion
+               AND activo    = 1
+               AND expira_en > NOW()
+             LIMIT 1',
+            [':id_sesion' => $idSesion]
         );
     }
 
     /**
-     * Verifica si un token está marcado como revocado.
+     * Verifica si un token QR está activo y vigente.
      *
-     * @param string $tokenHash Hash SHA-256 del token.
-     * @return bool true si el token fue revocado.
+     * @param string $tokenValor Valor del token QR.
+     * @return bool true si está activo y no ha expirado.
      */
-    public function estaRevocado(string $tokenHash): bool
+    public function estaActivo(string $tokenValor): bool
     {
         return $this->existe(
-            'SELECT COUNT(*) FROM tokens WHERE hash = :hash AND revocado = 1',
-            [':hash' => $tokenHash]
+            'SELECT COUNT(*) FROM tokens_qr
+             WHERE token_valor = :token
+               AND activo      = 1
+               AND expira_en   > NOW()',
+            [':token' => $tokenValor]
         );
     }
 
     /**
-     * Persiste un token de refresco hasheado en la base de datos.
+     * Inserta un nuevo token QR para una sesión.
+     * El UNIQUE(id_sesion, activo) del schema garantiza
+     * que solo exista un token activo por sesión a nivel de BD.
      *
-     * @param int    $idUsuario    Identificador del usuario propietario.
-     * @param string $refrescoHash Hash SHA-256 del token de refresco.
-     * @param string $expiracion   Fecha y hora de expiración (Y-m-d H:i:s).
-     * @param string $rol          Rol del usuario en el momento de la emisión.
-     * @return int ID del registro creado.
+     * @param int    $idSesion   Identificador de la sesión.
+     * @param string $tokenValor Token generado (hex de 64 caracteres).
+     * @param string $expiraEn   Fecha y hora de expiración (Y-m-d H:i:s).
+     * @return int ID del token creado.
      */
-    public function persistirRefresco(int $idUsuario, string $refrescoHash, string $expiracion, string $rol): int
+    public function crear(int $idSesion, string $tokenValor, string $expiraEn): int
     {
         return $this->insertar(
-            "INSERT INTO tokens (id_usuario, hash, tipo, rol, expiracion, revocado)
-             VALUES (:id_usuario, :hash, 'refresco', :rol, :expiracion, 0)",
-            [
-                ':id_usuario' => $idUsuario,
-                ':hash'       => $refrescoHash,
-                ':rol'        => $rol,
-                ':expiracion' => $expiracion,
-            ]
+            'INSERT INTO tokens_qr (id_sesion, token_valor, expira_en, activo)
+             VALUES (:id_sesion, :token, :expira_en, 1)',
+            [':id_sesion' => $idSesion, ':token' => $tokenValor, ':expira_en' => $expiraEn]
         );
     }
 
     /**
-     * Marca un token como revocado sin eliminarlo.
-     * Mantiene el historial de revocaciones para auditoría.
+     * Rota (invalida) el token activo de una sesión.
+     * Según el schema v1.2: activo = NULL al rotar (no 0).
+     * El UNIQUE(id_sesion, activo) permite múltiples NULL.
      *
-     * @param string $tokenHash Hash SHA-256 del token a revocar.
+     * @param int $idSesion Identificador de la sesión.
      * @return int Filas afectadas.
      */
-    public function revocar(string $tokenHash): int
+    public function rotarPorSesion(int $idSesion): int
     {
         return $this->ejecutar(
-            'UPDATE tokens SET revocado = 1, revocado_en = NOW() WHERE hash = :hash',
-            [':hash' => $tokenHash]
+            'UPDATE tokens_qr SET activo = NULL
+             WHERE id_sesion = :id_sesion AND activo = 1',
+            [':id_sesion' => $idSesion]
         );
     }
 
     /**
-     * Elimina todos los tokens expirados de la base de datos.
-     * Puede invocarse desde un proceso de mantenimiento programado (cron).
+     * Invalida todos los tokens QR de una sesión al cerrarla.
+     * Alias semántico de rotarPorSesion() para SesionService.
+     *
+     * @param int $idSesion Identificador de la sesión cerrada.
+     * @return int Filas afectadas.
+     */
+    public function invalidarPorSesion(int $idSesion): int
+    {
+        return $this->rotarPorSesion($idSesion);
+    }
+
+    /**
+     * Incrementa el contador de veces_usado de un token.
+     * Solo auditoría — no limita el acceso de ningún aprendiz.
+     *
+     * @param int $idToken Identificador del token.
+     * @return int Filas afectadas.
+     */
+    public function incrementarUso(int $idToken): int
+    {
+        return $this->ejecutar(
+            'UPDATE tokens_qr SET veces_usado = veces_usado + 1
+             WHERE id_token = :id',
+            [':id' => $idToken]
+        );
+    }
+
+    /**
+     * Elimina tokens QR expirados de la base de datos.
+     * Puede invocarse desde un proceso de mantenimiento (cron).
      *
      * @return int Número de tokens eliminados.
      */
     public function limpiarExpirados(): int
     {
         return $this->ejecutar(
-            'DELETE FROM tokens WHERE expiracion < NOW()'
+            'DELETE FROM tokens_qr WHERE expira_en < NOW() AND activo IS NULL'
         );
     }
 }

@@ -5,30 +5,32 @@ declare(strict_types=1);
 /**
  * AttendQR – AuthRepository
  *
- * Responsabilidad: acceder a la tabla `usuarios` para las operaciones
- * de autenticación: buscar por credenciales y registrar accesos.
+ * Responsabilidad: acceder a las tablas `docentes` y `aprendices`
+ * para las operaciones de autenticación.
  *
- * NO contiene lógica de negocio. La verificación de contraseñas
- * (password_verify) corresponde a AuthService.
+ * El schema MVP NO incluye contraseñas en docentes ni aprendices.
+ * La autenticación se realiza por correo (docentes) o
+ * número de documento (aprendices).
  *
  * Flujo: AuthService → AuthRepository → BaseRepository → Database → MySQL
  *
+ * Tablas reales: docentes, aprendices
  * Ubicación en el proyecto: Src/Repositories/AuthRepository.php
  */
 class AuthRepository extends BaseRepository
 {
     /**
-     * Busca un usuario por correo electrónico.
-     * Incluye contrasena_hash para que AuthService ejecute password_verify().
+     * Busca un docente por su correo electrónico.
+     * Retorna los datos del docente incluyendo su estado activo.
      *
-     * @param string $correo Correo del usuario.
-     * @return array<string, mixed>|null Fila completa o null si no existe.
+     * @param string $correo Correo del docente.
+     * @return array<string, mixed>|null Fila del docente o null si no existe.
      */
-    public function buscarPorCorreo(string $correo): ?array
+    public function buscarDocentePorCorreo(string $correo): ?array
     {
         return $this->consultarUno(
-            'SELECT id, correo, contrasena_hash, rol, estado
-             FROM usuarios
+            'SELECT id_docente, nombres, apellidos, correo, activo
+             FROM docentes
              WHERE correo = :correo
              LIMIT 1',
             [':correo' => $correo]
@@ -36,49 +38,57 @@ class AuthRepository extends BaseRepository
     }
 
     /**
-     * Busca un usuario por su ID sin incluir la contraseña.
+     * Busca un aprendiz por su número de documento.
+     * Retorna los datos del aprendiz incluyendo su ficha y estado activo.
      *
-     * @param int $idUsuario Identificador del usuario.
-     * @return array<string, mixed>|null Datos públicos o null.
+     * @param string $documento Número de documento del aprendiz.
+     * @return array<string, mixed>|null Fila del aprendiz o null si no existe.
      */
-    public function buscarPorId(int $idUsuario): ?array
+    public function buscarAprendizPorDocumento(string $documento): ?array
     {
         return $this->consultarUno(
-            'SELECT id, correo, rol, estado, created_at
-             FROM usuarios
-             WHERE id = :id
+            'SELECT ap.id_aprendiz, ap.nombres, ap.apellidos,
+                    ap.numero_documento, ap.id_ficha, ap.activo,
+                    f.codigo_ficha, f.nombre_programa
+             FROM aprendices ap
+             JOIN fichas f ON f.id_ficha = ap.id_ficha
+             WHERE ap.numero_documento = :documento
              LIMIT 1',
-            [':id' => $idUsuario]
+            [':documento' => $documento]
         );
     }
 
     /**
-     * Actualiza el campo ultimo_acceso al momento actual.
-     * Se invoca después de un login exitoso.
+     * Busca un docente por su ID.
      *
-     * @param int $idUsuario Identificador del usuario.
-     * @return int Filas afectadas.
+     * @param int $idDocente Identificador del docente.
+     * @return array<string, mixed>|null Datos del docente o null.
      */
-    public function registrarAcceso(int $idUsuario): int
+    public function buscarDocentePorId(int $idDocente): ?array
     {
-        return $this->ejecutar(
-            'UPDATE usuarios SET ultimo_acceso = NOW() WHERE id = :id',
-            [':id' => $idUsuario]
+        return $this->consultarUno(
+            'SELECT id_docente, nombres, apellidos, correo, activo, creado_en
+             FROM docentes
+             WHERE id_docente = :id
+             LIMIT 1',
+            [':id' => $idDocente]
         );
     }
 
     /**
-     * Actualiza el estado de un usuario (activo / inactivo / suspendido).
+     * Busca un aprendiz por su ID.
      *
-     * @param int    $idUsuario Identificador del usuario.
-     * @param string $estado    Nuevo estado.
-     * @return int Filas afectadas.
+     * @param int $idAprendiz Identificador del aprendiz.
+     * @return array<string, mixed>|null Datos del aprendiz o null.
      */
-    public function actualizarEstado(int $idUsuario, string $estado): int
+    public function buscarAprendizPorId(int $idAprendiz): ?array
     {
-        return $this->ejecutar(
-            'UPDATE usuarios SET estado = :estado WHERE id = :id',
-            [':estado' => $estado, ':id' => $idUsuario]
+        return $this->consultarUno(
+            'SELECT id_aprendiz, nombres, apellidos, numero_documento, id_ficha, activo
+             FROM aprendices
+             WHERE id_aprendiz = :id
+             LIMIT 1',
+            [':id' => $idAprendiz]
         );
     }
 }

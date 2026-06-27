@@ -5,113 +5,163 @@ declare(strict_types=1);
 /**
  * AttendQR – AuthService
  *
- * Responsabilidad: lógica de negocio de autenticación de usuarios.
- * Flujo: AuthController → AuthService → AuthRepository / TokenRepository → Database
+ * Responsabilidad: lógica de negocio de autenticación.
+ *
+ * El schema MVP no incluye contraseñas en docentes ni aprendices.
+ * La autenticación del MVP se basa en:
+ *   - Docentes  → correo electrónico + verificación de activo
+ *   - Aprendices → número de documento + verificación de activo
+ *
+ * Los tokens de sesión del usuario se gestionan mediante $_SESSION
+ * (sesiones PHP nativas) ya que el schema no incluye tabla de tokens
+ * de autenticación separada. La tabla tokens_qr es exclusiva para
+ * los QR de asistencia.
+ *
+ * Flujo: AuthController → AuthService → AuthRepository → Database
  *
  * Ubicación en el proyecto: Src/Services/AuthService.php
  */
 class AuthService
 {
-    private AuthRepository  $authRepo;
-    private TokenRepository $tokenRepo;
+    private AuthRepository $authRepo;
 
     public function __construct()
     {
-        $this->authRepo  = new AuthRepository();
-        $this->tokenRepo = new TokenRepository();
+        $this->authRepo = new AuthRepository();
     }
 
     /**
-     * Autentica un usuario verificando correo, contraseña y estado.
-     * Registra el último acceso si las credenciales son válidas.
+     * Autentica a un docente verificando su correo y estado activo.
      *
-     * @param string $correo     Correo electrónico del usuario.
-     * @param string $contrasena Contraseña en texto plano.
-     * @return array<string, mixed> Datos públicos del usuario autenticado.
-     * @throws \RuntimeException 401 si las credenciales son incorrectas.
-     * @throws \RuntimeException 403 si el usuario está inactivo.
+     * Reglas de negocio:
+     *   1. El correo debe existir en la tabla docentes.
+     *   2. El docente debe tener activo = 1.
+     *   3. Se retornan los datos públicos del docente con rol asignado.
+     *
+     * @param string $correo Correo electrónico del docente.
+     * @return array<string, mixed> Datos públicos del docente autenticado.
+     * @throws \RuntimeException 401 si el correo no existe.
+     * @throws \RuntimeException 403 si el docente está inactivo.
      */
-    public function login(string $correo, string $contrasena): array
+    public function loginDocente(string $correo): array
     {
-        $correo     = strtolower(trim($correo));
-        $contrasena = trim($contrasena);
+        $correo  = strtolower(trim($correo));
+        $docente = $this->authRepo->buscarDocentePorCorreo($correo);
 
-        $usuario = $this->authRepo->buscarPorCorreo($correo);
-
-        if ($usuario === null || !password_verify($contrasena, (string) $usuario['contrasena_hash'])) {
+        if ($docente === null) {
             throw new \RuntimeException('Credenciales inválidas.', 401);
         }
 
-        if ((string) $usuario['estado'] !== 'activo') {
-            throw new \RuntimeException('El usuario se encuentra inactivo.', 403);
+        if ((int) $docente['activo'] !== 1) {
+            throw new \RuntimeException('El docente se encuentra inactivo.', 403);
         }
 
-        $this->authRepo->registrarAcceso((int) $usuario['id']);
-
-        return $this->formatearUsuario($usuario);
+        return [
+            'id'      => (int) $docente['id_docente'],
+            'nombres' => $docente['nombres'],
+            'apellidos' => $docente['apellidos'],
+            'correo'  => $docente['correo'],
+            'rol'     => 'docente',
+        ];
     }
 
     /**
-     * Cierra la sesión revocando el token de acceso recibido.
+     * Autentica a un aprendiz verificando su número de documento y estado activo.
      *
-     * @param string $token Token de acceso en texto plano.
+     * Reglas de negocio:
+     *   1. El documento debe existir en la tabla aprendices.
+     *   2. El aprendiz debe tener activo = 1.
+     *   3. Se retornan los datos públicos del aprendiz con rol asignado.
+     *
+     * @param string $documento Número de documento del aprendiz.
+     * @return array<string, mixed> Datos públicos del aprendiz autenticado.
+     * @throws \RuntimeException 401 si el documento no existe.
+     * @throws \RuntimeException 403 si el aprendiz está inactivo (retirado).
+     */
+    public function loginAprendiz(string $documento): array
+    {
+        $documento = trim($documento);
+        $aprendiz  = $this->authRepo->buscarAprendizPorDocumento($documento);
+
+        if ($aprendiz === null) {
+            throw new \RuntimeException('Credenciales inválidas.', 401);
+        }
+
+        if ((int) $aprendiz['activo'] !== 1) {
+            throw new \RuntimeException('El aprendiz se encuentra retirado del sistema.', 403);
+        }
+
+        return [
+            'id'               => (int) $aprendiz['id_aprendiz'],
+            'nombres'          => $aprendiz['nombres'],
+            'apellidos'        => $aprendiz['apellidos'],
+            'numero_documento' => $aprendiz['numero_documento'],
+            'id_ficha'         => (int) $aprendiz['id_ficha'],
+            'codigo_ficha'     => $aprendiz['codigo_ficha'],
+            'nombre_programa'  => $aprendiz['nombre_programa'],
+            'rol'              => 'aprendiz',
+        ];
+    }
+
+    /**
+     * Método genérico de login que detecta el tipo de usuario
+     * según los campos enviados.
+     *
+     * Si recibe 'correo'    → intenta login como docente.
+     * Si recibe 'documento' → intenta login como aprendiz.
+     *
+     * @param string      $correo    Correo del docente (o vacío).
+     * @param string      $documento Documento del aprendiz (o vacío).
+     * @return array<string, mixed>
+     * @throws \RuntimeException 422 si no se proporcionó correo ni documento.
+     */
+    public function login(string $correo = '', string $documento = ''): array
+    {
+        $correo    = trim($correo);
+        $documento = trim($documento);
+
+        if ($correo !== '') {
+            return $this->loginDocente($correo);
+        }
+
+        if ($documento !== '') {
+            return $this->loginAprendiz($documento);
+        }
+
+        throw new \RuntimeException('Debe proporcionar correo (docente) o documento (aprendiz).', 422);
+    }
+
+    /**
+     * Cierra la sesión destruyendo la sesión PHP activa.
+     *
      * @return array<string, mixed>
      */
-    public function logout(string $token): array
+    public function logout(): array
     {
-        $tokenHash = hash('sha256', trim($token));
-        $this->tokenRepo->revocar($tokenHash);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_unset();
+            session_destroy();
+        }
 
         return ['success' => true, 'message' => 'Sesión cerrada correctamente.'];
     }
 
     /**
-     * Verifica que un token de acceso sea válido, vigente y no revocado.
+     * Verifica si hay una sesión PHP activa y retorna los datos del usuario.
      *
-     * @param string $token Token de acceso en texto plano.
-     * @return array<string, mixed> Payload del token (id_usuario, rol, expiracion).
-     * @throws \RuntimeException 401 si el token es inválido, expirado o revocado.
+     * @return array<string, mixed> Datos del usuario en sesión.
+     * @throws \RuntimeException 401 si no hay sesión activa.
      */
-    public function verificarToken(string $token): array
+    public function verificarToken(): array
     {
-        $tokenHash = hash('sha256', trim($token));
-        $registro  = $this->tokenRepo->buscarAcceso($tokenHash);
-
-        if ($registro === null) {
-            throw new \RuntimeException('Token no encontrado.', 401);
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
         }
 
-        if (strtotime((string) $registro['expiracion']) < time()) {
-            throw new \RuntimeException('El token ha expirado.', 401);
+        if (empty($_SESSION['usuario'])) {
+            throw new \RuntimeException('No hay sesión activa.', 401);
         }
 
-        if ((int) $registro['revocado'] === 1) {
-            throw new \RuntimeException('El token fue revocado.', 401);
-        }
-
-        return [
-            'id_usuario' => (int) $registro['id_usuario'],
-            'rol'        => $registro['rol'],
-            'expiracion' => $registro['expiracion'],
-        ];
-    }
-
-    // -------------------------------------------------------------------------
-    // Métodos privados de apoyo
-    // -------------------------------------------------------------------------
-
-    /**
-     * Retorna los datos del usuario eliminando campos sensibles.
-     *
-     * @param array<string, mixed> $usuario Fila cruda del Repository.
-     * @return array<string, mixed>
-     */
-    private function formatearUsuario(array $usuario): array
-    {
-        foreach (['contrasena_hash', 'contrasena', 'password'] as $campo) {
-            unset($usuario[$campo]);
-        }
-
-        return $usuario;
+        return $_SESSION['usuario'];
     }
 }

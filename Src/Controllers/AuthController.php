@@ -5,13 +5,13 @@ declare(strict_types=1);
 /**
  * AttendQR – AuthController
  *
- * Responsabilidad: gestionar autenticación de usuarios.
+ * Responsabilidad: gestionar autenticación de docentes y aprendices.
  * Delega toda la lógica a AuthService.
  *
  * Rutas:
- *   POST /api/auth/login      → iniciar sesión
+ *   POST /api/auth/login      → iniciar sesión (docente o aprendiz)
  *   POST /api/auth/logout     → cerrar sesión
- *   GET  /api/auth/verificar  → verificar token activo
+ *   GET  /api/auth/verificar  → verificar sesión activa
  *
  * Ubicación en el proyecto: Src/Controllers/AuthController.php
  */
@@ -24,13 +24,6 @@ class AuthController
         $this->servicio = new AuthService();
     }
 
-    /**
-     * Punto de entrada del router.
-     *
-     * @param string   $metodo Método HTTP (GET, POST, etc.)
-     * @param string   $accion Segundo segmento de la URL (/api/auth/{accion})
-     * @param string[] $params Parámetros posicionales adicionales
-     */
     public function handle(string $metodo, string $accion, array $params): void
     {
         switch ($accion) {
@@ -46,7 +39,7 @@ class AuthController
 
             case 'verificar':
                 $this->verificarMetodo($metodo, 'GET');
-                $this->verificarToken();
+                $this->verificar();
                 break;
 
             default:
@@ -60,22 +53,34 @@ class AuthController
 
     /**
      * POST /api/auth/login
-     * Body: { "correo": "...", "contrasena": "..." }
+     *
+     * Para docentes:  Body { "correo": "..." }
+     * Para aprendices: Body { "documento": "..." }
      */
     private function login(): void
     {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
         $cuerpo = $this->leerCuerpoJson();
 
-        if (empty($cuerpo['correo']) || empty($cuerpo['contrasena'])) {
-            $this->responderError('Los campos correo y contrasena son obligatorios.', 422);
+        $correo    = (string) ($cuerpo['correo']    ?? '');
+        $documento = (string) ($cuerpo['documento'] ?? '');
+
+        if ($correo === '' && $documento === '') {
+            $this->responderError(
+                'Debe proporcionar correo (docente) o documento (aprendiz).', 422
+            );
         }
 
         try {
-            $resultado = $this->servicio->login(
-                (string) $cuerpo['correo'],
-                (string) $cuerpo['contrasena']
-            );
-            $this->responderExito('Sesión iniciada correctamente.', $resultado);
+            $usuario = $this->servicio->login($correo, $documento);
+
+            // Guardar en sesión PHP para verificaciones posteriores
+            $_SESSION['usuario'] = $usuario;
+
+            $this->responderExito('Sesión iniciada correctamente.', $usuario);
 
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
@@ -86,18 +91,17 @@ class AuthController
 
     /**
      * POST /api/auth/logout
-     * Header: Authorization: Bearer {token}
      */
     private function logout(): void
     {
-        $token = $this->leerTokenHeader();
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
 
         try {
-            $resultado = $this->servicio->logout($token);
+            $resultado = $this->servicio->logout();
             $this->responderExito($resultado['message'] ?? 'Sesión cerrada correctamente.', []);
 
-        } catch (\RuntimeException $e) {
-            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
             $this->responderError('Error interno al cerrar sesión.', 500);
         }
@@ -105,20 +109,21 @@ class AuthController
 
     /**
      * GET /api/auth/verificar
-     * Header: Authorization: Bearer {token}
      */
-    private function verificarToken(): void
+    private function verificar(): void
     {
-        $token = $this->leerTokenHeader();
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
 
         try {
-            $payload = $this->servicio->verificarToken($token);
-            $this->responderExito('Token válido.', $payload);
+            $usuario = $this->servicio->verificarToken();
+            $this->responderExito('Sesión activa.', $usuario);
 
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 401);
         } catch (\Throwable $e) {
-            $this->responderError('Error interno al verificar el token.', 500);
+            $this->responderError('Error interno al verificar la sesión.', 500);
         }
     }
 
@@ -131,27 +136,9 @@ class AuthController
         if ($metodoRecibido !== $metodoEsperado) {
             header('Allow: ' . $metodoEsperado);
             $this->responderError(
-                "Este endpoint solo acepta {$metodoEsperado}, se recibió {$metodoRecibido}.",
-                405
+                "Este endpoint solo acepta {$metodoEsperado}, se recibió {$metodoRecibido}.", 405
             );
         }
-    }
-
-    /**
-     * Lee el token Bearer del header Authorization.
-     * Responde 401 si no está presente o tiene formato incorrecto.
-     */
-    private function leerTokenHeader(): string
-    {
-        $header = $_SERVER['HTTP_AUTHORIZATION']
-            ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
-            ?? '';
-
-        if (str_starts_with($header, 'Bearer ')) {
-            return trim(substr($header, 7));
-        }
-
-        $this->responderError('Token de autorización no proporcionado.', 401);
     }
 
     private function leerCuerpoJson(): array
