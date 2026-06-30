@@ -8,42 +8,31 @@ declare(strict_types=1);
  * Punto de entrada único para todas las peticiones REST.
  * Las URLs amigables son redirigidas aquí por Public/.htaccess.
  *
+ * Flujo de cada petición:
+ *   Cliente → api.php → [AuthMiddleware] → [RoleMiddleware] → Controller
+ *
  * Módulos registrados:
- *   /api/auth          → AuthController
- *   /api/asistencias   → AsistenciaController
- *   /api/sesiones      → SesionController
- *   /api/qr            → QrController
- *   /api/fichas        → FichaController        
- *   /api/aprendices    → AprendizController     
- *   /api/docentes      → DocenteController      
- *   /api/jornadas      → JornadaController      
- *   /api/estadisticas  → EstadisticaController  
- *   /api/tokens        → TokenController        
- *   /api/trimestres    → TrimestreController    
- *   /api/health        → HealthController       
+ *   /api/auth          → AuthController        (pública)
+ *   /api/health        → HealthController      (pública)
+ *   /api/asistencias   → AsistenciaController  (docente | aprendiz)
+ *   /api/sesiones      → SesionController      (docente)
+ *   /api/qr            → QrController          (docente | aprendiz)
+ *   /api/fichas        → FichaController       (docente)
+ *   /api/aprendices    → AprendizController    (docente)
+ *   /api/docentes      → DocenteController     (docente)
+ *   /api/jornadas      → JornadaController     (docente)
+ *   /api/estadisticas  → EstadisticaController (docente)
+ *   /api/tokens        → TokenController       (docente | aprendiz)
+ *   /api/trimestres    → TrimestreController   (docente)
  *
- * Convención de despacho:
- *   Segmento 0  → recurso  → selecciona el controlador
- *   Segmento 1  → acción   → método del controlador a invocar
- *   Segmento 2+ → params   → parámetros posicionales (p. ej. IDs)
- *
- * Contrato de cada controlador:
- *   public function handle(string $method, string $action, array $params): void
- *
- * Para agregar un nuevo módulo: registrar una entrada en $routes (sección 5).
- * No es necesario modificar ninguna otra parte de este archivo.
+ * Para agregar un nuevo módulo: registrar una entrada en $routes (sección 5)
+ * y definir su política de acceso en $politicasAcceso (sección 6).
  */
 
 // ---------------------------------------------------------------------------
 // 1. Helpers de respuesta
 // ---------------------------------------------------------------------------
 
-/**
- * Envía una respuesta JSON y termina la ejecución.
- *
- * @param mixed $data   Payload a serializar.
- * @param int   $status Código HTTP de respuesta.
- */
 function jsonResponse(mixed $data, int $status = 200): never
 {
     http_response_code($status);
@@ -53,62 +42,101 @@ function jsonResponse(mixed $data, int $status = 200): never
     exit;
 }
 
-/**
- * Envía una respuesta de error estructurada y termina la ejecución.
- *
- * @param string $message Descripción legible del error.
- * @param int    $status  Código HTTP de respuesta.
- */
 function errorResponse(string $message, int $status): never
 {
     jsonResponse(['error' => $message, 'code' => $status], $status);
 }
 
 // ---------------------------------------------------------------------------
-// 2. Parseo de la petición
+// 2. Rutas base del proyecto
+//
+// api.php vive en Public/. La raíz del proyecto es un nivel arriba.
+// ---------------------------------------------------------------------------
+
+define('ROOT_PATH',         dirname(__DIR__));
+define('SRC_PATH',          ROOT_PATH . '/Src');
+define('CONTROLLERS_PATH',  SRC_PATH  . '/Controllers/');
+define('SERVICES_PATH',     SRC_PATH  . '/Services/');
+define('REPOSITORIES_PATH', SRC_PATH  . '/Repositories/');
+define('MODELS_PATH',       SRC_PATH  . '/Models/');
+define('MIDDLEWARE_PATH',   SRC_PATH  . '/Middleware/');
+define('CONFIG_PATH',       SRC_PATH  . '/Config/');
+
+// ---------------------------------------------------------------------------
+// 3. Bootstrap – carga de dependencias en orden
+//
+// El orden es crítico:
+//   1. Database       → conexión PDO centralizada
+//   2. BaseRepository → clase abstracta base
+//   3. Repositories   → acceso a datos (dependen de BaseRepository)
+//   4. Services       → lógica de negocio (dependen de Repositories)
+//
+// Los Models son DTOs simples sin dependencias; se cargan también
+// para que estén disponibles en Services y Repositories.
+//
+// Los Controllers se cargan más adelante (sección 10), una vez
+// conocido cuál es el controlador destino de la petición.
+// ---------------------------------------------------------------------------
+
+// 3a. Conexión a base de datos
+require_once CONFIG_PATH . 'Database.php';
+
+// 3b. Clase base de Repositories
+require_once REPOSITORIES_PATH . 'BaseRepository.php';
+
+// 3c. Repositories (orden alfabético — sin dependencias entre sí)
+require_once REPOSITORIES_PATH . 'AprendizRepository.php';
+require_once REPOSITORIES_PATH . 'AsistenciaRepository.php';
+require_once REPOSITORIES_PATH . 'AuthRepository.php';
+require_once REPOSITORIES_PATH . 'DocenteRepository.php';
+require_once REPOSITORIES_PATH . 'FichaRepository.php';
+require_once REPOSITORIES_PATH . 'JornadaRepository.php';
+require_once REPOSITORIES_PATH . 'QrRepository.php';
+require_once REPOSITORIES_PATH . 'SesionRepository.php';
+require_once REPOSITORIES_PATH . 'TokenRepository.php';
+require_once REPOSITORIES_PATH . 'TrimestreRepository.php';
+
+// 3d. Models (DTOs simples, sin dependencias)
+require_once MODELS_PATH . 'AprendizModel.php';
+require_once MODELS_PATH . 'AsistenciaModel.php';
+require_once MODELS_PATH . 'DocenteModel.php';
+require_once MODELS_PATH . 'FichaModel.php';
+require_once MODELS_PATH . 'JornadaModel.php';
+require_once MODELS_PATH . 'SesionAsistenciaModel.php';
+require_once MODELS_PATH . 'TokenQRModel.php';
+require_once MODELS_PATH . 'TrimestreModel.php';
+
+// 3e. Services (dependen de Repositories — deben cargarse después)
+require_once SERVICES_PATH . 'AuthService.php';
+require_once SERVICES_PATH . 'AprendizService.php';
+require_once SERVICES_PATH . 'AsistenciaService.php';
+require_once SERVICES_PATH . 'DocenteService.php';
+require_once SERVICES_PATH . 'EstadisticaService.php';
+require_once SERVICES_PATH . 'FichaService.php';
+require_once SERVICES_PATH . 'HealthService.php';
+require_once SERVICES_PATH . 'JornadaService.php';
+require_once SERVICES_PATH . 'QrService.php';
+require_once SERVICES_PATH . 'SesionService.php';
+require_once SERVICES_PATH . 'TokenService.php';
+require_once SERVICES_PATH . 'TrimestreService.php';
+
+// ---------------------------------------------------------------------------
+// 4. Parseo de la petición
 // ---------------------------------------------------------------------------
 
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
-// --- Cálculo dinámico de la ruta relativa -----------------------------------
-//
-// El objetivo es obtener la parte de la URL *después* del punto de montaje
-// del script, sin depender del nombre de ninguna carpeta (AttendQR, Public…).
-//
-// Ejemplo con XAMPP:
-//   REQUEST_URI  → /AttendQR/Public/api/auth/login?foo=bar
-//   SCRIPT_NAME  → /AttendQR/Public/api.php
-//   basePath     → /AttendQR/Public          (dirname de SCRIPT_NAME)
-//   rawPath      → /api/auth/login           (REQUEST_URI – basePath – QS)
-//   segments     → ["auth", "login"]         (sin el segmento "api")
-//
-// Funciona igual si el proyecto se mueve a la raíz o a cualquier otro
-// subdirectorio porque todo se calcula en tiempo de ejecución.
-// ---------------------------------------------------------------------------
-
-// Extraer solo la parte del path de REQUEST_URI (sin query string).
-$rawUri  = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
-$rawUri  = rawurldecode($rawUri);
-
-// Calcular la base de montaje a partir de la ubicación real del script.
-// dirname() sobre SCRIPT_NAME entrega la carpeta que contiene api.php.
+$rawUri   = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+$rawUri   = rawurldecode($rawUri);
 $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
 
-// Retirar la base de montaje del URI completo usando comparación sin distinción
-// de mayúsculas/minúsculas (strncasecmp), porque en Windows/XAMPP el servidor
-// puede entregar REQUEST_URI en minúsculas (/attendqr/...) mientras que
-// SCRIPT_NAME conserva las mayúsculas originales (/AttendQR/...).
-// substr() recorta exactamente los caracteres de basePath sin depender de regex.
 $longitudBase = strlen($basePath);
 $relativePath = ($basePath !== '' && strncasecmp($rawUri, $basePath, $longitudBase) === 0)
     ? substr($rawUri, $longitudBase)
     : $rawUri;
 
-// Garantizar que relativePath sea siempre una cadena (substr puede devolver false).
 $relativePath = $relativePath !== false ? $relativePath : $rawUri;
 
-// Eliminar el prefijo /api para aislar los segmentos de recurso.
-// /api/auth/login → /auth/login → ["auth", "login"]
 $innerPath = preg_replace('#^/api#i', '', $relativePath) ?? '';
 
 $segments = array_values(
@@ -118,14 +146,12 @@ $segments = array_values(
     )
 );
 
-$resource = $segments[0] ?? '';          // Recurso → controlador
-$action   = $segments[1] ?? '';          // Acción   → método del controlador
-$params   = array_slice($segments, 2);   // Parámetros posicionales (IDs, etc.)
+$resource = $segments[0] ?? '';
+$action   = $segments[1] ?? '';
+$params   = array_slice($segments, 2);
 
 // ---------------------------------------------------------------------------
-// 3. Guard de métodos HTTP
-//
-// Ampliar cuando se necesiten PUT, PATCH o DELETE.
+// 5. Guard de métodos HTTP
 // ---------------------------------------------------------------------------
 
 $allowedMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
@@ -136,75 +162,56 @@ if (!in_array($method, $allowedMethods, true)) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Directorio base de controladores
-//
-// Se calcula a partir de la ubicación real de este archivo (api.php vive en
-// Public/) para ser completamente independiente del nombre del proyecto.
-//
-//   __DIR__  →  .../AttendQR/Public
-//   CONTROLLERS_PATH  →  .../AttendQR/Src/Controllers/
-// ---------------------------------------------------------------------------
-
-define('CONTROLLERS_PATH', dirname(__DIR__) . '/Src/Controllers/');
-
-// ---------------------------------------------------------------------------
-// 5. Tabla de módulos registrados
-//
-// Cada entrada mapea el segmento de recurso de la URL al archivo y clase
-// del controlador correspondiente.
-//
-// Formato de cada entrada:
-//   'segmento-url' => ['file' => 'NombreController.php', 'class' => 'NombreController']
-//
-// Para agregar un nuevo módulo basta con añadir una línea aquí.
-// No es necesario modificar ninguna otra parte del router.
-//
-// Estado de implementación:
-//   ✓ Controlador creado y operativo
-//   ○ Pendiente de implementar (el archivo aún no existe)
+// 6. Tabla de módulos registrados
 // ---------------------------------------------------------------------------
 
 /** @var array<string, array{file: string, class: string}> */
 $routes = [
-    // ✓ Autenticación de usuarios (login, logout, verificar token)
     'auth'         => ['file' => 'AuthController.php',        'class' => 'AuthController'],
-
-    // ✓ Registro y consulta de asistencias
     'asistencias'  => ['file' => 'AsistenciaController.php',  'class' => 'AsistenciaController'],
-
-    // ✓ Gestión de sesiones de clase (crear, listar, cerrar)
     'sesiones'     => ['file' => 'SesionController.php',      'class' => 'SesionController'],
-
-    // ✓ Generación y validación de códigos QR
     'qr'           => ['file' => 'QrController.php',          'class' => 'QrController'],
-
-    // ○ Gestión de fichas de formación
     'fichas'       => ['file' => 'FichaController.php',       'class' => 'FichaController'],
-
-    // ○ Gestión de aprendices
     'aprendices'   => ['file' => 'AprendizController.php',    'class' => 'AprendizController'],
-
-    // ○ Gestión de docentes / instructores
     'docentes'     => ['file' => 'DocenteController.php',     'class' => 'DocenteController'],
-
-    // ○ Gestión de jornadas (mañana, tarde, noche, etc.)
     'jornadas'     => ['file' => 'JornadaController.php',     'class' => 'JornadaController'],
-
-    // ○ Estadísticas e informes del sistema
     'estadisticas' => ['file' => 'EstadisticaController.php', 'class' => 'EstadisticaController'],
-
-    // ○ Gestión de tokens de acceso / refresco
     'tokens'       => ['file' => 'TokenController.php',       'class' => 'TokenController'],
-
-    // ○ Gestión de trimestres académicos
     'trimestres'   => ['file' => 'TrimestreController.php',   'class' => 'TrimestreController'],
-
-    // ○ Health check del sistema (estado de la API y dependencias)
     'health'       => ['file' => 'HealthController.php',      'class' => 'HealthController'],
 ];
 
 // ---------------------------------------------------------------------------
-// 6. Endpoint raíz – health check
+// 7. Políticas de acceso por recurso
+//
+// Valores posibles:
+//   'publica'           → sin autenticación requerida
+//   'autenticada'       → requiere sesión activa (cualquier rol)
+//   'solo_docente'      → requiere sesión activa + rol docente
+//   'solo_aprendiz'     → requiere sesión activa + rol aprendiz
+//   'docente_aprendiz'  → requiere sesión activa + rol docente o aprendiz
+// ---------------------------------------------------------------------------
+
+/** @var array<string, string> */
+$politicasAcceso = [
+    'auth'         => 'publica',
+    'health'       => 'publica',
+
+    'asistencias'  => 'docente_aprendiz',
+    'qr'           => 'docente_aprendiz',
+    'tokens'       => 'docente_aprendiz',
+
+    'sesiones'     => 'solo_docente',
+    'fichas'       => 'solo_docente',
+    'aprendices'   => 'solo_docente',
+    'docentes'     => 'solo_docente',
+    'jornadas'     => 'solo_docente',
+    'estadisticas' => 'solo_docente',
+    'trimestres'   => 'solo_docente',
+];
+
+// ---------------------------------------------------------------------------
+// 8. Endpoint raíz – health check público
 // ---------------------------------------------------------------------------
 
 if ($resource === '') {
@@ -216,7 +223,7 @@ if ($resource === '') {
 }
 
 // ---------------------------------------------------------------------------
-// 7. Resolución del controlador
+// 9. Resolución del controlador
 // ---------------------------------------------------------------------------
 
 if (!array_key_exists($resource, $routes)) {
@@ -228,18 +235,63 @@ $controllerFile  = CONTROLLERS_PATH . $routeConfig['file'];
 $controllerClass = $routeConfig['class'];
 
 if (!file_exists($controllerFile)) {
-    // El archivo del controlador no existe en disco.
-    // Verificar que el archivo esté creado en Src/Controllers/
     errorResponse(
         "Controlador '{$routeConfig['file']}' no encontrado en Src/Controllers/.",
         500
     );
 }
 
+// ---------------------------------------------------------------------------
+// 10. Aplicación de Middleware
+//
+// AuthMiddleware::verificar()   → detiene con 401 si no hay sesión.
+// RoleMiddleware::requerirRol() → detiene con 403 si el rol no coincide.
+// ---------------------------------------------------------------------------
+
+require_once MIDDLEWARE_PATH . 'AuthMiddleware.php';
+require_once MIDDLEWARE_PATH . 'RoleMiddleware.php';
+
+$politica = $politicasAcceso[$resource] ?? 'solo_docente';
+
+switch ($politica) {
+
+    case 'publica':
+        break;
+
+    case 'autenticada':
+        AuthMiddleware::verificar();
+        break;
+
+    case 'solo_docente':
+        $usuarioActual = AuthMiddleware::verificar();
+        RoleMiddleware::soloDocente($usuarioActual);
+        break;
+
+    case 'solo_aprendiz':
+        $usuarioActual = AuthMiddleware::verificar();
+        RoleMiddleware::soloAprendiz($usuarioActual);
+        break;
+
+    case 'docente_aprendiz':
+        $usuarioActual = AuthMiddleware::verificar();
+        RoleMiddleware::requerirRol($usuarioActual, ['docente', 'aprendiz']);
+        break;
+
+    default:
+        errorResponse('Política de acceso no definida para este recurso.', 500);
+}
+
+// ---------------------------------------------------------------------------
+// 11. Carga e instanciación del controlador
+//
+// En este punto todas las dependencias (Database, Repositories, Services)
+// ya están cargadas, por lo que new XxxService() dentro del constructor
+// del Controller se resuelve correctamente.
+// ---------------------------------------------------------------------------
+
 require_once $controllerFile;
 
 if (!class_exists($controllerClass)) {
-    // El archivo existe pero la clase no coincide con el nombre registrado.
     errorResponse(
         "La clase '{$controllerClass}' no fue encontrada en el archivo cargado.",
         500
@@ -249,14 +301,10 @@ if (!class_exists($controllerClass)) {
 $controller = new $controllerClass();
 
 // ---------------------------------------------------------------------------
-// 8. Despacho
-//
-// El controlador recibe método, acción y parámetros posicionales.
-// Decide internamente cómo manejar cada combinación.
+// 12. Despacho
 // ---------------------------------------------------------------------------
 
 if (!method_exists($controller, 'handle')) {
-    // El controlador existe pero no implementa el contrato requerido.
     errorResponse(
         "La clase '{$controllerClass}' no implementa el método handle().",
         500

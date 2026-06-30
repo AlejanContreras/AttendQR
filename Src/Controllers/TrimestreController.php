@@ -14,7 +14,7 @@ class TrimestreController
     public function handle(string $metodo, string $accion, array $params): void
     {
         match ($accion) {
-            'listar' => $this->despacharConMetodo($metodo, 'GET',
+            '', 'listar' => $this->despacharConMetodo($metodo, 'GET',
                 fn() => $this->listar()
             ),
             'consultar' => $this->despacharConMetodo($metodo, 'GET',
@@ -35,14 +35,6 @@ class TrimestreController
         };
     }
 
-    // -------------------------------------------------------------------------
-    // Acciones
-    // -------------------------------------------------------------------------
-
-    /**
-     * GET /api/trimestres/listar
-     * Query params opcionales: ?anio=2025&estado=activo
-     */
     private function listar(): void
     {
         $anio   = isset($_GET['anio']) ? (int) $_GET['anio'] : null;
@@ -58,14 +50,11 @@ class TrimestreController
         }
     }
 
-    /**
-     * GET /api/trimestres/consultar/{idTrimestre}
-     */
     private function consultar(int $idTrimestre): void
     {
         try {
-            $trimestre = $this->servicio->consultar($idTrimestre);
-            $this->responderExito('Trimestre encontrado.', $trimestre);
+            $resultado = $this->servicio->consultar($idTrimestre);
+            $this->responderExito('Trimestre encontrado.', $resultado);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 404);
         } catch (\Throwable $e) {
@@ -73,27 +62,21 @@ class TrimestreController
         }
     }
 
-    /**
-     * POST /api/trimestres/crear
-     * Body: { "nombre": "Trimestre I – 2025", "fecha_inicio": "2025-03-01", "fecha_fin": "2025-06-30" }
-     */
     private function crear(): void
     {
         $cuerpo = $this->leerCuerpoJson();
-
         foreach (['nombre', 'fecha_inicio', 'fecha_fin'] as $campo) {
             if (empty($cuerpo[$campo])) {
                 $this->responderError("El campo '{$campo}' es obligatorio.", 422);
             }
         }
-
         try {
-            $trimestre = $this->servicio->crear(
+            $resultado = $this->servicio->crear(
                 (string) $cuerpo['nombre'],
                 (string) $cuerpo['fecha_inicio'],
                 (string) $cuerpo['fecha_fin']
             );
-            $this->responderExito('Trimestre creado correctamente.', $trimestre, 201);
+            $this->responderExito('Trimestre creado correctamente.', $resultado, 201);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
@@ -101,21 +84,13 @@ class TrimestreController
         }
     }
 
-    /**
-     * PUT /api/trimestres/actualizar/{idTrimestre}
-     * Body: campos a actualizar (parcial)
-     */
     private function actualizar(int $idTrimestre): void
     {
         $cuerpo = $this->leerCuerpoJson();
-
-        if (empty($cuerpo)) {
-            $this->responderError('No se recibieron datos para actualizar.', 422);
-        }
-
+        if (empty($cuerpo)) { $this->responderError('No se recibieron datos para actualizar.', 422); }
         try {
-            $trimestre = $this->servicio->actualizar($idTrimestre, $cuerpo);
-            $this->responderExito('Trimestre actualizado correctamente.', $trimestre);
+            $resultado = $this->servicio->actualizar($idTrimestre, $cuerpo);
+            $this->responderExito('Trimestre actualizado correctamente.', $resultado);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
@@ -123,9 +98,6 @@ class TrimestreController
         }
     }
 
-    /**
-     * DELETE /api/trimestres/eliminar/{idTrimestre}
-     */
     private function eliminar(int $idTrimestre): void
     {
         try {
@@ -138,17 +110,11 @@ class TrimestreController
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Auxiliares
-    // -------------------------------------------------------------------------
-
     private function despacharConMetodo(string $metodoRecibido, string $metodoEsperado, callable $callback): void
     {
         if ($metodoRecibido !== $metodoEsperado) {
             header('Allow: ' . $metodoEsperado);
-            $this->responderError(
-                "Este endpoint solo acepta {$metodoEsperado}, se recibió {$metodoRecibido}.", 405
-            );
+            $this->responderError("Este endpoint solo acepta {$metodoEsperado}, se recibió {$metodoRecibido}.", 405);
         }
         $callback();
     }
@@ -164,17 +130,9 @@ class TrimestreController
     private function leerCuerpoJson(): array
     {
         $crudo = file_get_contents('php://input');
-
-        if ($crudo === false || $crudo === '') {
-            $this->responderError('El cuerpo de la petición está vacío.', 400);
-        }
-
+        if ($crudo === false || $crudo === '') { $this->responderError('El cuerpo de la petición está vacío.', 400); }
         $datos = json_decode($crudo, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->responderError('El cuerpo de la petición no es JSON válido.', 400);
-        }
-
+        if (json_last_error() !== JSON_ERROR_NONE) { $this->responderError('El cuerpo de la petición no es JSON válido.', 400); }
         return $datos ?? [];
     }
 
@@ -182,10 +140,7 @@ class TrimestreController
     {
         http_response_code($codigo);
         header('Content-Type: application/json; charset=UTF-8');
-        echo json_encode(
-            ['success' => true, 'message' => $mensaje, 'data' => $datos],
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
+        echo json_encode(['success' => true, 'message' => $mensaje, 'data' => $datos], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
 
@@ -193,10 +148,7 @@ class TrimestreController
     {
         http_response_code($codigo);
         header('Content-Type: application/json; charset=UTF-8');
-        echo json_encode(
-            ['success' => false, 'message' => $mensaje],
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
+        echo json_encode(['success' => false, 'message' => $mensaje], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
 }
