@@ -31,24 +31,26 @@ class AuthService
     }
 
     /**
-     * Autentica a un docente verificando su correo y estado activo.
+     * Autentica a un docente verificando correo, contraseña y estado activo.
      *
      * Reglas de negocio:
      *   1. El correo debe existir en la tabla docentes.
-     *   2. El docente debe tener activo = 1.
-     *   3. Se retornan los datos públicos del docente con rol asignado.
+     *   2. La contraseña debe coincidir con el hash almacenado.
+     *   3. El docente debe tener activo = 1.
+     *   4. Se retornan datos públicos del docente sin exponer el hash.
      *
-     * @param string $correo Correo electrónico del docente.
+     * @param string $correo   Correo electrónico del docente.
+     * @param string $password Contraseña en texto plano.
      * @return array<string, mixed> Datos públicos del docente autenticado.
-     * @throws \RuntimeException 401 si el correo no existe.
+     * @throws \RuntimeException 401 si el correo no existe o la contraseña es incorrecta.
      * @throws \RuntimeException 403 si el docente está inactivo.
      */
-    public function loginDocente(string $correo): array
+    public function loginDocente(string $correo, string $password): array
     {
         $correo  = strtolower(trim($correo));
         $docente = $this->authRepo->buscarDocentePorCorreo($correo);
 
-        if ($docente === null) {
+        if ($docente === null || !password_verify($password, $docente['password_hash'])) {
             throw new \RuntimeException('Credenciales inválidas.', 401);
         }
 
@@ -57,33 +59,35 @@ class AuthService
         }
 
         return [
-            'id'      => (int) $docente['id_docente'],
-            'nombres' => $docente['nombres'],
+            'id'        => (int) $docente['id_docente'],
+            'nombres'   => $docente['nombres'],
             'apellidos' => $docente['apellidos'],
-            'correo'  => $docente['correo'],
-            'rol'     => 'docente',
+            'correo'    => $docente['correo'],
+            'rol'       => 'docente',
         ];
     }
 
     /**
-     * Autentica a un aprendiz verificando su número de documento y estado activo.
+     * Autentica a un aprendiz verificando documento, contraseña y estado activo.
      *
      * Reglas de negocio:
      *   1. El documento debe existir en la tabla aprendices.
-     *   2. El aprendiz debe tener activo = 1.
-     *   3. Se retornan los datos públicos del aprendiz con rol asignado.
+     *   2. La contraseña debe coincidir con el hash almacenado.
+     *   3. El aprendiz debe tener activo = 1.
+     *   4. Se retornan datos públicos del aprendiz sin exponer el hash.
      *
      * @param string $documento Número de documento del aprendiz.
+     * @param string $password  Contraseña en texto plano.
      * @return array<string, mixed> Datos públicos del aprendiz autenticado.
-     * @throws \RuntimeException 401 si el documento no existe.
-     * @throws \RuntimeException 403 si el aprendiz está inactivo (retirado).
+     * @throws \RuntimeException 401 si el documento no existe o la contraseña es incorrecta.
+     * @throws \RuntimeException 403 si el aprendiz está retirado.
      */
-    public function loginAprendiz(string $documento): array
+    public function loginAprendiz(string $documento, string $password): array
     {
         $documento = trim($documento);
         $aprendiz  = $this->authRepo->buscarAprendizPorDocumento($documento);
 
-        if ($aprendiz === null) {
+        if ($aprendiz === null || !password_verify($password, $aprendiz['password_hash'])) {
             throw new \RuntimeException('Credenciales inválidas.', 401);
         }
 
@@ -107,25 +111,32 @@ class AuthService
      * Método genérico de login que detecta el tipo de usuario
      * según los campos enviados.
      *
-     * Si recibe 'correo'    → intenta login como docente.
-     * Si recibe 'documento' → intenta login como aprendiz.
+     * Si recibe 'correo'    → login como docente.
+     * Si recibe 'documento' → login como aprendiz.
+     * Siempre requiere 'password'.
      *
-     * @param string      $correo    Correo del docente (o vacío).
-     * @param string      $documento Documento del aprendiz (o vacío).
+     * @param string $correo    Correo del docente (o vacío).
+     * @param string $documento Documento del aprendiz (o vacío).
+     * @param string $password  Contraseña en texto plano.
      * @return array<string, mixed>
-     * @throws \RuntimeException 422 si no se proporcionó correo ni documento.
+     * @throws \RuntimeException 422 si faltan parámetros obligatorios.
      */
-    public function login(string $correo = '', string $documento = ''): array
+    public function login(string $correo = '', string $documento = '', string $password = ''): array
     {
         $correo    = trim($correo);
         $documento = trim($documento);
+        $password  = trim($password);
+
+        if ($password === '') {
+            throw new \RuntimeException('La contraseña es obligatoria.', 422);
+        }
 
         if ($correo !== '') {
-            return $this->loginDocente($correo);
+            return $this->loginDocente($correo, $password);
         }
 
         if ($documento !== '') {
-            return $this->loginAprendiz($documento);
+            return $this->loginAprendiz($documento, $password);
         }
 
         throw new \RuntimeException('Debe proporcionar correo (docente) o documento (aprendiz).', 422);

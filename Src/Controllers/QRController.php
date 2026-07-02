@@ -65,20 +65,26 @@ class QrController
 
     /**
      * POST /api/qr/validar
-     * Body: { "token": "abc123...", "id_estudiante": 42 }
+     * Body: { "token": "abc123..." }
+     * El id_aprendiz se obtiene de la sesión PHP autenticada.
      */
     private function validar(): void
     {
-        $cuerpo = $this->leerCuerpoJson();
+        $cuerpo  = $this->leerCuerpoJson();
+        $usuario = $this->obtenerUsuarioAutenticado();
 
-        if (empty($cuerpo['token']) || empty($cuerpo['id_estudiante'])) {
-            $this->responderError('Los campos token e id_estudiante son obligatorios.', 422);
+        if (empty($cuerpo['token'])) {
+            $this->responderError('El campo token es obligatorio.', 422);
+        }
+
+        if (($usuario['rol'] ?? '') !== 'aprendiz') {
+            $this->responderError('Solo un aprendiz puede validar un token QR.', 403);
         }
 
         try {
             $resultado = $this->servicio->validar(
                 (string) $cuerpo['token'],
-                (int)    $cuerpo['id_estudiante']
+                (int)    $usuario['id']
             );
             $this->responderExito('Token QR válido.', $resultado);
         } catch (\RuntimeException $e) {
@@ -86,6 +92,19 @@ class QrController
         } catch (\Throwable $e) {
             $this->responderError('Error interno al validar el token QR.', 500);
         }
+    }
+
+    private function obtenerUsuarioAutenticado(): array
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
+        if (empty($_SESSION['usuario']) || !is_array($_SESSION['usuario'])) {
+            $this->responderError('No autenticado.', 401);
+        }
+
+        return $_SESSION['usuario'];
     }
 
     // -------------------------------------------------------------------------

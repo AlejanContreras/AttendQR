@@ -5,7 +5,8 @@ declare(strict_types=1);
 /**
  * AttendQR – SesionService
  *
- * Responsabilidad: lógica de negocio del ciclo de vida de las sesiones de clase.
+ * Responsabilidad: lógica de negocio del ciclo de vida de las sesiones de asistencia.
+ *
  * Flujo: SesionController → SesionService → SesionRepository / QrRepository → Database
  *
  * Ubicación en el proyecto: Src/Services/SesionService.php
@@ -22,33 +23,61 @@ class SesionService
     }
 
     /**
-     * Crea una nueva sesión de clase y la deja en estado 'activa'.
+     * Crea una nueva sesión de asistencia para una ficha.
      *
      * Reglas de negocio:
-     *   1. La fecha debe tener formato Y-m-d válido.
-     *   2. El docente no puede tener ya una sesión activa en la misma fecha.
+     *   1. La ficha debe existir y estar activa.
+     *   2. El docente autenticado debe ser el propietario de la ficha.
+     *   3. No puede existir otra sesión abierta para la misma ficha hoy.
+     *   4. hora_inicio_clase se copia desde jornadas.hora_inicio.
+     *   5. limite_retardo_minutos se copia desde jornadas.minutos_gracia.
+     *   6. Se genera automáticamente el primer token QR al crear la sesión.
      *
-     * @param int    $idMateria  Identificador de la materia.
-     * @param int    $idDocente  Identificador del docente.
-     * @param string $fecha      Fecha de la sesión (Y-m-d).
+     * @param int                  $idFicha       Identificador de la ficha.
+     * @param array<string, mixed> $usuarioActual Datos del docente autenticado.
      * @return array<string, mixed> Datos de la sesión creada.
-     * @throws \RuntimeException 422 si la fecha no es válida.
-     * @throws \RuntimeException 409 si el docente ya tiene una sesión activa ese día.
+     * @throws \RuntimeException 404 si la ficha no existe.
+     * @throws \RuntimeException 403 si el docente no es el propietario de la ficha.
+     * @throws \RuntimeException 409 si la ficha está inactiva o ya tiene sesión abierta hoy.
      */
-    public function crear(int $idMateria, int $idDocente, string $fecha): array
+    public function crear(int $idFicha, array $usuarioActual): array
     {
-        if (!$this->esFechaValida($fecha)) {
-            throw new \RuntimeException("El formato de fecha '{$fecha}' no es válido. Se esperaba Y-m-d.", 422);
+        $ficha = $this->sesionRepo->obtenerFichaConJornada($idFicha);
+
+        if ($ficha === null) {
+            throw new \RuntimeException('La ficha indicada no existe.', 404);
         }
 
-        if ($this->sesionRepo->existeActivaParaDocente($idDocente, $fecha)) {
-            throw new \RuntimeException('El docente ya tiene una sesión activa en esta fecha.', 409);
+        if ((int) $ficha['activa'] !== 1) {
+            throw new \RuntimeException('La ficha se encuentra inactiva.', 409);
         }
 
-        $id     = $this->sesionRepo->crear($idMateria, $idDocente, $fecha);
-        $sesion = $this->sesionRepo->obtenerPorId($id);
+        if ((int) $ficha['id_docente'] !== (int) $usuarioActual['id']) {
+            throw new \RuntimeException('No tiene permisos para crear sesiones en esta ficha.', 403);
+        }
 
-        return $sesion ?? ['id' => $id, 'id_materia' => $idMateria, 'id_docente' => $idDocente, 'fecha' => $fecha, 'estado' => 'activa'];
+        $fecha = date('Y-m-d');
+
+        if ($this->sesionRepo->existeAbiertaParaFicha($idFicha, $fecha)) {
+            throw new \RuntimeException('Ya existe una sesión abierta para esta ficha hoy.', 409);
+        }
+
+        $horaInicioClase      = (string) $ficha['hora_inicio'];
+        $limiteRetardoMinutos = (int)    $ficha['minutos_gracia'];
+        $duracionMaximaMinutos = 240;
+
+        $idSesion = $this->sesionRepo->crear(
+            $idFicha,
+            $fecha,
+            $horaInicioClase,
+            $limiteRetardoMinutos,
+            $duracionMaximaMinutos
+        );
+
+        $this->generarPrimerToken($idSesion, 30);
+
+        return $this->sesionRepo->obtenerPorId($idSesion)
+            ?? ['id_sesion' => $idSesion, 'id_ficha' => $idFicha, 'estado_sesion' => 'abierta'];
     }
 
     /**
@@ -70,26 +99,43 @@ class SesionService
     }
 
     /**
-     * Lista sesiones con filtros opcionales de docente, fecha y estado.
+     * Obtiene la sesión actualmente abierta para una ficha.
      *
-     * @param int|null    $idDocente Filtro por docente.
-     * @param string|null $fecha     Filtro por fecha (Y-m-d).
-     * @param string|null $estado    Filtro por estado ('activa' | 'cerrada').
+     * @param int $idFicha Identificador de la ficha.
+     * @return array<string, mixed>
+     * @throws \RuntimeException 404 si no hay sesión abierta para la ficha.
+     */
+    public function sesionActivaPorFicha(int $idFicha): array
+    {
+        $sesion = $this->sesionRepo->obtenerActivaPorFicha($idFicha);
+
+        if ($sesion === null) {
+            throw new \RuntimeException('No hay sesión abierta para esta ficha.', 404);
+        }
+
+        return $sesion;
+    }
+
+    /**
+     * Lista sesiones con filtros opcionales de ficha y estado.
+     *
+     * @param int|null    $idFicha Filtro por ficha.
+     * @param string|null $estado  Filtro por estado ('abierta' | 'cerrada' | 'cancelada').
      * @return array<string, mixed>
      * @throws \RuntimeException 422 si el estado no es válido.
      */
-    public function listar(?int $idDocente = null, ?string $fecha = null, ?string $estado = null): array
+    public function listar(?int $idFicha = null, ?string $estado = null): array
     {
-        $estadosPermitidos = ['activa', 'cerrada'];
+        $estadosPermitidos = ['abierta', 'cerrada', 'cancelada'];
 
         if ($estado !== null && !in_array($estado, $estadosPermitidos, true)) {
             throw new \RuntimeException(
-                "Estado '{$estado}' no válido. Valores permitidos: " . implode(', ', $estadosPermitidos) . '.',
+                "Estado '{$estado}' no válido. Permitidos: " . implode(', ', $estadosPermitidos) . '.',
                 422
             );
         }
 
-        $sesiones = $this->sesionRepo->listar($idDocente, $fecha, $estado);
+        $sesiones = $this->sesionRepo->listar($idFicha, $estado);
 
         return [
             'sesiones' => $sesiones,
@@ -98,19 +144,22 @@ class SesionService
     }
 
     /**
-     * Cierra una sesión activa e invalida todos sus tokens QR asociados.
+     * Cierra una sesión abierta e invalida todos sus tokens QR activos.
      *
      * Reglas de negocio:
      *   1. La sesión debe existir.
-     *   2. La sesión debe estar en estado 'activa'.
-     *   3. Se invalidan los QR vinculados antes de cerrar.
+     *   2. La sesión debe estar en estado 'abierta'.
+     *   3. El docente autenticado debe ser el propietario de la ficha.
+     *   4. Se invalidan los tokens QR antes de cerrar.
      *
-     * @param int $idSesion Identificador de la sesión a cerrar.
+     * @param int                  $idSesion      Identificador de la sesión.
+     * @param array<string, mixed> $usuarioActual Datos del docente autenticado.
      * @return array<string, mixed>
      * @throws \RuntimeException 404 si la sesión no existe.
-     * @throws \RuntimeException 409 si la sesión ya está cerrada.
+     * @throws \RuntimeException 403 si el docente no es el propietario.
+     * @throws \RuntimeException 409 si la sesión ya no está abierta.
      */
-    public function cerrar(int $idSesion): array
+    public function cerrar(int $idSesion, array $usuarioActual): array
     {
         $sesion = $this->sesionRepo->obtenerPorId($idSesion);
 
@@ -118,20 +167,22 @@ class SesionService
             throw new \RuntimeException('Sesión no encontrada.', 404);
         }
 
-        if ((string) $sesion['estado'] !== 'activa') {
-            throw new \RuntimeException('La sesión ya fue cerrada.', 409);
+        if ((int) $sesion['id_docente'] !== (int) $usuarioActual['id']) {
+            throw new \RuntimeException('No tiene permisos para cerrar esta sesión.', 403);
+        }
+
+        if ((string) $sesion['estado_sesion'] !== 'abierta') {
+            throw new \RuntimeException('La sesión ya no está abierta.', 409);
         }
 
         $this->qrRepo->invalidarPorSesion($idSesion);
 
-        $horaCierre = date('Y-m-d H:i:s');
+        $horaCierre = date('Y-m-d H:i:s.') . substr((string) microtime(true), -3);
         $this->sesionRepo->cerrar($idSesion, $horaCierre);
 
         return [
-            'success'     => true,
             'id_sesion'   => $idSesion,
             'hora_cierre' => $horaCierre,
-            'message'     => 'Sesión cerrada correctamente.',
         ];
     }
 
@@ -140,16 +191,16 @@ class SesionService
     // -------------------------------------------------------------------------
 
     /**
-     * Valida que una cadena tenga el formato Y-m-d y represente una fecha real.
+     * Genera el primer token QR al crear una sesión.
+     * La lógica completa de rotación y validación pertenece al Módulo 3 (QR).
      *
-     * @param string $fecha Cadena a validar.
-     * @return bool
+     * @param int $idSesion          Identificador de la sesión recién creada.
+     * @param int $rotacionSegundos  Segundos de vida del token.
      */
-    private function esFechaValida(string $fecha): bool
+    private function generarPrimerToken(int $idSesion, int $rotacionSegundos): void
     {
-        $dt = \DateTime::createFromFormat('Y-m-d', $fecha);
-
-        return $dt !== false
-            && checkdate((int) $dt->format('m'), (int) $dt->format('d'), (int) $dt->format('Y'));
+        $token    = bin2hex(random_bytes(32));
+        $expiraEn = date('Y-m-d H:i:s', time() + $rotacionSegundos);
+        $this->qrRepo->crear($idSesion, $token, $expiraEn);
     }
 }

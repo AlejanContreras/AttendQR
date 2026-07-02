@@ -332,8 +332,7 @@ ORDER BY
  
  
  
- 
- 
+
 SELECT * FROM mensual_2879345_tarde;
   
 SELECT * FROM mensual_2879345_tarde_V2;

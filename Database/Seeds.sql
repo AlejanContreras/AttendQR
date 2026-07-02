@@ -8,8 +8,9 @@ USE attendqr;
 -- ============================================================
 -- 1. DOCENTES
 -- ============================================================
-INSERT INTO docentes (id_docente, nombres, apellidos, correo, activo) VALUES
-(1, 'Carlos Alberto', 'Ramírez Torres', 'carlos.ramirez@sena.edu.co', 1);
+-- password de prueba: 123456
+INSERT INTO docentes (id_docente, nombres, apellidos, correo, password_hash, activo) VALUES
+(1, 'Carlos Alberto', 'Ramírez Torres', 'carlos.ramirez@sena.edu.co', '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 1);
 
 
 -- ============================================================
@@ -37,15 +38,16 @@ INSERT INTO fichas (id_ficha, codigo_ficha, nombre_programa, id_docente, id_jorn
 -- ============================================================
 -- 5. APRENDICES (8 activos, 1 retirado)
 -- ============================================================
-INSERT INTO aprendices (id_aprendiz, numero_documento, nombres, apellidos, id_ficha, activo) VALUES
-(1, '1020456789', 'Sebastián',  'García López',    1, 1),
-(2, '1045678901', 'Valentina',  'Martínez Ruiz',   1, 1),
-(3, '1067890123', 'Mateo',      'Hernández Peña',  1, 1),
-(4, '1089012345', 'Salomé',     'Vargas Díaz',     1, 1),
-(5, '1001234567', 'Tomás',      'Castro Moreno',   1, 1),
-(6, '1023456789', 'Isabella',   'Rodríguez Silva', 1, 1),
-(7, '1056789012', 'Daniel',     'Jiménez Torres',  1, 1),
-(8, '1078901234', 'Laura',      'Gómez Restrepo',  1, 0); -- retirada
+-- password de prueba para todos: 123456
+INSERT INTO aprendices (id_aprendiz, numero_documento, nombres, apellidos, password_hash, id_ficha, activo) VALUES
+(1, '1020456789', 'Sebastián',  'García López',    '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 1, 1),
+(2, '1045678901', 'Valentina',  'Martínez Ruiz',   '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 1, 1),
+(3, '1067890123', 'Mateo',      'Hernández Peña',  '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 1, 1),
+(4, '1089012345', 'Salomé',     'Vargas Díaz',     '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 1, 1),
+(5, '1001234567', 'Tomás',      'Castro Moreno',   '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 1, 1),
+(6, '1023456789', 'Isabella',   'Rodríguez Silva', '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 1, 1),
+(7, '1056789012', 'Daniel',     'Jiménez Torres',  '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 1, 1),
+(8, '1078901234', 'Laura',      'Gómez Restrepo',  '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 1, 0); -- retirada
 
 
 -- ============================================================
@@ -106,7 +108,7 @@ INSERT INTO asistencias (id_sesion, id_aprendiz, id_token_usado, estado, metodo_
 -- SESIÓN 3 — mié-14
 INSERT INTO asistencias (id_sesion, id_aprendiz, id_token_usado, estado, metodo_registro, hora_registro, minutos_retardo) VALUES
 (3, 1, 3, 'presente', 'qr',     '2025-05-14 14:03:11.220', 0),
-(3, 2, 3, 'excusa',   'qr',     NULL,                      0),
+(3, 2, 3, 'excusa',   'manual',     NULL,                      0),
 (3, 3, 3, 'presente', 'qr',     '2025-05-14 14:04:09.001', 0),
 (3, 4, 3, 'presente', 'qr',     '2025-05-14 14:02:55.340', 0),
 (3, 5, NULL,'ausente','manual',  NULL,                      0),

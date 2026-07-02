@@ -54,8 +54,8 @@ class AuthController
     /**
      * POST /api/auth/login
      *
-     * Para docentes:  Body { "correo": "..." }
-     * Para aprendices: Body { "documento": "..." }
+     * Para docentes:   Body { "correo": "...",    "password": "..." }
+     * Para aprendices: Body { "documento": "...", "password": "..." }
      */
     private function login(): void
     {
@@ -67,6 +67,7 @@ class AuthController
 
         $correo    = (string) ($cuerpo['correo']    ?? '');
         $documento = (string) ($cuerpo['documento'] ?? '');
+        $password  = (string) ($cuerpo['password']  ?? '');
 
         if ($correo === '' && $documento === '') {
             $this->responderError(
@@ -74,10 +75,13 @@ class AuthController
             );
         }
 
-        try {
-            $usuario = $this->servicio->login($correo, $documento);
+        if ($password === '') {
+            $this->responderError('La contraseña es obligatoria.', 422);
+        }
 
-            // Guardar en sesión PHP para verificaciones posteriores
+        try {
+            $usuario = $this->servicio->login($correo, $documento, $password);
+
             $_SESSION['usuario'] = $usuario;
 
             $this->responderExito('Sesión iniciada correctamente.', $usuario);

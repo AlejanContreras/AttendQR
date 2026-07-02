@@ -54,12 +54,13 @@ USE attendqr;
 -- TABLA: docentes
 -- ============================================================
 CREATE TABLE docentes (
-  id_docente   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  nombres      VARCHAR(80)  NOT NULL,
-  apellidos    VARCHAR(80)  NOT NULL,
-  correo       VARCHAR(120) NOT NULL UNIQUE,
-  activo       TINYINT(1)   NOT NULL DEFAULT 1,
-  creado_en    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+  id_docente    INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
+  nombres       VARCHAR(80)   NOT NULL,
+  apellidos     VARCHAR(80)   NOT NULL,
+  correo        VARCHAR(120)  NOT NULL UNIQUE,
+  password_hash VARCHAR(255)  NOT NULL,
+  activo        TINYINT(1)    NOT NULL DEFAULT 1,
+  creado_en     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB COMMENT='Instructores SENA';
 
 
@@ -114,12 +115,13 @@ CREATE TABLE fichas (
 -- Cada aprendiz pertenece solo a una ficha.
 -- ============================================================
 CREATE TABLE aprendices (
-  id_aprendiz      INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  numero_documento VARCHAR(20)  NOT NULL UNIQUE,
-  nombres          VARCHAR(80)  NOT NULL,
-  apellidos        VARCHAR(80)  NOT NULL,
-  id_ficha         INT UNSIGNED NOT NULL,
-  activo           TINYINT(1)   NOT NULL DEFAULT 1
+  id_aprendiz      INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
+  numero_documento VARCHAR(20)   NOT NULL UNIQUE,
+  nombres          VARCHAR(80)   NOT NULL,
+  apellidos        VARCHAR(80)   NOT NULL,
+  password_hash    VARCHAR(255)  NOT NULL,
+  id_ficha         INT UNSIGNED  NOT NULL,
+  activo           TINYINT(1)    NOT NULL DEFAULT 1
                    COMMENT '0 = retirado',
   CONSTRAINT fk_aprendiz_ficha FOREIGN KEY (id_ficha) REFERENCES fichas(id_ficha)
 ) ENGINE=InnoDB COMMENT='Aprendices, uno por ficha';

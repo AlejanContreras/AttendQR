@@ -2,6 +2,21 @@
 
 declare(strict_types=1);
 
+/**
+ * AttendQR – SesionController
+ *
+ * Responsabilidad: recibir peticiones HTTP del módulo de sesiones,
+ * delegar al SesionService y devolver respuestas JSON.
+ *
+ * Rutas:
+ *   POST /api/sesiones/crear            → abrir sesión (docente)
+ *   GET  /api/sesiones/listar           → listar sesiones (?id_ficha=X&estado=Y)
+ *   GET  /api/sesiones/detalle/{id}     → detalle de una sesión
+ *   GET  /api/sesiones/activa/{idFicha} → sesión actualmente abierta de una ficha
+ *   POST /api/sesiones/cerrar/{id}      → cerrar una sesión
+ *
+ * Ubicación en el proyecto: Src/Controllers/SesionController.php
+ */
 class SesionController
 {
     private SesionService $servicio;
@@ -14,19 +29,22 @@ class SesionController
     public function handle(string $metodo, string $accion, array $params): void
     {
         match ($accion) {
-            'crear' => $this->despacharConMetodo($metodo, 'POST',
+            'crear'   => $this->despacharConMetodo($metodo, 'POST',
                 fn() => $this->crear()
             ),
-            'listar' => $this->despacharConMetodo($metodo, 'GET',
+            'listar'  => $this->despacharConMetodo($metodo, 'GET',
                 fn() => $this->listar()
             ),
             'detalle' => $this->despacharConMetodo($metodo, 'GET',
                 fn() => $this->detalle($this->extraerIdRequerido($params, 'sesión'))
             ),
-            'cerrar' => $this->despacharConMetodo($metodo, 'POST',
+            'activa'  => $this->despacharConMetodo($metodo, 'GET',
+                fn() => $this->activa($this->extraerIdRequerido($params, 'ficha'))
+            ),
+            'cerrar'  => $this->despacharConMetodo($metodo, 'POST',
                 fn() => $this->cerrar($this->extraerIdRequerido($params, 'sesión'))
             ),
-            default => $this->responderError(
+            default   => $this->responderError(
                 "Acción '{$accion}' no encontrada en SesionController.", 404
             ),
         };
@@ -38,24 +56,19 @@ class SesionController
 
     /**
      * POST /api/sesiones/crear
-     * Body: { "id_materia": 1, "id_docente": 3, "fecha": "2025-06-10" }
+     * Body: { "id_ficha": 1 }
      */
     private function crear(): void
     {
-        $cuerpo = $this->leerCuerpoJson();
+        $cuerpo  = $this->leerCuerpoJson();
+        $usuario = $this->obtenerUsuarioAutenticado();
 
-        if (empty($cuerpo['id_materia']) || empty($cuerpo['id_docente'])) {
-            $this->responderError('Los campos id_materia e id_docente son obligatorios.', 422);
+        if (empty($cuerpo['id_ficha'])) {
+            $this->responderError('El campo id_ficha es obligatorio.', 422);
         }
 
-        $fecha = $cuerpo['fecha'] ?? date('Y-m-d');
-
         try {
-            $sesion = $this->servicio->crear(
-                (int)    $cuerpo['id_materia'],
-                (int)    $cuerpo['id_docente'],
-                (string) $fecha
-            );
+            $sesion = $this->servicio->crear((int) $cuerpo['id_ficha'], $usuario);
             $this->responderExito('Sesión creada correctamente.', $sesion, 201);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
@@ -66,16 +79,15 @@ class SesionController
 
     /**
      * GET /api/sesiones/listar
-     * Query params opcionales: ?id_docente=3&fecha=2025-06-10&estado=activa
+     * Query params opcionales: ?id_ficha=1&estado=abierta
      */
     private function listar(): void
     {
-        $idDocente = isset($_GET['id_docente']) ? (int) $_GET['id_docente'] : null;
-        $fecha     = $_GET['fecha']  ?? null;
-        $estado    = $_GET['estado'] ?? null;
+        $idFicha = isset($_GET['id_ficha']) ? (int) $_GET['id_ficha'] : null;
+        $estado  = $_GET['estado'] ?? null;
 
         try {
-            $resultado = $this->servicio->listar($idDocente, $fecha, $estado);
+            $resultado = $this->servicio->listar($idFicha, $estado);
             $this->responderExito('Sesiones obtenidas correctamente.', $resultado);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
@@ -100,13 +112,30 @@ class SesionController
     }
 
     /**
+     * GET /api/sesiones/activa/{idFicha}
+     */
+    private function activa(int $idFicha): void
+    {
+        try {
+            $sesion = $this->servicio->sesionActivaPorFicha($idFicha);
+            $this->responderExito('Sesión activa encontrada.', $sesion);
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 404);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al obtener la sesión activa.', 500);
+        }
+    }
+
+    /**
      * POST /api/sesiones/cerrar/{idSesion}
      */
     private function cerrar(int $idSesion): void
     {
+        $usuario = $this->obtenerUsuarioAutenticado();
+
         try {
-            $resultado = $this->servicio->cerrar($idSesion);
-            $this->responderExito($resultado['message'] ?? 'Sesión cerrada correctamente.', $resultado);
+            $resultado = $this->servicio->cerrar($idSesion, $usuario);
+            $this->responderExito('Sesión cerrada correctamente.', $resultado);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
@@ -117,6 +146,19 @@ class SesionController
     // -------------------------------------------------------------------------
     // Auxiliares
     // -------------------------------------------------------------------------
+
+    private function obtenerUsuarioAutenticado(): array
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
+        if (empty($_SESSION['usuario']) || !is_array($_SESSION['usuario'])) {
+            $this->responderError('No autenticado.', 401);
+        }
+
+        return $_SESSION['usuario'];
+    }
 
     private function despacharConMetodo(string $metodoRecibido, string $metodoEsperado, callable $callback): void
     {
