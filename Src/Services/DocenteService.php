@@ -41,15 +41,20 @@ class DocenteService
     }
 
     /**
-     * Lista docentes con filtros opcionales de estado y especialidad.
+     * Lista docentes con filtro opcional de estado.
      *
-     * @param string|null $estado       Filtro por estado ('activo' | 'inactivo').
-     * @param string|null $especialidad Filtro por especialidad.
+     * @param string|null $estado Filtro por estado ('activo' | 'inactivo').
      * @return array<string, mixed>
      */
-    public function listar(?string $estado = null, ?string $especialidad = null): array
+    public function listar(?string $estado = null): array
     {
-        $docentes = $this->docenteRepo->listar($estado, $especialidad);
+        $activo = match ($estado) {
+            'activo'   => 1,
+            'inactivo' => 0,
+            default    => null,
+        };
+
+        $docentes = $this->docenteRepo->listar($activo);
 
         return [
             'docentes' => $docentes,
@@ -62,30 +67,23 @@ class DocenteService
      *
      * Reglas de negocio:
      *   1. El correo debe tener formato válido.
-     *   2. El documento no puede estar duplicado.
-     *   3. El correo no puede estar en uso.
-     *   4. La contraseña se hashea con BCRYPT antes de persistir.
+     *   2. El correo no puede estar en uso.
+     *   3. La contraseña se hashea con BCRYPT antes de persistir.
      *
-     * @param string      $documento    Número de documento de identidad.
-     * @param string      $nombres      Nombres del docente.
-     * @param string      $apellidos    Apellidos del docente.
-     * @param string      $correo       Correo electrónico institucional.
-     * @param string      $contrasena   Contraseña en texto plano.
-     * @param string|null $especialidad Especialidad o área de formación.
+     * @param string $nombres    Nombres del docente.
+     * @param string $apellidos  Apellidos del docente.
+     * @param string $correo     Correo electrónico institucional.
+     * @param string $contrasena Contraseña en texto plano.
      * @return array<string, mixed> Datos públicos del docente creado.
      * @throws \RuntimeException 422 si el correo no es válido.
-     * @throws \RuntimeException 409 si el documento ya está registrado.
      * @throws \RuntimeException 409 si el correo ya está en uso.
      */
     public function registrar(
-        string  $documento,
-        string  $nombres,
-        string  $apellidos,
-        string  $correo,
-        string  $contrasena,
-        ?string $especialidad = null
+        string $nombres,
+        string $apellidos,
+        string $correo,
+        string $contrasena
     ): array {
-        $documento = trim($documento);
         $nombres   = trim($nombres);
         $apellidos = trim($apellidos);
         $correo    = strtolower(trim($correo));
@@ -94,27 +92,21 @@ class DocenteService
             throw new \RuntimeException("El correo '{$correo}' no tiene un formato válido.", 422);
         }
 
-        if ($this->docenteRepo->existeDocumento($documento)) {
-            throw new \RuntimeException('El documento ya está registrado en el sistema.', 409);
-        }
-
         if ($this->docenteRepo->existeCorreo($correo)) {
             throw new \RuntimeException('El correo ya está en uso por otro docente.', 409);
         }
 
-        $contrasenaHash = password_hash($contrasena, PASSWORD_BCRYPT);
+        $passwordHash = password_hash($contrasena, PASSWORD_BCRYPT);
 
-        $id      = $this->docenteRepo->crear($documento, $nombres, $apellidos, $correo, $contrasenaHash, $especialidad);
+        $id      = $this->docenteRepo->crear($nombres, $apellidos, $correo, $passwordHash);
         $docente = $this->docenteRepo->obtenerPorId($id);
 
         return $docente ?? [
-            'id'           => $id,
-            'documento'    => $documento,
-            'nombres'      => $nombres,
-            'apellidos'    => $apellidos,
-            'correo'       => $correo,
-            'especialidad' => $especialidad,
-            'estado'       => 'activo',
+            'id_docente' => $id,
+            'nombres'    => $nombres,
+            'apellidos'  => $apellidos,
+            'correo'     => $correo,
+            'activo'     => 1,
         ];
     }
 
@@ -154,7 +146,7 @@ class DocenteService
         }
 
         if (!empty($datos['contrasena'])) {
-            $datos['contrasena_hash'] = password_hash((string) $datos['contrasena'], PASSWORD_BCRYPT);
+            $datos['password_hash'] = password_hash((string) $datos['contrasena'], PASSWORD_BCRYPT);
             unset($datos['contrasena']);
         }
 
@@ -196,12 +188,6 @@ class DocenteService
     // Métodos privados de apoyo
     // -------------------------------------------------------------------------
 
-    /**
-     * Valida el formato de un correo electrónico.
-     *
-     * @param string $correo Correo a validar.
-     * @return bool
-     */
     private function esCorreoValido(string $correo): bool
     {
         return filter_var($correo, FILTER_VALIDATE_EMAIL) !== false;

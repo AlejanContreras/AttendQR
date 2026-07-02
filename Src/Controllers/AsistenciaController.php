@@ -5,15 +5,15 @@ declare(strict_types=1);
 /**
  * AttendQR – AsistenciaController
  *
- * Responsabilidad: gestionar el módulo de asistencias.
- * Delega toda la lógica a AsistenciaService.
+ * Responsabilidad: recibir peticiones HTTP del módulo de asistencias,
+ * delegar al AsistenciaService y devolver respuestas JSON.
  *
  * Rutas:
- *   POST   /api/asistencias/registrar        → registrar asistencia de un estudiante
+ *   POST   /api/asistencias/registrar        → aprendiz registra asistencia por QR
  *   GET    /api/asistencias/consultar/{id}   → consultar un registro por ID
  *   GET    /api/asistencias/historial/{id}   → historial de asistencias de un aprendiz
- *   POST   /api/asistencias/validar          → verificar si ya existe registro
- *   DELETE /api/asistencias/eliminar/{id}    → eliminar un registro
+ *   POST   /api/asistencias/validar          → verificar si ya existe registro (docente)
+ *   DELETE /api/asistencias/eliminar/{id}    → eliminar un registro (docente)
  *
  * Ubicación en el proyecto: Src/Controllers/AsistenciaController.php
  */
@@ -63,23 +63,31 @@ class AsistenciaController
 
     /**
      * POST /api/asistencias/registrar
-     * Body: { "id_estudiante": 42, "id_sesion": 15 }
+     * Body: { "token": "abc123..." }
+     *
+     * El aprendiz autenticado escanea el QR y envía el token.
+     * El sistema valida, clasifica y registra. No se confía en ningún dato del cliente
+     * salvo el valor del token.
      */
     private function registrar(): void
     {
-        $cuerpo = $this->leerCuerpoJson();
+        $cuerpo  = $this->leerCuerpoJson();
+        $usuario = $this->obtenerUsuarioAutenticado();
 
-        if (empty($cuerpo['id_estudiante']) || empty($cuerpo['id_sesion'])) {
-            $this->responderError('Los campos id_estudiante e id_sesion son obligatorios.', 422);
+        if (empty($cuerpo['token'])) {
+            $this->responderError('El campo token es obligatorio.', 422);
+        }
+
+        if (($usuario['rol'] ?? '') !== 'aprendiz') {
+            $this->responderError('Solo un aprendiz puede registrar su asistencia por QR.', 403);
         }
 
         try {
-            $asistencia = $this->servicio->registrar(
-                (int) $cuerpo['id_estudiante'],
-                (int) $cuerpo['id_sesion']
+            $asistencia = $this->servicio->registrarPorQr(
+                (string) $cuerpo['token'],
+                $usuario
             );
             $this->responderExito('Asistencia registrada correctamente.', $asistencia, 201);
-
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
@@ -95,7 +103,6 @@ class AsistenciaController
         try {
             $asistencia = $this->servicio->consultar($idAsistencia);
             $this->responderExito('Asistencia encontrada.', $asistencia);
-
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 404);
         } catch (\Throwable $e) {
@@ -105,18 +112,16 @@ class AsistenciaController
 
     /**
      * GET /api/asistencias/historial/{idAprendiz}
-     * Query params opcionales: ?id_materia=3&fecha_inicio=2025-03-01&fecha_fin=2025-06-30
+     * Query params opcionales: ?fecha_inicio=2025-03-01&fecha_fin=2025-06-30
      */
     private function historial(int $idAprendiz): void
     {
-        $idMateria   = isset($_GET['id_materia']) ? (int) $_GET['id_materia'] : null;
         $fechaInicio = $_GET['fecha_inicio'] ?? null;
         $fechaFin    = $_GET['fecha_fin']    ?? null;
 
         try {
-            $historial = $this->servicio->historial($idAprendiz, $idMateria, $fechaInicio, $fechaFin);
+            $historial = $this->servicio->historial($idAprendiz, $fechaInicio, $fechaFin);
             $this->responderExito('Historial obtenido correctamente.', $historial);
-
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 404);
         } catch (\Throwable $e) {
@@ -126,23 +131,23 @@ class AsistenciaController
 
     /**
      * POST /api/asistencias/validar
-     * Body: { "id_estudiante": 42, "id_sesion": 15 }
+     * Body: { "id_aprendiz": 42, "id_sesion": 15 }
+     * Endpoint para que el docente verifique si un aprendiz ya registró asistencia.
      */
     private function validar(): void
     {
         $cuerpo = $this->leerCuerpoJson();
 
-        if (empty($cuerpo['id_estudiante']) || empty($cuerpo['id_sesion'])) {
-            $this->responderError('Los campos id_estudiante e id_sesion son obligatorios.', 422);
+        if (empty($cuerpo['id_aprendiz']) || empty($cuerpo['id_sesion'])) {
+            $this->responderError('Los campos id_aprendiz e id_sesion son obligatorios.', 422);
         }
 
         try {
             $resultado = $this->servicio->validar(
-                (int) $cuerpo['id_estudiante'],
+                (int) $cuerpo['id_aprendiz'],
                 (int) $cuerpo['id_sesion']
             );
             $this->responderExito('Validación completada.', $resultado);
-
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
@@ -158,7 +163,6 @@ class AsistenciaController
         try {
             $resultado = $this->servicio->eliminar($idAsistencia);
             $this->responderExito($resultado['message'] ?? 'Asistencia eliminada correctamente.', []);
-
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 404);
         } catch (\Throwable $e) {
@@ -169,6 +173,19 @@ class AsistenciaController
     // -------------------------------------------------------------------------
     // Auxiliares
     // -------------------------------------------------------------------------
+
+    private function obtenerUsuarioAutenticado(): array
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
+        if (empty($_SESSION['usuario']) || !is_array($_SESSION['usuario'])) {
+            $this->responderError('No autenticado.', 401);
+        }
+
+        return $_SESSION['usuario'];
+    }
 
     private function despacharConMetodo(string $metodoRecibido, string $metodoEsperado, callable $callback): void
     {

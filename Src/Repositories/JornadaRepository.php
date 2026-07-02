@@ -5,12 +5,11 @@ declare(strict_types=1);
 /**
  * AttendQR – JornadaRepository
  *
- * Responsabilidad: acceder a la tabla `jornadas` para todas las
- * operaciones CRUD del catálogo de jornadas académicas.
+ * Tabla: jornadas
+ * Columnas reales: id_jornada, nombre, hora_inicio, hora_fin, minutos_gracia
+ * NOTA: la tabla jornadas NO tiene columna 'estado'. Es una tabla de referencia.
  *
- * NO valida coherencia de horarios (eso lo hace JornadaService).
  * NO contiene lógica de negocio.
- *
  * Flujo: JornadaService → JornadaRepository → BaseRepository → Database → MySQL
  *
  * Ubicación en el proyecto: Src/Repositories/JornadaRepository.php
@@ -26,35 +25,25 @@ class JornadaRepository extends BaseRepository
     public function obtenerPorId(int $idJornada): ?array
     {
         return $this->consultarUno(
-            'SELECT id, nombre, hora_inicio, hora_fin, estado
+            'SELECT id_jornada, nombre, hora_inicio, hora_fin, minutos_gracia
              FROM jornadas
-             WHERE id = :id',
+             WHERE id_jornada = :id',
             [':id' => $idJornada]
         );
     }
 
     /**
-     * Lista jornadas con filtro opcional de estado.
-     * Ordena por hora de inicio ascendente.
+     * Lista todas las jornadas ordenadas por hora de inicio.
      *
-     * @param string|null $estado Filtro por estado ('activa' | 'inactiva').
      * @return array<int, array<string, mixed>>
      */
-    public function listar(?string $estado = null): array
+    public function listar(): array
     {
-        $sql    = 'SELECT id, nombre, hora_inicio, hora_fin, estado
-                   FROM jornadas
-                   WHERE 1=1';
-        $params = [];
-
-        if ($estado !== null) {
-            $sql .= ' AND estado = :estado';
-            $params[':estado'] = $estado;
-        }
-
-        $sql .= ' ORDER BY hora_inicio ASC';
-
-        return $this->consultar($sql, $params);
+        return $this->consultar(
+            'SELECT id_jornada, nombre, hora_inicio, hora_fin, minutos_gracia
+             FROM jornadas
+             ORDER BY hora_inicio'
+        );
     }
 
     /**
@@ -70,7 +59,7 @@ class JornadaRepository extends BaseRepository
         $params = [':nombre' => $nombre];
 
         if ($excluirId !== null) {
-            $sql              .= ' AND id != :excluir';
+            $sql              .= ' AND id_jornada != :excluir';
             $params[':excluir'] = $excluirId;
         }
 
@@ -78,19 +67,29 @@ class JornadaRepository extends BaseRepository
     }
 
     /**
-     * Inserta una nueva jornada académica.
+     * Inserta una nueva jornada.
      *
-     * @param string      $nombre     Nombre de la jornada.
-     * @param string|null $horaInicio Hora de inicio ('HH:MM').
-     * @param string|null $horaFin    Hora de fin ('HH:MM').
+     * @param string      $nombre        Nombre de la jornada.
+     * @param string|null $horaInicio    Hora de inicio (HH:MM).
+     * @param string|null $horaFin       Hora de fin (HH:MM).
+     * @param int         $minutosGracia Minutos de gracia para marcar presencia.
      * @return int ID de la jornada creada.
      */
-    public function crear(string $nombre, ?string $horaInicio = null, ?string $horaFin = null): int
-    {
+    public function crear(
+        string  $nombre,
+        ?string $horaInicio    = null,
+        ?string $horaFin       = null,
+        int     $minutosGracia = 5
+    ): int {
         return $this->insertar(
-            "INSERT INTO jornadas (nombre, hora_inicio, hora_fin, estado)
-             VALUES (:nombre, :inicio, :fin, 'activa')",
-            [':nombre' => $nombre, ':inicio' => $horaInicio, ':fin' => $horaFin]
+            'INSERT INTO jornadas (nombre, hora_inicio, hora_fin, minutos_gracia)
+             VALUES (:nombre, :inicio, :fin, :gracia)',
+            [
+                ':nombre' => $nombre,
+                ':inicio' => $horaInicio,
+                ':fin'    => $horaFin,
+                ':gracia' => $minutosGracia,
+            ]
         );
     }
 
@@ -103,13 +102,13 @@ class JornadaRepository extends BaseRepository
      */
     public function actualizar(int $idJornada, array $datos): int
     {
-        $camposPermitidos = ['nombre', 'hora_inicio', 'hora_fin', 'estado'];
+        $camposPermitidos = ['nombre', 'hora_inicio', 'hora_fin', 'minutos_gracia'];
         $set    = [];
         $params = [':id' => $idJornada];
 
         foreach ($camposPermitidos as $campo) {
             if (array_key_exists($campo, $datos)) {
-                $set[]             = "{$campo} = :{$campo}";
+                $set[]              = "{$campo} = :{$campo}";
                 $params[":{$campo}"] = $datos[$campo];
             }
         }
@@ -119,7 +118,7 @@ class JornadaRepository extends BaseRepository
         }
 
         return $this->ejecutar(
-            'UPDATE jornadas SET ' . implode(', ', $set) . ' WHERE id = :id',
+            'UPDATE jornadas SET ' . implode(', ', $set) . ' WHERE id_jornada = :id',
             $params
         );
     }
@@ -133,7 +132,7 @@ class JornadaRepository extends BaseRepository
     public function eliminar(int $idJornada): int
     {
         return $this->ejecutar(
-            'DELETE FROM jornadas WHERE id = :id',
+            'DELETE FROM jornadas WHERE id_jornada = :id',
             [':id' => $idJornada]
         );
     }

@@ -49,7 +49,13 @@ class AprendizService
      */
     public function listar(?int $idFicha = null, ?string $estado = null, ?string $documento = null): array
     {
-        $aprendices = $this->aprendizRepo->listar($idFicha, $estado, $documento);
+        $activo = match ($estado) {
+            'activo'   => 1,
+            'inactivo' => 0,
+            default    => null,
+        };
+
+        $aprendices = $this->aprendizRepo->listar($idFicha, $activo, $documento);
 
         return [
             'aprendices' => $aprendices,
@@ -61,40 +67,33 @@ class AprendizService
      * Registra un nuevo aprendiz y lo asocia a una ficha de formación.
      *
      * Reglas de negocio:
-     *   1. El correo debe tener formato válido.
-     *   2. El documento no puede estar duplicado.
-     *   3. El correo no puede estar en uso.
-     *   4. La ficha debe existir y estar activa.
+     *   1. El documento no puede estar duplicado.
+     *   2. La ficha debe existir y estar activa.
+     *   3. La contraseña se hashea con BCRYPT antes de persistir.
      *
-     * @param string $documento Número de documento de identidad.
-     * @param string $nombres   Nombres del aprendiz.
-     * @param string $apellidos Apellidos del aprendiz.
-     * @param string $correo    Correo electrónico institucional.
-     * @param int    $idFicha   Ficha a la que se vincula.
+     * @param string $numeroDocumento Número de documento de identidad.
+     * @param string $nombres         Nombres del aprendiz.
+     * @param string $apellidos       Apellidos del aprendiz.
+     * @param string $password        Contraseña en texto plano.
+     * @param int    $idFicha         Ficha a la que se vincula.
      * @return array<string, mixed> Datos del aprendiz creado.
-     * @throws \RuntimeException 422 si el correo no es válido.
      * @throws \RuntimeException 409 si el documento ya está registrado.
-     * @throws \RuntimeException 409 si el correo ya está en uso.
      * @throws \RuntimeException 404 si la ficha no existe.
      * @throws \RuntimeException 422 si la ficha no está activa.
      */
-    public function registrar(string $documento, string $nombres, string $apellidos, string $correo, int $idFicha): array
-    {
-        $documento = trim($documento);
-        $nombres   = trim($nombres);
-        $apellidos = trim($apellidos);
-        $correo    = strtolower(trim($correo));
+    public function registrar(
+        string $numeroDocumento,
+        string $nombres,
+        string $apellidos,
+        string $password,
+        int    $idFicha
+    ): array {
+        $numeroDocumento = trim($numeroDocumento);
+        $nombres         = trim($nombres);
+        $apellidos       = trim($apellidos);
 
-        if (!$this->esCorreoValido($correo)) {
-            throw new \RuntimeException("El correo '{$correo}' no tiene un formato válido.", 422);
-        }
-
-        if ($this->aprendizRepo->existeDocumento($documento)) {
+        if ($this->aprendizRepo->existeDocumento($numeroDocumento)) {
             throw new \RuntimeException('El documento ya está registrado en el sistema.', 409);
-        }
-
-        if ($this->aprendizRepo->existeCorreo($correo)) {
-            throw new \RuntimeException('El correo ya está en uso por otro aprendiz.', 409);
         }
 
         $ficha = $this->fichaRepo->obtenerPorId($idFicha);
@@ -103,21 +102,22 @@ class AprendizService
             throw new \RuntimeException('Ficha no encontrada.', 404);
         }
 
-        if ((string) $ficha['estado'] !== 'activa') {
+        if ((int) $ficha['activa'] !== 1) {
             throw new \RuntimeException('La ficha no está activa.', 422);
         }
 
-        $id       = $this->aprendizRepo->crear($documento, $nombres, $apellidos, $correo, $idFicha);
+        $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+
+        $id       = $this->aprendizRepo->crear($numeroDocumento, $nombres, $apellidos, $passwordHash, $idFicha);
         $aprendiz = $this->aprendizRepo->obtenerPorId($id);
 
         return $aprendiz ?? [
-            'id'        => $id,
-            'documento' => $documento,
-            'nombres'   => $nombres,
-            'apellidos' => $apellidos,
-            'correo'    => $correo,
-            'id_ficha'  => $idFicha,
-            'estado'    => 'activo',
+            'id_aprendiz'     => $id,
+            'numero_documento' => $numeroDocumento,
+            'nombres'         => $nombres,
+            'apellidos'       => $apellidos,
+            'id_ficha'        => $idFicha,
+            'activo'          => 1,
         ];
     }
 
@@ -126,14 +126,12 @@ class AprendizService
      *
      * Reglas de negocio:
      *   1. El aprendiz debe existir.
-     *   2. Si se actualiza el correo, debe ser válido y no estar en uso por otro aprendiz.
+     *   2. Si se actualiza la contraseña, se re-hashea antes de persistir.
      *
      * @param int                  $idAprendiz Identificador del aprendiz.
      * @param array<string, mixed> $datos      Campos a actualizar.
      * @return array<string, mixed> Datos actualizados del aprendiz.
      * @throws \RuntimeException 404 si el aprendiz no existe.
-     * @throws \RuntimeException 422 si el correo enviado no es válido.
-     * @throws \RuntimeException 409 si el correo ya está en uso por otro aprendiz.
      */
     public function actualizar(int $idAprendiz, array $datos): array
     {
@@ -143,16 +141,9 @@ class AprendizService
             throw new \RuntimeException('Aprendiz no encontrado.', 404);
         }
 
-        if (isset($datos['correo'])) {
-            $datos['correo'] = strtolower(trim((string) $datos['correo']));
-
-            if (!$this->esCorreoValido($datos['correo'])) {
-                throw new \RuntimeException("El correo '{$datos['correo']}' no tiene un formato válido.", 422);
-            }
-
-            if ($this->aprendizRepo->existeCorreo($datos['correo'], $idAprendiz)) {
-                throw new \RuntimeException('El correo ya está en uso por otro aprendiz.', 409);
-            }
+        if (!empty($datos['password'])) {
+            $datos['password_hash'] = password_hash((string) $datos['password'], PASSWORD_BCRYPT);
+            unset($datos['password']);
         }
 
         $this->aprendizRepo->actualizar($idAprendiz, $datos);
@@ -181,20 +172,5 @@ class AprendizService
         $this->aprendizRepo->eliminar($idAprendiz);
 
         return ['success' => true, 'message' => 'Aprendiz eliminado correctamente.'];
-    }
-
-    // -------------------------------------------------------------------------
-    // Métodos privados de apoyo
-    // -------------------------------------------------------------------------
-
-    /**
-     * Valida el formato de un correo electrónico.
-     *
-     * @param string $correo Correo a validar.
-     * @return bool
-     */
-    private function esCorreoValido(string $correo): bool
-    {
-        return filter_var($correo, FILTER_VALIDATE_EMAIL) !== false;
     }
 }

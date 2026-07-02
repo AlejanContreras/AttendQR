@@ -5,11 +5,11 @@ declare(strict_types=1);
 /**
  * AttendQR – FichaRepository
  *
- * Responsabilidad: acceder a la tabla `fichas` para todas las
- * operaciones CRUD y consultas de soporte a otros módulos.
+ * Tabla: fichas
+ * Columnas reales: id_ficha, codigo_ficha, nombre_programa (VARCHAR),
+ *                  id_jornada, id_docente, id_trimestre, activa (TINYINT 1=activa)
  *
  * NO contiene lógica de negocio.
- *
  * Flujo: FichaService → FichaRepository → BaseRepository → Database → MySQL
  *
  * Ubicación en el proyecto: Src/Repositories/FichaRepository.php
@@ -17,7 +17,7 @@ declare(strict_types=1);
 class FichaRepository extends BaseRepository
 {
     /**
-     * Busca una ficha por su ID enriquecida con datos de la jornada.
+     * Busca una ficha por su ID con datos de la jornada.
      *
      * @param int $idFicha Identificador de la ficha.
      * @return array<string, mixed>|null Datos de la ficha o null.
@@ -25,66 +25,79 @@ class FichaRepository extends BaseRepository
     public function obtenerPorId(int $idFicha): ?array
     {
         return $this->consultarUno(
-            'SELECT f.id, f.numero_ficha, f.id_programa, f.id_jornada, f.estado,
-                    j.nombre AS nombre_jornada
+            'SELECT f.id_ficha, f.codigo_ficha, f.nombre_programa,
+                    f.id_jornada, f.id_docente, f.id_trimestre, f.activa,
+                    j.nombre AS nombre_jornada,
+                    j.hora_inicio, j.hora_fin, j.minutos_gracia
              FROM fichas f
-             LEFT JOIN jornadas j ON j.id = f.id_jornada
-             WHERE f.id = :id',
+             LEFT JOIN jornadas j ON j.id_jornada = f.id_jornada
+             WHERE f.id_ficha = :id',
             [':id' => $idFicha]
         );
     }
 
     /**
-     * Lista fichas con filtros opcionales de programa, estado y jornada.
+     * Lista fichas con filtros opcionales.
      *
-     * @param int|null    $idPrograma Filtro por programa.
-     * @param string|null $estado     Filtro por estado.
-     * @param int|null    $idJornada  Filtro por jornada.
+     * @param string|null $nombrePrograma Filtro parcial por nombre del programa.
+     * @param int|null    $activa         Filtro por estado (1 = activa, 0 = inactiva).
+     * @param int|null    $idJornada      Filtro por jornada.
+     * @param int|null    $idDocente      Filtro por docente.
      * @return array<int, array<string, mixed>>
      */
-    public function listar(?int $idPrograma = null, ?string $estado = null, ?int $idJornada = null): array
-    {
-        $sql    = 'SELECT f.id, f.numero_ficha, f.estado,
-                          j.nombre AS jornada
+    public function listar(
+        ?string $nombrePrograma = null,
+        ?int    $activa         = null,
+        ?int    $idJornada      = null,
+        ?int    $idDocente      = null
+    ): array {
+        $sql    = 'SELECT f.id_ficha, f.codigo_ficha, f.nombre_programa,
+                          f.id_jornada, f.id_docente, f.id_trimestre, f.activa,
+                          j.nombre AS nombre_jornada
                    FROM fichas f
-                   LEFT JOIN jornadas j ON j.id = f.id_jornada
+                   LEFT JOIN jornadas j ON j.id_jornada = f.id_jornada
                    WHERE 1=1';
         $params = [];
 
-        if ($idPrograma !== null) {
-            $sql .= ' AND f.id_programa = :prog';
-            $params[':prog']    = $idPrograma;
+        if ($nombrePrograma !== null) {
+            $sql .= ' AND f.nombre_programa LIKE :prog';
+            $params[':prog'] = '%' . $nombrePrograma . '%';
         }
 
-        if ($estado !== null) {
-            $sql .= ' AND f.estado      = :estado';
-            $params[':estado']  = $estado;
+        if ($activa !== null) {
+            $sql .= ' AND f.activa = :activa';
+            $params[':activa'] = $activa;
         }
 
         if ($idJornada !== null) {
-            $sql .= ' AND f.id_jornada  = :jornada';
-            $params[':jornada'] = $idJornada;
+            $sql .= ' AND f.id_jornada = :id_jornada';
+            $params[':id_jornada'] = $idJornada;
         }
 
-        $sql .= ' ORDER BY f.numero_ficha';
+        if ($idDocente !== null) {
+            $sql .= ' AND f.id_docente = :id_docente';
+            $params[':id_docente'] = $idDocente;
+        }
+
+        $sql .= ' ORDER BY f.codigo_ficha';
 
         return $this->consultar($sql, $params);
     }
 
     /**
-     * Verifica si ya existe una ficha con el número indicado.
+     * Verifica si ya existe una ficha con el código indicado.
      *
-     * @param string   $numeroFicha Número de ficha.
+     * @param string   $codigoFicha Código de la ficha.
      * @param int|null $excluirId   ID a excluir (para actualizaciones).
      * @return bool true si existe.
      */
-    public function existeNumero(string $numeroFicha, ?int $excluirId = null): bool
+    public function existeCodigo(string $codigoFicha, ?int $excluirId = null): bool
     {
-        $sql    = 'SELECT COUNT(*) FROM fichas WHERE numero_ficha = :numero';
-        $params = [':numero' => $numeroFicha];
+        $sql    = 'SELECT COUNT(*) FROM fichas WHERE codigo_ficha = :codigo';
+        $params = [':codigo' => $codigoFicha];
 
         if ($excluirId !== null) {
-            $sql              .= ' AND id != :excluir';
+            $sql              .= ' AND id_ficha != :excluir';
             $params[':excluir'] = $excluirId;
         }
 
@@ -92,15 +105,13 @@ class FichaRepository extends BaseRepository
     }
 
     /**
-     * Cuenta fichas activas. Usado por EstadisticaService::resumen().
+     * Cuenta fichas activas. Usado por EstadisticaService.
      *
      * @return int Total de fichas activas.
      */
     public function contarActivas(): int
     {
-        return $this->contar(
-            "SELECT COUNT(*) FROM fichas WHERE estado = 'activa'"
-        );
+        return $this->contar('SELECT COUNT(*) FROM fichas WHERE activa = 1');
     }
 
     /**
@@ -113,25 +124,39 @@ class FichaRepository extends BaseRepository
     public function contarActivasPorJornada(int $idJornada): int
     {
         return $this->contar(
-            "SELECT COUNT(*) FROM fichas WHERE id_jornada = :id AND estado = 'activa'",
+            'SELECT COUNT(*) FROM fichas WHERE id_jornada = :id AND activa = 1',
             [':id' => $idJornada]
         );
     }
 
     /**
      * Inserta una nueva ficha de formación.
+     * id_jornada, id_docente e id_trimestre son NOT NULL en el schema.
      *
-     * @param string   $numeroFicha Número único de la ficha.
-     * @param int      $idPrograma  Identificador del programa.
-     * @param int|null $idJornada   Identificador de la jornada.
+     * @param string $codigoFicha    Código único de la ficha SENA.
+     * @param string $nombrePrograma Nombre del programa de formación.
+     * @param int    $idJornada      Identificador de la jornada.
+     * @param int    $idDocente      Identificador del docente responsable.
+     * @param int    $idTrimestre    Identificador del trimestre.
      * @return int ID de la ficha creada.
      */
-    public function crear(string $numeroFicha, int $idPrograma, ?int $idJornada = null): int
-    {
+    public function crear(
+        string $codigoFicha,
+        string $nombrePrograma,
+        int    $idJornada,
+        int    $idDocente,
+        int    $idTrimestre
+    ): int {
         return $this->insertar(
-            "INSERT INTO fichas (numero_ficha, id_programa, id_jornada, estado)
-             VALUES (:numero, :prog, :jornada, 'activa')",
-            [':numero' => $numeroFicha, ':prog' => $idPrograma, ':jornada' => $idJornada]
+            'INSERT INTO fichas (codigo_ficha, nombre_programa, id_jornada, id_docente, id_trimestre, activa)
+             VALUES (:codigo, :programa, :jornada, :docente, :trimestre, 1)',
+            [
+                ':codigo'    => $codigoFicha,
+                ':programa'  => $nombrePrograma,
+                ':jornada'   => $idJornada,
+                ':docente'   => $idDocente,
+                ':trimestre' => $idTrimestre,
+            ]
         );
     }
 
@@ -144,13 +169,13 @@ class FichaRepository extends BaseRepository
      */
     public function actualizar(int $idFicha, array $datos): int
     {
-        $camposPermitidos = ['numero_ficha', 'id_programa', 'id_jornada', 'estado'];
+        $camposPermitidos = ['codigo_ficha', 'nombre_programa', 'id_jornada', 'id_docente', 'id_trimestre', 'activa'];
         $set    = [];
         $params = [':id' => $idFicha];
 
         foreach ($camposPermitidos as $campo) {
             if (array_key_exists($campo, $datos)) {
-                $set[]             = "{$campo} = :{$campo}";
+                $set[]              = "{$campo} = :{$campo}";
                 $params[":{$campo}"] = $datos[$campo];
             }
         }
@@ -160,7 +185,7 @@ class FichaRepository extends BaseRepository
         }
 
         return $this->ejecutar(
-            'UPDATE fichas SET ' . implode(', ', $set) . ' WHERE id = :id',
+            'UPDATE fichas SET ' . implode(', ', $set) . ' WHERE id_ficha = :id',
             $params
         );
     }
@@ -174,7 +199,7 @@ class FichaRepository extends BaseRepository
     public function eliminar(int $idFicha): int
     {
         return $this->ejecutar(
-            'DELETE FROM fichas WHERE id = :id',
+            'DELETE FROM fichas WHERE id_ficha = :id',
             [':id' => $idFicha]
         );
     }

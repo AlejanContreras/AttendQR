@@ -29,22 +29,28 @@ class SesionController
     public function handle(string $metodo, string $accion, array $params): void
     {
         match ($accion) {
-            'crear'   => $this->despacharConMetodo($metodo, 'POST',
+            'crear'       => $this->despacharConMetodo($metodo, 'POST',
                 fn() => $this->crear()
             ),
-            'listar'  => $this->despacharConMetodo($metodo, 'GET',
+            'listar'      => $this->despacharConMetodo($metodo, 'GET',
                 fn() => $this->listar()
             ),
-            'detalle' => $this->despacharConMetodo($metodo, 'GET',
+            'detalle'     => $this->despacharConMetodo($metodo, 'GET',
                 fn() => $this->detalle($this->extraerIdRequerido($params, 'sesión'))
             ),
-            'activa'  => $this->despacharConMetodo($metodo, 'GET',
+            'activa'      => $this->despacharConMetodo($metodo, 'GET',
                 fn() => $this->activa($this->extraerIdRequerido($params, 'ficha'))
             ),
-            'cerrar'  => $this->despacharConMetodo($metodo, 'POST',
+            'cerrar'      => $this->despacharConMetodo($metodo, 'POST',
                 fn() => $this->cerrar($this->extraerIdRequerido($params, 'sesión'))
             ),
-            default   => $this->responderError(
+            'asistencias' => $this->despacharConMetodo($metodo, 'GET',
+                fn() => $this->asistencias($this->extraerIdRequerido($params, 'sesión'))
+            ),
+            'estadisticas' => $this->despacharConMetodo($metodo, 'GET',
+                fn() => $this->estadisticas($this->extraerIdRequerido($params, 'sesión'))
+            ),
+            default        => $this->responderError(
                 "Acción '{$accion}' no encontrada en SesionController.", 404
             ),
         };
@@ -123,6 +129,38 @@ class SesionController
             $this->responderError($e->getMessage(), $e->getCode() ?: 404);
         } catch (\Throwable $e) {
             $this->responderError('Error interno al obtener la sesión activa.', 500);
+        }
+    }
+
+    /**
+     * GET /api/sesiones/asistencias/{idSesion}
+     * Lista todos los registros de asistencia de la sesión con datos del aprendiz.
+     */
+    private function asistencias(int $idSesion): void
+    {
+        try {
+            $resultado = $this->servicio->asistenciasDeSesion($idSesion);
+            $this->responderExito('Asistencias de la sesión obtenidas correctamente.', $resultado);
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 404);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al obtener las asistencias de la sesión.', 500);
+        }
+    }
+
+    /**
+     * GET /api/sesiones/estadisticas/{idSesion}
+     * Resumen estadístico: presentes, retardos, sin registro, porcentaje de asistencia.
+     */
+    private function estadisticas(int $idSesion): void
+    {
+        try {
+            $resultado = $this->servicio->estadisticasDeSesion($idSesion);
+            $this->responderExito('Estadísticas de la sesión obtenidas correctamente.', $resultado);
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 404);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al calcular las estadísticas de la sesión.', 500);
         }
     }
 

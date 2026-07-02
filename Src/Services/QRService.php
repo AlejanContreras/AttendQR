@@ -157,6 +157,7 @@ class QrService
 
         return [
             'token_valido' => true,
+            'id_token'     => (int) $qr['id_token'],
             'id_sesion'    => (int) $qr['id_sesion'],
             'id_aprendiz'  => $idAprendiz,
         ];

@@ -42,6 +42,9 @@ class AprendizController
             'consultar' => $this->despacharConMetodo($metodo, 'GET',
                 fn() => $this->consultar($this->extraerIdRequerido($params, 'aprendiz'))
             ),
+            'ficha' => $this->despacharConMetodo($metodo, 'GET',
+                fn() => $this->listarPorFicha($this->extraerIdRequerido($params, 'ficha'))
+            ),
             'registrar' => $this->despacharConMetodo($metodo, 'POST',
                 fn() => $this->registrar()
             ),
@@ -99,14 +102,31 @@ class AprendizController
     }
 
     /**
+     * GET /api/aprendices/ficha/{idFicha}
+     * Lista los aprendices de una ficha específica.
+     */
+    private function listarPorFicha(int $idFicha): void
+    {
+        try {
+            $resultado = $this->servicio->listar($idFicha);
+            $this->responderExito('Aprendices de la ficha obtenidos correctamente.', $resultado);
+
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al listar aprendices de la ficha.', 500);
+        }
+    }
+
+    /**
      * POST /api/aprendices/registrar
-     * Body: { "documento": "...", "nombres": "...", "apellidos": "...", "correo": "...", "id_ficha": 15 }
+     * Body: { "numero_documento": "...", "nombres": "...", "apellidos": "...", "password": "...", "id_ficha": 15 }
      */
     private function registrar(): void
     {
         $cuerpo = $this->leerCuerpoJson();
 
-        foreach (['documento', 'nombres', 'apellidos', 'correo', 'id_ficha'] as $campo) {
+        foreach (['numero_documento', 'nombres', 'apellidos', 'password', 'id_ficha'] as $campo) {
             if (empty($cuerpo[$campo])) {
                 $this->responderError("El campo '{$campo}' es obligatorio.", 422);
             }
@@ -114,10 +134,10 @@ class AprendizController
 
         try {
             $aprendiz = $this->servicio->registrar(
-                (string) $cuerpo['documento'],
+                (string) $cuerpo['numero_documento'],
                 (string) $cuerpo['nombres'],
                 (string) $cuerpo['apellidos'],
-                (string) $cuerpo['correo'],
+                (string) $cuerpo['password'],
                 (int)    $cuerpo['id_ficha']
             );
             $this->responderExito('Aprendiz registrado correctamente.', $aprendiz, 201);

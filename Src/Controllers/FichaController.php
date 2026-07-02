@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 class FichaController
 {
-    private FichaService $servicio;
+    private FichaService  $servicio;
+    private SesionService $sesionServicio;
 
     public function __construct()
     {
-        $this->servicio = new FichaService();
+        $this->servicio       = new FichaService();
+        $this->sesionServicio = new SesionService();
     }
 
     public function handle(string $metodo, string $accion, array $params): void
@@ -19,6 +21,9 @@ class FichaController
             ),
             'consultar' => $this->despacharConMetodo($metodo, 'GET',
                 fn() => $this->consultar($this->extraerIdRequerido($params, 'ficha'))
+            ),
+            'historial' => $this->despacharConMetodo($metodo, 'GET',
+                fn() => $this->historial($this->extraerIdRequerido($params, 'ficha'))
             ),
             'crear' => $this->despacharConMetodo($metodo, 'POST',
                 fn() => $this->crear()
@@ -41,16 +46,17 @@ class FichaController
 
     /**
      * GET /api/fichas/listar
-     * Query params opcionales: ?id_programa=3&estado=activa&id_jornada=2
+     * Query params opcionales: ?nombre_programa=...&estado=activa&id_jornada=2&id_docente=3
      */
     private function listar(): void
     {
-        $idPrograma = isset($_GET['id_programa']) ? (int) $_GET['id_programa'] : null;
-        $estado     = $_GET['estado']    ?? null;
-        $idJornada  = isset($_GET['id_jornada']) ? (int) $_GET['id_jornada'] : null;
+        $nombrePrograma = $_GET['nombre_programa'] ?? null;
+        $estado         = $_GET['estado']          ?? null;
+        $idJornada      = isset($_GET['id_jornada'])  ? (int) $_GET['id_jornada']  : null;
+        $idDocente      = isset($_GET['id_docente'])  ? (int) $_GET['id_docente']  : null;
 
         try {
-            $resultado = $this->servicio->listar($idPrograma, $estado, $idJornada);
+            $resultado = $this->servicio->listar($nombrePrograma, $estado, $idJornada, $idDocente);
             $this->responderExito('Fichas obtenidas correctamente.', $resultado);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
@@ -75,22 +81,49 @@ class FichaController
     }
 
     /**
+     * GET /api/fichas/historial/{idFicha}
+     * Query params opcionales: ?fecha_inicio=2025-03-01&fecha_fin=2025-06-30&estado=cerrada
+     *
+     * Historial de sesiones de la ficha con totales de asistencia por sesión.
+     */
+    private function historial(int $idFicha): void
+    {
+        $fechaInicio = $_GET['fecha_inicio'] ?? null;
+        $fechaFin    = $_GET['fecha_fin']    ?? null;
+        $estado      = $_GET['estado']       ?? null;
+
+        try {
+            $resultado = $this->sesionServicio->historialPorFicha($idFicha, $fechaInicio, $fechaFin, $estado);
+            $this->responderExito('Historial de la ficha obtenido correctamente.', $resultado);
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al obtener el historial de la ficha.', 500);
+        }
+    }
+
+    /**
      * POST /api/fichas/crear
-     * Body: { "numero_ficha": "2345678", "id_programa": 3, "id_jornada": 1 }
+     * Body: { "codigo_ficha": "2345678", "nombre_programa": "Análisis...", "id_jornada": 1, "id_docente": 2, "id_trimestre": 3 }
+     * id_jornada, id_docente e id_trimestre son obligatorios (NOT NULL en el schema).
      */
     private function crear(): void
     {
         $cuerpo = $this->leerCuerpoJson();
 
-        if (empty($cuerpo['numero_ficha']) || empty($cuerpo['id_programa'])) {
-            $this->responderError('Los campos numero_ficha e id_programa son obligatorios.', 422);
+        foreach (['codigo_ficha', 'nombre_programa', 'id_jornada', 'id_docente', 'id_trimestre'] as $campo) {
+            if (empty($cuerpo[$campo])) {
+                $this->responderError("El campo '{$campo}' es obligatorio.", 422);
+            }
         }
 
         try {
             $ficha = $this->servicio->crear(
-                (string) $cuerpo['numero_ficha'],
-                (int)    $cuerpo['id_programa'],
-                isset($cuerpo['id_jornada']) ? (int) $cuerpo['id_jornada'] : null
+                (string) $cuerpo['codigo_ficha'],
+                (string) $cuerpo['nombre_programa'],
+                (int)    $cuerpo['id_jornada'],
+                (int)    $cuerpo['id_docente'],
+                (int)    $cuerpo['id_trimestre']
             );
             $this->responderExito('Ficha creada correctamente.', $ficha, 201);
         } catch (\RuntimeException $e) {

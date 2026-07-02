@@ -48,7 +48,13 @@ class TrimestreService
      */
     public function listar(?int $anio = null, ?string $estado = null): array
     {
-        $trimestres = $this->trimestreRepo->listar($anio, $estado);
+        $activo = match ($estado) {
+            'activo'  => 1,
+            'cerrado' => 0,
+            default   => null,
+        };
+
+        $trimestres = $this->trimestreRepo->listar($anio, $activo);
 
         return [
             'trimestres' => $trimestres,
@@ -106,11 +112,11 @@ class TrimestreService
         $trimestre  = $this->trimestreRepo->obtenerPorId($id);
 
         return $trimestre ?? [
-            'id'           => $id,
+            'id_trimestre' => $id,
             'nombre'       => $nombre,
             'fecha_inicio' => $fechaInicio,
             'fecha_fin'    => $fechaFin,
-            'estado'       => 'activo',
+            'activo'       => 1,
         ];
     }
 

@@ -38,9 +38,7 @@ class EstadisticaService
     public function resumen(): array
     {
         return [
-            'aprendices_activos' => $this->aprendizRepo->contarActivosPorFicha(0) === 0
-                ? $this->contarAprendicesActivos()
-                : 0,
+            'aprendices_activos' => $this->contarAprendicesActivos(),
             'docentes_activos'   => $this->docenteRepo->contarActivos(),
             'fichas_activas'     => $this->fichaRepo->contarActivas(),
             'sesiones_activas'   => $this->sesionRepo->contarActivas(),
@@ -51,22 +49,21 @@ class EstadisticaService
     /**
      * Construye los datos del panel principal (dashboard) con filtros opcionales.
      *
-     * @param int|null $idDocente  Filtro por docente.
-     * @param int|null $idFicha    Filtro por ficha.
-     * @param int|null $trimestre  Filtro por trimestre (no usado aún en los Repos).
+     * @param int|null $idDocente Filtro por docente.
+     * @param int|null $idFicha   Filtro por ficha.
+     * @param int|null $trimestre Filtro por trimestre (informativo, no filtra en repo).
      * @return array<string, mixed>
      */
     public function dashboard(?int $idDocente = null, ?int $idFicha = null, ?int $trimestre = null): array
     {
-        $sesionesActivas  = $this->sesionRepo->listar($idDocente, null, 'activa');
-        $sesionesCerradas = $this->sesionRepo->listar($idDocente, null, 'cerrada');
-        $asistenciasHoy   = $this->asistenciaRepo->contarHoy();
+        $sesionesActivas  = $this->listarSesiones($idFicha, $idDocente, 'abierta');
+        $sesionesCerradas = $this->listarSesiones($idFicha, $idDocente, 'cerrada');
 
         return [
-            'sesiones_activas'   => count($sesionesActivas),
-            'sesiones_cerradas'  => count($sesionesCerradas),
-            'asistencias_hoy'    => $asistenciasHoy,
-            'filtros'            => [
+            'sesiones_activas'  => count($sesionesActivas),
+            'sesiones_cerradas' => count($sesionesCerradas),
+            'asistencias_hoy'   => $this->asistenciaRepo->contarHoy(),
+            'filtros'           => [
                 'id_docente' => $idDocente,
                 'id_ficha'   => $idFicha,
                 'trimestre'  => $trimestre,
@@ -89,11 +86,10 @@ class EstadisticaService
         ?string $fechaInicio = null,
         ?string $fechaFin    = null
     ): array {
-        $sesiones    = $this->sesionRepo->listar($idDocente, null, 'cerrada');
-        $totalSesiones = count($sesiones);
+        $sesiones = $this->listarSesiones($idFicha, $idDocente, 'cerrada');
 
         return [
-            'total_sesiones_cerradas' => $totalSesiones,
+            'total_sesiones_cerradas' => count($sesiones),
             'asistencias_hoy'         => $this->asistenciaRepo->contarHoy(),
             'filtros' => [
                 'id_ficha'    => $idFicha,
@@ -132,9 +128,9 @@ class EstadisticaService
                 }
                 $historial = $this->asistenciaRepo->historialAprendiz($idEntidad);
                 return [
-                    'entidad'    => $entidad,
-                    'historial'  => $historial,
-                    'total'      => count($historial),
+                    'entidad'   => $entidad,
+                    'historial' => $historial,
+                    'total'     => count($historial),
                 ];
 
             case 'ficha':
@@ -142,7 +138,7 @@ class EstadisticaService
                 if ($entidad === null) {
                     throw new \RuntimeException('Ficha no encontrada.', 404);
                 }
-                $aprendices = $this->aprendizRepo->listar($idEntidad, 'activo');
+                $aprendices = $this->aprendizRepo->listar($idEntidad, 1);
                 return [
                     'entidad'    => $entidad,
                     'aprendices' => $aprendices,
@@ -154,7 +150,7 @@ class EstadisticaService
                 if ($entidad === null) {
                     throw new \RuntimeException('Docente no encontrado.', 404);
                 }
-                $sesiones = $this->sesionRepo->listar($idEntidad);
+                $sesiones = $this->sesionRepo->listarPorDocente($idEntidad);
                 return [
                     'entidad'  => $entidad,
                     'sesiones' => $sesiones,
@@ -170,14 +166,35 @@ class EstadisticaService
     // -------------------------------------------------------------------------
 
     /**
+     * Lista sesiones aplicando el filtro más específico disponible.
+     * Prioriza idFicha > idDocente > sin filtro.
+     *
+     * @param int|null    $idFicha   Filtro por ficha.
+     * @param int|null    $idDocente Filtro por docente.
+     * @param string|null $estado    Estado de la sesión.
+     * @return array<int, array<string, mixed>>
+     */
+    private function listarSesiones(?int $idFicha, ?int $idDocente, ?string $estado): array
+    {
+        if ($idFicha !== null) {
+            return $this->sesionRepo->listar($idFicha, $estado);
+        }
+
+        if ($idDocente !== null) {
+            return $this->sesionRepo->listarPorDocente($idDocente, $estado);
+        }
+
+        return $this->sesionRepo->listar(null, $estado);
+    }
+
+    /**
      * Cuenta el total de aprendices activos en el sistema.
-     * Consulta sin filtro de ficha listando todos y filtrando por estado.
      *
      * @return int
      */
     private function contarAprendicesActivos(): int
     {
-        return count($this->aprendizRepo->listar(null, 'activo'));
+        return count($this->aprendizRepo->listar(null, 1));
     }
 
     /**

@@ -63,15 +63,14 @@ class DocenteController
 
     /**
      * GET /api/docentes/listar
-     * Query params opcionales: ?estado=activo&especialidad=sistemas
+     * Query params opcionales: ?estado=activo
      */
     private function listar(): void
     {
-        $estado       = $_GET['estado']       ?? null;
-        $especialidad = $_GET['especialidad'] ?? null;
+        $estado = $_GET['estado'] ?? null;
 
         try {
-            $resultado = $this->servicio->listar($estado, $especialidad);
+            $resultado = $this->servicio->listar($estado);
             $this->responderExito('Docentes obtenidos correctamente.', $resultado);
 
         } catch (\RuntimeException $e) {
@@ -99,13 +98,13 @@ class DocenteController
 
     /**
      * POST /api/docentes/registrar
-     * Body: { "documento": "...", "nombres": "...", "apellidos": "...", "correo": "...", "contrasena": "...", "especialidad": "..." }
+     * Body: { "nombres": "...", "apellidos": "...", "correo": "...", "contrasena": "..." }
      */
     private function registrar(): void
     {
         $cuerpo = $this->leerCuerpoJson();
 
-        foreach (['documento', 'nombres', 'apellidos', 'correo', 'contrasena'] as $campo) {
+        foreach (['nombres', 'apellidos', 'correo', 'contrasena'] as $campo) {
             if (empty($cuerpo[$campo])) {
                 $this->responderError("El campo '{$campo}' es obligatorio.", 422);
             }
@@ -113,12 +112,10 @@ class DocenteController
 
         try {
             $docente = $this->servicio->registrar(
-                (string) $cuerpo['documento'],
                 (string) $cuerpo['nombres'],
                 (string) $cuerpo['apellidos'],
                 (string) $cuerpo['correo'],
-                (string) $cuerpo['contrasena'],
-                isset($cuerpo['especialidad']) ? (string) $cuerpo['especialidad'] : null
+                (string) $cuerpo['contrasena']
             );
             $this->responderExito('Docente registrado correctamente.', $docente, 201);
 

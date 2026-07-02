@@ -5,12 +5,11 @@ declare(strict_types=1);
 /**
  * AttendQR – AprendizRepository
  *
- * Responsabilidad: acceder a la tabla `aprendices` para todas las
- * operaciones CRUD y consultas de existencia relacionadas.
+ * Tabla: aprendices
+ * Columnas reales: id_aprendiz, numero_documento, nombres, apellidos,
+ *                  password_hash, id_ficha, activo (TINYINT 1=activo)
  *
- * NO contiene lógica de negocio. Verificar unicidad de correo,
- * estado de la ficha o reglas de eliminación corresponde a AprendizService.
- *
+ * NO contiene lógica de negocio.
  * Flujo: AprendizService → AprendizRepository → BaseRepository → Database → MySQL
  *
  * Ubicación en el proyecto: Src/Repositories/AprendizRepository.php
@@ -18,7 +17,7 @@ declare(strict_types=1);
 class AprendizRepository extends BaseRepository
 {
     /**
-     * Busca un aprendiz por su ID, incluyendo el número de ficha.
+     * Busca un aprendiz por su ID con datos básicos de su ficha.
      *
      * @param int $idAprendiz Identificador del aprendiz.
      * @return array<string, mixed>|null Datos del aprendiz o null.
@@ -26,80 +25,67 @@ class AprendizRepository extends BaseRepository
     public function obtenerPorId(int $idAprendiz): ?array
     {
         return $this->consultarUno(
-            'SELECT a.id, a.documento, a.nombres, a.apellidos,
-                    a.correo, a.estado, a.id_ficha,
-                    f.numero_ficha
+            'SELECT a.id_aprendiz, a.numero_documento, a.nombres, a.apellidos,
+                    a.activo, a.id_ficha,
+                    f.codigo_ficha, f.nombre_programa
              FROM aprendices a
-             JOIN fichas f ON f.id = a.id_ficha
-             WHERE a.id = :id',
+             JOIN fichas f ON f.id_ficha = a.id_ficha
+             WHERE a.id_aprendiz = :id',
             [':id' => $idAprendiz]
         );
     }
 
     /**
-     * Lista aprendices con filtros opcionales de ficha, estado y documento.
+     * Lista aprendices con filtros opcionales.
      *
-     * @param int|null    $idFicha   Filtro por ficha.
-     * @param string|null $estado    Filtro por estado ('activo' | 'inactivo').
-     * @param string|null $documento Filtro por número de documento.
+     * @param int|null    $idFicha  Filtro por ficha.
+     * @param int|null    $activo   Filtro por estado (1 = activo, 0 = inactivo).
+     * @param string|null $documento Filtro por numero_documento.
      * @return array<int, array<string, mixed>>
      */
-    public function listar(?int $idFicha = null, ?string $estado = null, ?string $documento = null): array
+    public function listar(?int $idFicha = null, ?int $activo = null, ?string $documento = null): array
     {
-        $sql    = 'SELECT id, documento, nombres, apellidos, correo, estado, id_ficha
-                   FROM aprendices
+        $sql    = 'SELECT a.id_aprendiz, a.numero_documento, a.nombres, a.apellidos,
+                          a.activo, a.id_ficha, f.codigo_ficha
+                   FROM aprendices a
+                   JOIN fichas f ON f.id_ficha = a.id_ficha
                    WHERE 1=1';
         $params = [];
 
         if ($idFicha !== null) {
-            $sql .= ' AND id_ficha  = :id_ficha';
+            $sql .= ' AND a.id_ficha         = :id_ficha';
             $params[':id_ficha']  = $idFicha;
         }
 
-        if ($estado !== null) {
-            $sql .= ' AND estado    = :estado';
-            $params[':estado']    = $estado;
+        if ($activo !== null) {
+            $sql .= ' AND a.activo           = :activo';
+            $params[':activo']    = $activo;
         }
 
         if ($documento !== null) {
-            $sql .= ' AND documento = :documento';
+            $sql .= ' AND a.numero_documento = :documento';
             $params[':documento'] = $documento;
         }
 
-        $sql .= ' ORDER BY apellidos, nombres';
+        $sql .= ' ORDER BY a.apellidos, a.nombres';
 
         return $this->consultar($sql, $params);
     }
 
     /**
-     * Verifica si ya existe un aprendiz con el documento indicado.
+     * Verifica si ya existe un aprendiz con el número de documento indicado.
      *
-     * @param string $documento Número de documento.
+     * @param string   $numeroDocumento Número de documento.
+     * @param int|null $excluirId       ID a excluir (para actualizaciones).
      * @return bool true si existe.
      */
-    public function existeDocumento(string $documento): bool
+    public function existeDocumento(string $numeroDocumento, ?int $excluirId = null): bool
     {
-        return $this->existe(
-            'SELECT COUNT(*) FROM aprendices WHERE documento = :doc',
-            [':doc' => $documento]
-        );
-    }
-
-    /**
-     * Verifica si ya existe un aprendiz con el correo indicado.
-     * Excluye un ID para la validación en actualizaciones.
-     *
-     * @param string   $correo    Correo a verificar.
-     * @param int|null $excluirId ID a excluir de la búsqueda.
-     * @return bool true si existe.
-     */
-    public function existeCorreo(string $correo, ?int $excluirId = null): bool
-    {
-        $sql    = 'SELECT COUNT(*) FROM aprendices WHERE correo = :correo';
-        $params = [':correo' => $correo];
+        $sql    = 'SELECT COUNT(*) FROM aprendices WHERE numero_documento = :doc';
+        $params = [':doc' => $numeroDocumento];
 
         if ($excluirId !== null) {
-            $sql              .= ' AND id != :excluir';
+            $sql              .= ' AND id_aprendiz != :excluir';
             $params[':excluir'] = $excluirId;
         }
 
@@ -116,31 +102,36 @@ class AprendizRepository extends BaseRepository
     public function contarActivosPorFicha(int $idFicha): int
     {
         return $this->contar(
-            "SELECT COUNT(*) FROM aprendices WHERE id_ficha = :id AND estado = 'activo'",
+            'SELECT COUNT(*) FROM aprendices WHERE id_ficha = :id AND activo = 1',
             [':id' => $idFicha]
         );
     }
 
     /**
-     * Inserta un nuevo aprendiz en la base de datos.
+     * Inserta un nuevo aprendiz. Recibe la contraseña ya hasheada.
      *
-     * @param string $documento Número de documento.
-     * @param string $nombres   Nombres del aprendiz.
-     * @param string $apellidos Apellidos del aprendiz.
-     * @param string $correo    Correo electrónico.
-     * @param int    $idFicha   Ficha a la que pertenece.
+     * @param string $numeroDocumento Número de documento único.
+     * @param string $nombres         Nombres.
+     * @param string $apellidos       Apellidos.
+     * @param string $passwordHash    Hash generado por password_hash().
+     * @param int    $idFicha         Ficha a la que pertenece.
      * @return int ID del aprendiz creado.
      */
-    public function crear(string $documento, string $nombres, string $apellidos, string $correo, int $idFicha): int
-    {
+    public function crear(
+        string $numeroDocumento,
+        string $nombres,
+        string $apellidos,
+        string $passwordHash,
+        int    $idFicha
+    ): int {
         return $this->insertar(
-            "INSERT INTO aprendices (documento, nombres, apellidos, correo, id_ficha, estado)
-             VALUES (:doc, :nombres, :apellidos, :correo, :id_ficha, 'activo')",
+            'INSERT INTO aprendices (numero_documento, nombres, apellidos, password_hash, id_ficha, activo)
+             VALUES (:doc, :nombres, :apellidos, :hash, :id_ficha, 1)',
             [
-                ':doc'      => $documento,
+                ':doc'      => $numeroDocumento,
                 ':nombres'  => $nombres,
                 ':apellidos' => $apellidos,
-                ':correo'   => $correo,
+                ':hash'     => $passwordHash,
                 ':id_ficha' => $idFicha,
             ]
         );
@@ -155,13 +146,13 @@ class AprendizRepository extends BaseRepository
      */
     public function actualizar(int $idAprendiz, array $datos): int
     {
-        $camposPermitidos = ['nombres', 'apellidos', 'correo', 'id_ficha', 'estado'];
+        $camposPermitidos = ['nombres', 'apellidos', 'password_hash', 'id_ficha', 'activo'];
         $set    = [];
         $params = [':id' => $idAprendiz];
 
         foreach ($camposPermitidos as $campo) {
             if (array_key_exists($campo, $datos)) {
-                $set[]             = "{$campo} = :{$campo}";
+                $set[]              = "{$campo} = :{$campo}";
                 $params[":{$campo}"] = $datos[$campo];
             }
         }
@@ -171,7 +162,7 @@ class AprendizRepository extends BaseRepository
         }
 
         return $this->ejecutar(
-            'UPDATE aprendices SET ' . implode(', ', $set) . ' WHERE id = :id',
+            'UPDATE aprendices SET ' . implode(', ', $set) . ' WHERE id_aprendiz = :id',
             $params
         );
     }
@@ -185,7 +176,7 @@ class AprendizRepository extends BaseRepository
     public function eliminar(int $idAprendiz): int
     {
         return $this->ejecutar(
-            'DELETE FROM aprendices WHERE id = :id',
+            'DELETE FROM aprendices WHERE id_aprendiz = :id',
             [':id' => $idAprendiz]
         );
     }

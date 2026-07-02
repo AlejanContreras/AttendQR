@@ -37,10 +37,8 @@ class JornadaController
 
     private function listar(): void
     {
-        $estado = $_GET['estado'] ?? null;
-
         try {
-            $resultado = $this->servicio->listar($estado);
+            $resultado = $this->servicio->listar();
             $this->responderExito('Jornadas obtenidas correctamente.', $resultado);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);

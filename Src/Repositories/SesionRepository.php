@@ -222,4 +222,166 @@ class SesionRepository extends BaseRepository
             "SELECT COUNT(*) FROM sesiones_asistencia WHERE estado_sesion = 'abierta'"
         );
     }
+
+    /**
+     * Cuenta sesiones abiertas vinculadas a un docente (a través de la ficha).
+     * Usado por DocenteService antes de eliminar un docente.
+     *
+     * @param int $idDocente Identificador del docente.
+     * @return int Total de sesiones abiertas del docente.
+     */
+    public function contarActivasPorDocente(int $idDocente): int
+    {
+        return $this->contar(
+            "SELECT COUNT(*)
+             FROM sesiones_asistencia sa
+             JOIN fichas f ON f.id_ficha = sa.id_ficha
+             WHERE f.id_docente = :id AND sa.estado_sesion = 'abierta'",
+            [':id' => $idDocente]
+        );
+    }
+
+    /**
+     * Cuenta sesiones vinculadas a un trimestre (a través de la ficha).
+     * Usado por TrimestreService antes de eliminar un trimestre.
+     *
+     * @param int $idTrimestre Identificador del trimestre.
+     * @return int Total de sesiones del trimestre.
+     */
+    public function contarPorTrimestre(int $idTrimestre): int
+    {
+        return $this->contar(
+            'SELECT COUNT(*)
+             FROM sesiones_asistencia sa
+             JOIN fichas f ON f.id_ficha = sa.id_ficha
+             WHERE f.id_trimestre = :id',
+            [':id' => $idTrimestre]
+        );
+    }
+
+    /**
+     * Lista sesiones filtradas por docente (a través de la ficha).
+     * Requerido por EstadisticaService para dashboard y métricas por docente.
+     *
+     * @param int         $idDocente Identificador del docente.
+     * @param string|null $estado    Filtro por estado_sesion ('abierta', 'cerrada', 'cancelada').
+     * @return array<int, array<string, mixed>>
+     */
+    public function listarPorDocente(int $idDocente, ?string $estado = null): array
+    {
+        $sql    = 'SELECT sa.id_sesion, sa.id_ficha, sa.fecha_sesion,
+                          sa.estado_sesion, sa.hora_apertura, sa.hora_cierre,
+                          f.codigo_ficha, f.nombre_programa
+                   FROM sesiones_asistencia sa
+                   JOIN fichas f ON f.id_ficha = sa.id_ficha
+                   WHERE f.id_docente = :id_docente';
+        $params = [':id_docente' => $idDocente];
+
+        if ($estado !== null) {
+            $sql .= ' AND sa.estado_sesion = :estado';
+            $params[':estado'] = $estado;
+        }
+
+        $sql .= ' ORDER BY sa.fecha_sesion DESC, sa.hora_apertura DESC';
+
+        return $this->consultar($sql, $params);
+    }
+
+    /**
+     * Obtiene todos los registros de asistencia de una sesión con datos del aprendiz.
+     *
+     * @param int $idSesion Identificador de la sesión.
+     * @return array<int, array<string, mixed>>
+     */
+    public function obtenerAsistenciasDeSesion(int $idSesion): array
+    {
+        return $this->consultar(
+            'SELECT a.id_asistencia, a.id_aprendiz, a.estado,
+                    a.metodo_registro, a.hora_registro,
+                    a.minutos_retardo, a.registrado_en,
+                    ap.nombres, ap.apellidos, ap.numero_documento
+             FROM asistencias a
+             JOIN aprendices ap ON ap.id_aprendiz = a.id_aprendiz
+             WHERE a.id_sesion = :id_sesion
+             ORDER BY a.estado ASC, ap.apellidos ASC, ap.nombres ASC',
+            [':id_sesion' => $idSesion]
+        );
+    }
+
+    /**
+     * Obtiene estadísticas agregadas de asistencia para una sesión.
+     * Los "sin registro" se calculan en el Service como: total_aprendices - total_registrados.
+     *
+     * @param int $idSesion Identificador de la sesión.
+     * @return array<string, mixed>|null Estadísticas o null si la sesión no existe.
+     */
+    public function obtenerEstadisticasDeSesion(int $idSesion): ?array
+    {
+        return $this->consultarUno(
+            'SELECT sa.id_sesion, sa.fecha_sesion, sa.estado_sesion,
+                    sa.hora_inicio_clase, sa.limite_retardo_minutos,
+                    f.codigo_ficha, f.nombre_programa,
+                    (SELECT COUNT(*) FROM aprendices
+                     WHERE id_ficha = sa.id_ficha AND activo = 1)
+                     AS total_aprendices,
+                    COUNT(a.id_asistencia)                              AS total_registrados,
+                    SUM(CASE WHEN a.estado = \'presente\' THEN 1 ELSE 0 END) AS presentes,
+                    SUM(CASE WHEN a.estado = \'retardo\'  THEN 1 ELSE 0 END) AS retardos,
+                    SUM(CASE WHEN a.estado = \'ausente\'  THEN 1 ELSE 0 END) AS ausentes_marcados,
+                    SUM(CASE WHEN a.estado = \'excusa\'   THEN 1 ELSE 0 END) AS excusas
+             FROM sesiones_asistencia sa
+             JOIN fichas f ON f.id_ficha = sa.id_ficha
+             LEFT JOIN asistencias a ON a.id_sesion = sa.id_sesion
+             WHERE sa.id_sesion = :id_sesion
+             GROUP BY sa.id_sesion',
+            [':id_sesion' => $idSesion]
+        );
+    }
+
+    /**
+     * Obtiene el historial de sesiones de una ficha con totales de asistencia por sesión.
+     * Soporta filtros opcionales de fecha y estado.
+     *
+     * @param int         $idFicha     Identificador de la ficha.
+     * @param string|null $fechaInicio Fecha de inicio del rango (Y-m-d).
+     * @param string|null $fechaFin    Fecha de fin del rango (Y-m-d).
+     * @param string|null $estado      Filtro por estado_sesion.
+     * @return array<int, array<string, mixed>>
+     */
+    public function obtenerHistorialPorFicha(
+        int     $idFicha,
+        ?string $fechaInicio = null,
+        ?string $fechaFin    = null,
+        ?string $estado      = null
+    ): array {
+        $sql    = 'SELECT sa.id_sesion, sa.fecha_sesion, sa.estado_sesion,
+                          sa.hora_apertura, sa.hora_cierre,
+                          sa.hora_inicio_clase, sa.limite_retardo_minutos,
+                          COUNT(a.id_asistencia)                              AS total_registrados,
+                          SUM(CASE WHEN a.estado = \'presente\' THEN 1 ELSE 0 END) AS presentes,
+                          SUM(CASE WHEN a.estado = \'retardo\'  THEN 1 ELSE 0 END) AS retardos
+                   FROM sesiones_asistencia sa
+                   LEFT JOIN asistencias a ON a.id_sesion = sa.id_sesion
+                   WHERE sa.id_ficha = :id_ficha';
+        $params = [':id_ficha' => $idFicha];
+
+        if ($fechaInicio !== null) {
+            $sql                    .= ' AND sa.fecha_sesion >= :fecha_inicio';
+            $params[':fecha_inicio'] = $fechaInicio;
+        }
+
+        if ($fechaFin !== null) {
+            $sql                .= ' AND sa.fecha_sesion <= :fecha_fin';
+            $params[':fecha_fin'] = $fechaFin;
+        }
+
+        if ($estado !== null) {
+            $sql             .= ' AND sa.estado_sesion = :estado';
+            $params[':estado'] = $estado;
+        }
+
+        $sql .= ' GROUP BY sa.id_sesion ORDER BY sa.fecha_sesion DESC';
+
+        return $this->consultar($sql, $params);
+    }
 }

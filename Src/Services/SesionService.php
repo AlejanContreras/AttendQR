@@ -186,6 +186,119 @@ class SesionService
         ];
     }
 
+    /**
+     * Obtiene todos los registros de asistencia de una sesión.
+     *
+     * @param int $idSesion Identificador de la sesión.
+     * @return array<string, mixed>
+     * @throws \RuntimeException 404 si la sesión no existe.
+     */
+    public function asistenciasDeSesion(int $idSesion): array
+    {
+        $sesion = $this->sesionRepo->obtenerPorId($idSesion);
+
+        if ($sesion === null) {
+            throw new \RuntimeException('Sesión no encontrada.', 404);
+        }
+
+        $registros = $this->sesionRepo->obtenerAsistenciasDeSesion($idSesion);
+
+        return [
+            'id_sesion'  => $idSesion,
+            'fecha_sesion' => $sesion['fecha_sesion'],
+            'estado_sesion' => $sesion['estado_sesion'],
+            'registros'  => $registros,
+            'total'      => count($registros),
+        ];
+    }
+
+    /**
+     * Calcula estadísticas completas de asistencia para una sesión.
+     * Los aprendices sin registro se derivan del total de la ficha menos los registrados.
+     *
+     * @param int $idSesion Identificador de la sesión.
+     * @return array<string, mixed>
+     * @throws \RuntimeException 404 si la sesión no existe.
+     */
+    public function estadisticasDeSesion(int $idSesion): array
+    {
+        $stats = $this->sesionRepo->obtenerEstadisticasDeSesion($idSesion);
+
+        if ($stats === null) {
+            throw new \RuntimeException('Sesión no encontrada.', 404);
+        }
+
+        $totalAprendices  = (int) $stats['total_aprendices'];
+        $totalRegistrados = (int) $stats['total_registrados'];
+        $presentes        = (int) $stats['presentes'];
+        $retardos         = (int) $stats['retardos'];
+        $ausentesMarcados = (int) $stats['ausentes_marcados'];
+        $excusas          = (int) $stats['excusas'];
+        $sinRegistro      = max(0, $totalAprendices - $totalRegistrados);
+
+        $pctAsistencia = $totalAprendices > 0
+            ? round(($presentes + $retardos) / $totalAprendices * 100, 1)
+            : 0.0;
+
+        return [
+            'id_sesion'       => $idSesion,
+            'fecha_sesion'    => $stats['fecha_sesion'],
+            'estado_sesion'   => $stats['estado_sesion'],
+            'hora_inicio_clase' => $stats['hora_inicio_clase'],
+            'codigo_ficha'    => $stats['codigo_ficha'],
+            'nombre_programa' => $stats['nombre_programa'],
+            'estadisticas'    => [
+                'total_aprendices'  => $totalAprendices,
+                'total_registrados' => $totalRegistrados,
+                'presentes'         => $presentes,
+                'retardos'          => $retardos,
+                'ausentes_marcados' => $ausentesMarcados,
+                'excusas'           => $excusas,
+                'sin_registro'      => $sinRegistro,
+                'porcentaje_asistencia' => $pctAsistencia,
+            ],
+        ];
+    }
+
+    /**
+     * Obtiene el historial de sesiones de una ficha con totales de asistencia.
+     *
+     * @param int         $idFicha     Identificador de la ficha.
+     * @param string|null $fechaInicio Fecha inicio del rango (Y-m-d).
+     * @param string|null $fechaFin    Fecha fin del rango (Y-m-d).
+     * @param string|null $estado      Filtro por estado_sesion.
+     * @return array<string, mixed>
+     * @throws \RuntimeException 422 si el estado no es válido.
+     */
+    public function historialPorFicha(
+        int     $idFicha,
+        ?string $fechaInicio = null,
+        ?string $fechaFin    = null,
+        ?string $estado      = null
+    ): array {
+        $estadosPermitidos = ['abierta', 'cerrada', 'cancelada'];
+
+        if ($estado !== null && !in_array($estado, $estadosPermitidos, true)) {
+            throw new \RuntimeException(
+                "Estado '{$estado}' no válido. Permitidos: " . implode(', ', $estadosPermitidos) . '.',
+                422
+            );
+        }
+
+        $sesiones = $this->sesionRepo->obtenerHistorialPorFicha($idFicha, $fechaInicio, $fechaFin, $estado);
+
+        return [
+            'id_ficha'    => $idFicha,
+            'sesiones'    => $sesiones,
+            'total'       => count($sesiones),
+            'filtros'     => [
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin'    => $fechaFin,
+                'estado'       => $estado,
+            ],
+        ];
+    }
+
     // -------------------------------------------------------------------------
     // Métodos privados de apoyo
     // -------------------------------------------------------------------------

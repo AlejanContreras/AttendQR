@@ -8,8 +8,13 @@ declare(strict_types=1);
  * Responsabilidad: acceder a la tabla `asistencias` para registrar,
  * consultar y eliminar registros de asistencia de los aprendices.
  *
- * NO contiene lógica de negocio. Verificar si la sesión está activa
- * o si el aprendiz pertenece a la ficha corresponde a AsistenciaService.
+ * NO contiene lógica de negocio. La clasificación (PRESENTE/RETARDO),
+ * la validación de token y el cálculo de minutos corresponden a AsistenciaService.
+ *
+ * Tabla principal: asistencias
+ * Columnas: id_asistencia, id_sesion, id_aprendiz, id_token_usado,
+ *           estado, metodo_registro, hora_registro, minutos_retardo,
+ *           ubicacion_valida, latitud, longitud, observacion, registrado_en
  *
  * Flujo: AsistenciaService → AsistenciaRepository → BaseRepository → Database → MySQL
  *
@@ -18,7 +23,7 @@ declare(strict_types=1);
 class AsistenciaRepository extends BaseRepository
 {
     /**
-     * Busca un registro de asistencia por su ID, incluyendo datos del aprendiz y la sesión.
+     * Busca un registro de asistencia por su ID con datos del aprendiz y la sesión.
      *
      * @param int $idAsistencia Identificador del registro.
      * @return array<string, mixed>|null Datos del registro o null.
@@ -26,13 +31,15 @@ class AsistenciaRepository extends BaseRepository
     public function obtenerPorId(int $idAsistencia): ?array
     {
         return $this->consultarUno(
-            'SELECT a.id, a.id_aprendiz, a.id_sesion, a.fecha_hora,
-                    ap.nombres, ap.apellidos,
-                    s.fecha AS fecha_sesion
+            'SELECT a.id_asistencia, a.id_aprendiz, a.id_sesion, a.id_token_usado,
+                    a.estado, a.metodo_registro, a.hora_registro,
+                    a.minutos_retardo, a.registrado_en,
+                    ap.nombres, ap.apellidos, ap.numero_documento,
+                    sa.fecha_sesion, sa.hora_inicio_clase
              FROM asistencias a
-             JOIN aprendices ap ON ap.id = a.id_aprendiz
-             JOIN sesiones    s  ON s.id  = a.id_sesion
-             WHERE a.id = :id',
+             JOIN aprendices          ap ON ap.id_aprendiz = a.id_aprendiz
+             JOIN sesiones_asistencia sa ON sa.id_sesion   = a.id_sesion
+             WHERE a.id_asistencia = :id',
             [':id' => $idAsistencia]
         );
     }
@@ -55,42 +62,58 @@ class AsistenciaRepository extends BaseRepository
     }
 
     /**
-     * Retorna el historial de asistencias de un aprendiz con filtros opcionales.
+     * Verifica si un aprendiz activo pertenece a la ficha de una sesión.
+     * Usado para impedir que aprendices de otras fichas registren asistencia.
+     *
+     * @param int $idAprendiz Identificador del aprendiz.
+     * @param int $idFicha    Identificador de la ficha.
+     * @return bool true si el aprendiz está activo y pertenece a la ficha.
+     */
+    public function aprendizPerteneceAFicha(int $idAprendiz, int $idFicha): bool
+    {
+        return $this->existe(
+            'SELECT COUNT(*) FROM aprendices
+             WHERE id_aprendiz = :id_aprendiz
+               AND id_ficha    = :id_ficha
+               AND activo      = 1',
+            [':id_aprendiz' => $idAprendiz, ':id_ficha' => $idFicha]
+        );
+    }
+
+    /**
+     * Retorna el historial de asistencias de un aprendiz con filtros opcionales de fecha.
      *
      * @param int         $idAprendiz  Identificador del aprendiz.
-     * @param int|null    $idMateria   Filtro por materia.
      * @param string|null $fechaInicio Fecha de inicio del rango (Y-m-d).
      * @param string|null $fechaFin    Fecha de fin del rango (Y-m-d).
      * @return array<int, array<string, mixed>>
      */
     public function historialAprendiz(
         int     $idAprendiz,
-        ?int    $idMateria   = null,
         ?string $fechaInicio = null,
         ?string $fechaFin    = null
     ): array {
-        $sql    = 'SELECT a.id, a.fecha_hora, s.fecha AS fecha_sesion, s.id_materia
+        $sql    = 'SELECT a.id_asistencia, a.estado, a.metodo_registro,
+                          a.hora_registro, a.minutos_retardo, a.registrado_en,
+                          sa.fecha_sesion, sa.hora_inicio_clase,
+                          sa.id_ficha, f.codigo_ficha, f.nombre_programa
                    FROM asistencias a
-                   JOIN sesiones s ON s.id = a.id_sesion
+                   JOIN sesiones_asistencia sa ON sa.id_sesion = a.id_sesion
+                   JOIN fichas              f  ON f.id_ficha   = sa.id_ficha
                    WHERE a.id_aprendiz = :id_aprendiz';
         $params = [':id_aprendiz' => $idAprendiz];
 
-        if ($idMateria !== null) {
-            $sql              .= ' AND s.id_materia   = :id_materia';
-            $params[':id_materia']   = $idMateria;
-        }
-
         if ($fechaInicio !== null) {
-            $sql              .= ' AND s.fecha >= :fecha_inicio';
+            $sql                    .= ' AND sa.fecha_sesion >= :fecha_inicio';
             $params[':fecha_inicio'] = $fechaInicio;
         }
 
         if ($fechaFin !== null) {
-            $sql            .= ' AND s.fecha <= :fecha_fin';
+            $sql                .= ' AND sa.fecha_sesion <= :fecha_fin';
             $params[':fecha_fin'] = $fechaFin;
         }
 
-        $sql .= ' ORDER BY a.fecha_hora DESC';
+        $sql .= ' ORDER BY sa.fecha_sesion DESC, a.registrado_en DESC';
 
         return $this->consultar($sql, $params);
     }
@@ -103,7 +126,7 @@ class AsistenciaRepository extends BaseRepository
     public function contarHoy(): int
     {
         return $this->contar(
-            "SELECT COUNT(*) FROM asistencias WHERE DATE(fecha_hora) = CURDATE()"
+            'SELECT COUNT(*) FROM asistencias WHERE DATE(registrado_en) = CURDATE()'
         );
     }
 
@@ -123,19 +146,39 @@ class AsistenciaRepository extends BaseRepository
     }
 
     /**
-     * Inserta un nuevo registro de asistencia.
+     * Inserta un nuevo registro de asistencia vía QR.
      *
-     * @param int    $idAprendiz Identificador del aprendiz.
-     * @param int    $idSesion   Identificador de la sesión activa.
-     * @param string $fechaHora  Fecha y hora del registro (Y-m-d H:i:s).
+     * @param int    $idAprendiz      Identificador del aprendiz.
+     * @param int    $idSesion        Identificador de la sesión activa.
+     * @param int    $idTokenUsado    ID del token QR escaneado.
+     * @param string $estado          'presente' o 'retardo'.
+     * @param string $horaRegistro    Timestamp exacto de la entrada (Y-m-d H:i:s.000).
+     * @param int    $minutosRetardo  Minutos desde hora_inicio_clase. 0 si PRESENTE.
      * @return int ID del registro creado.
      */
-    public function crear(int $idAprendiz, int $idSesion, string $fechaHora): int
-    {
+    public function crear(
+        int    $idAprendiz,
+        int    $idSesion,
+        int    $idTokenUsado,
+        string $estado,
+        string $horaRegistro,
+        int    $minutosRetardo
+    ): int {
         return $this->insertar(
-            'INSERT INTO asistencias (id_aprendiz, id_sesion, fecha_hora)
-             VALUES (:id_aprendiz, :id_sesion, :fecha_hora)',
-            [':id_aprendiz' => $idAprendiz, ':id_sesion' => $idSesion, ':fecha_hora' => $fechaHora]
+            "INSERT INTO asistencias
+                 (id_aprendiz, id_sesion, id_token_usado,
+                  estado, metodo_registro, hora_registro, minutos_retardo)
+             VALUES
+                 (:id_aprendiz, :id_sesion, :id_token_usado,
+                  :estado, 'qr', :hora_registro, :minutos_retardo)",
+            [
+                ':id_aprendiz'   => $idAprendiz,
+                ':id_sesion'     => $idSesion,
+                ':id_token_usado' => $idTokenUsado,
+                ':estado'        => $estado,
+                ':hora_registro' => $horaRegistro,
+                ':minutos_retardo' => $minutosRetardo,
+            ]
         );
     }
 
@@ -148,7 +191,7 @@ class AsistenciaRepository extends BaseRepository
     public function eliminar(int $idAsistencia): int
     {
         return $this->ejecutar(
-            'DELETE FROM asistencias WHERE id = :id',
+            'DELETE FROM asistencias WHERE id_asistencia = :id',
             [':id' => $idAsistencia]
         );
     }

@@ -40,14 +40,14 @@ class JornadaService
     }
 
     /**
-     * Lista jornadas con filtro opcional de estado.
+     * Lista todas las jornadas.
+     * La tabla jornadas no tiene columna estado — es una tabla de referencia.
      *
-     * @param string|null $estado Filtro por estado ('activa' | 'inactiva').
      * @return array<string, mixed>
      */
-    public function listar(?string $estado = null): array
+    public function listar(): array
     {
-        $jornadas = $this->jornadaRepo->listar($estado);
+        $jornadas = $this->jornadaRepo->listar();
 
         return [
             'jornadas' => $jornadas,
@@ -86,15 +86,15 @@ class JornadaService
             throw new \RuntimeException('La hora de fin debe ser posterior a la hora de inicio.', 422);
         }
 
-        $id      = $this->jornadaRepo->crear($nombre, $horaInicio, $horaFin);
+        $id = $this->jornadaRepo->crear($nombre, $horaInicio, $horaFin);
         $jornada = $this->jornadaRepo->obtenerPorId($id);
 
         return $jornada ?? [
-            'id'          => $id,
+            'id_jornada'  => $id,
             'nombre'      => $nombre,
             'hora_inicio' => $horaInicio,
             'hora_fin'    => $horaFin,
-            'estado'      => 'activa',
+            'minutos_gracia' => 5,
         ];
     }
 
