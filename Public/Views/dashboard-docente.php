@@ -1,24 +1,24 @@
-<?php /* Dashboard Docente — Vista parcial */ ?>
+<?php /* Dashboard Docente — Vista parcial (Fase 2) */ ?>
 
 <!-- ─── Welcome Banner ──────────────────────────────────────────────── -->
 <div class="welcome-banner">
   <div class="welcome-banner__content">
     <div class="welcome-banner__greeting">Buenos días</div>
-    <h2 class="welcome-banner__name">Carlos <span>Rodríguez</span></h2>
+    <h2 class="welcome-banner__name"><span data-usuario-nombre><?= htmlspecialchars($userName ?? '') ?></span></h2>
     <div class="welcome-banner__meta">
       <span class="welcome-banner__meta-item">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
         </svg>
-        2 sesiones activas
+        <span id="statSesionesActivas">—</span> sesiones activas
       </span>
-      <span class="welcome-banner__meta-item">
+      <span class="welcome-banner__meta-item" id="fichasActivasBadge">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/>
+                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
         </svg>
-        47 aprendices
+        Cargando fichas...
       </span>
       <a href="index.php?view=crear-sesion&rol=docente" class="btn btn-primary btn-sm" style="margin-left:var(--sp-2)">
         + Nueva sesión
@@ -26,7 +26,7 @@
     </div>
   </div>
   <div class="welcome-banner__visual">
-    <div class="welcome-banner__avatar">CR</div>
+    <div class="welcome-banner__avatar" data-usuario-iniciales><?= htmlspecialchars($userInitials ?? 'U') ?></div>
   </div>
 </div>
 
@@ -41,7 +41,7 @@
       </svg>
     </div>
     <div class="stat-card__body">
-      <div class="stat-card__value">2</div>
+      <div class="stat-card__value" id="statSesionesActivas2">—</div>
       <div class="stat-card__label">Sesiones activas</div>
     </div>
     <div class="stat-card__trend stat-card__trend--up">Hoy</div>
@@ -55,10 +55,10 @@
       </svg>
     </div>
     <div class="stat-card__body">
-      <div class="stat-card__value">47</div>
+      <div class="stat-card__value" id="statAprendices">—</div>
       <div class="stat-card__label">Aprendices</div>
     </div>
-    <div class="stat-card__trend stat-card__trend--neutral">3 fichas</div>
+    <div class="stat-card__trend stat-card__trend--neutral">Total activos</div>
   </div>
 
   <div class="stat-card stat-card--purple">
@@ -69,10 +69,10 @@
       </svg>
     </div>
     <div class="stat-card__body">
-      <div class="stat-card__value">89%</div>
-      <div class="stat-card__label">Asistencia hoy</div>
+      <div class="stat-card__value" id="statAsistenciaHoy">—</div>
+      <div class="stat-card__label">Asistencia media</div>
     </div>
-    <div class="stat-card__trend stat-card__trend--up">+3% vs ayer</div>
+    <div class="stat-card__trend stat-card__trend--neutral">Este período</div>
   </div>
 
   <div class="stat-card stat-card--orange">
@@ -83,10 +83,10 @@
       </svg>
     </div>
     <div class="stat-card__body">
-      <div class="stat-card__value">3</div>
+      <div class="stat-card__value" id="statFichasActivas">—</div>
       <div class="stat-card__label">Fichas activas</div>
     </div>
-    <div class="stat-card__trend stat-card__trend--neutral">Trimestre I</div>
+    <div class="stat-card__trend stat-card__trend--neutral">Trimestre actual</div>
   </div>
 
 </div>
@@ -148,8 +148,8 @@
   <div class="card">
     <div class="card-header">
       <div>
-        <h3 class="card-title">Sesiones recientes</h3>
-        <p class="card-subtitle">Últimas 5 sesiones</p>
+        <h3 class="card-title">Sesiones activas</h3>
+        <p class="card-subtitle">Sesiones abiertas en este momento</p>
       </div>
       <a href="index.php?view=historial&rol=docente" class="btn btn-ghost btn-sm">Ver todas</a>
     </div>
@@ -158,76 +158,16 @@
         <thead>
           <tr>
             <th>Ficha</th>
-            <th>Fecha</th>
+            <th>Apertura</th>
             <th>Estado</th>
-            <th>Asistencia</th>
+            <th>Acción</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="sesionesRecientesBody">
           <tr>
-            <td>
-              <div style="font-weight:var(--fw-medium)">2345678</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted)">Análisis y Desarrollo</div>
+            <td colspan="4" style="text-align:center;color:var(--text-muted);padding:var(--sp-6)">
+              <div class="spinner"></div>
             </td>
-            <td>Hoy, 08:00</td>
-            <td><span class="badge badge-success">Abierta</span></td>
-            <td>
-              <div style="font-weight:var(--fw-semibold)">18/20</div>
-              <div class="progress" style="margin-top:4px;height:4px">
-                <div class="progress-bar" style="width:90%;background:var(--green-primary)"></div>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <div style="font-weight:var(--fw-medium)">2345679</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted)">Diseño Web</div>
-            </td>
-            <td>Hoy, 10:00</td>
-            <td><span class="badge badge-success">Abierta</span></td>
-            <td>
-              <div style="font-weight:var(--fw-semibold)">14/16</div>
-              <div class="progress" style="margin-top:4px;height:4px">
-                <div class="progress-bar" style="width:87%;background:var(--green-primary)"></div>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <div style="font-weight:var(--fw-medium)">2345680</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted)">Bases de Datos</div>
-            </td>
-            <td>Ayer, 14:00</td>
-            <td><span class="badge badge-neutral">Cerrada</span></td>
-            <td>
-              <div style="font-weight:var(--fw-semibold)">9/11</div>
-              <div class="progress" style="margin-top:4px;height:4px">
-                <div class="progress-bar" style="width:81%;background:var(--green-primary)"></div>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <div style="font-weight:var(--fw-medium)">2345678</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted)">Análisis y Desarrollo</div>
-            </td>
-            <td>Ayer, 08:00</td>
-            <td><span class="badge badge-neutral">Cerrada</span></td>
-            <td>
-              <div style="font-weight:var(--fw-semibold)">19/20</div>
-              <div class="progress" style="margin-top:4px;height:4px">
-                <div class="progress-bar" style="width:95%;background:var(--green-primary)"></div>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <div style="font-weight:var(--fw-medium)">2345679</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted)">Diseño Web</div>
-            </td>
-            <td>01/07, 10:00</td>
-            <td><span class="badge badge-danger">Cancelada</span></td>
-            <td><span style="color:var(--text-muted)">—</span></td>
           </tr>
         </tbody>
       </table>
@@ -235,3 +175,16 @@
   </div>
 
 </div>
+
+<script>
+// Sincronizar el segundo stat-card de sesiones con el primero
+document.addEventListener('DOMContentLoaded', () => {
+  const observer = new MutationObserver(() => {
+    const v = document.getElementById('statSesionesActivas')?.textContent;
+    const el = document.getElementById('statSesionesActivas2');
+    if (el && v) el.textContent = v;
+  });
+  const src = document.getElementById('statSesionesActivas');
+  if (src) observer.observe(src, { childList: true, characterData: true, subtree: true });
+});
+</script>

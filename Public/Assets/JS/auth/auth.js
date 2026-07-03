@@ -1,23 +1,114 @@
 /**
- * AttendQR — Auth (Fase 1: simulación sin backend)
- * Gestiona estado de sesión en sessionStorage para navegación entre vistas.
+ * AttendQR — Módulo de autenticación
+ *
+ * Responsabilidades:
+ *   - Cache del usuario autenticado en sessionStorage (acceso rápido en UI)
+ *   - Verificación de sesión activa con el backend
+ *   - Logout con limpieza de estado local
+ *   - Guard de ruta: redirige a login si no hay sesión al cargar el shell
+ *
+ * No contiene lógica de negocio. Solo coordina entre la API y el estado local.
  */
 const auth = (() => {
 
-  function getRol() {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('rol') || 'docente';
+  const STORAGE_KEY = 'attendqr_usuario';
+
+  // ─── Estado local ──────────────────────────────────────────────────
+
+  function setUsuario(u) {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(u));
   }
 
-  function logout() {
-    sessionStorage.clear();
-    window.location.href = 'Views/login.php';
+  function getUsuario() {
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? 'null'); }
+    catch { return null; }
   }
 
-  function checkSession() {
-    // En Fase 1 no hay sesión real — siempre pasa
-    return true;
+  function clearUsuario() {
+    sessionStorage.removeItem(STORAGE_KEY);
   }
 
-  return { getRol, logout, checkSession };
+  function getRol() { return getUsuario()?.rol ?? null; }
+  function getId()  { return getUsuario()?.id  ?? null; }
+
+  // ─── Redirección ───────────────────────────────────────────────────
+
+  function irALogin() {
+    // Construir URL absoluta de login desde la posición actual
+    const parts = window.location.pathname.split('/');
+    const idx   = parts.findIndex(p => p.toLowerCase() === 'attendqr');
+    const base  = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
+    window.location.href = base + '/Public/Views/login.php';
+  }
+
+  function irADashboard(rol) {
+    const parts = window.location.pathname.split('/');
+    const idx   = parts.findIndex(p => p.toLowerCase() === 'attendqr');
+    const base  = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
+    const view  = rol === 'aprendiz' ? 'dashboard-aprendiz' : 'dashboard-docente';
+    window.location.href = `${base}/Public/index.php?view=${view}`;
+  }
+
+  // ─── Verificar sesión ──────────────────────────────────────────────
+
+  /**
+   * Llama al backend para comprobar si hay sesión PHP activa.
+   * - Si la hay: actualiza cache y retorna el usuario.
+   * - Si no:     limpia cache, redirige a login y retorna null.
+   */
+  async function verificar() {
+    try {
+      const usuario = await Api.auth.verificar();
+      setUsuario(usuario);
+      return usuario;
+    } catch {
+      clearUsuario();
+      irALogin();
+      return null;
+    }
+  }
+
+  // ─── Logout ────────────────────────────────────────────────────────
+
+  async function logout() {
+    try { await Api.auth.logout(); } catch { /* continúa aunque falle el API */ }
+    clearUsuario();
+    irALogin();
+  }
+
+  // ─── Guard de ruta ─────────────────────────────────────────────────
+
+  /**
+   * Detecta si la página actual es el shell principal (index.php).
+   * Funciona con rutas explícitas (/index.php) y con DirectoryIndex (/Public/).
+   */
+  function esShellPrincipal() {
+    const path = window.location.pathname;
+    return (
+      path.includes('index.php') ||
+      path.endsWith('/Public/') ||
+      path.endsWith('/Public')
+    );
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (!esShellPrincipal()) return;
+
+    const usuario = await verificar();
+    if (!usuario) return;
+
+    // Poblar elementos de UI que dependen del usuario autenticado
+    const nombre    = usuario.nombre ?? '';
+    const iniciales = nombre
+      .split(' ')
+      .slice(0, 2)
+      .map(p => (p[0] ?? '').toUpperCase())
+      .join('');
+
+    document.querySelectorAll('[data-usuario-nombre]').forEach(el    => { el.textContent = nombre; });
+    document.querySelectorAll('[data-usuario-iniciales]').forEach(el => { el.textContent = iniciales; });
+    document.querySelectorAll('[data-usuario-rol]').forEach(el       => { el.textContent = usuario.rol ?? ''; });
+  });
+
+  return { setUsuario, getUsuario, clearUsuario, getRol, getId, verificar, logout, irALogin, irADashboard };
 })();

@@ -1,14 +1,14 @@
-<?php /* QR Dinámico — Vista parcial */ ?>
+<?php /* QR Dinámico — Vista parcial (Fase 2) */ ?>
 
 <div class="page-header">
   <div>
     <h1 class="page-header__title">QR Dinámico</h1>
-    <p class="page-header__sub">Ficha 2345678 · Análisis y Desarrollo de Software</p>
+    <p class="page-header__sub">
+      <span id="qrFichaCodigo">—</span> · <span id="qrFichaProgram">Cargando...</span>
+    </p>
   </div>
   <div style="display:flex;gap:var(--sp-3)">
-    <button class="btn btn-secondary"
-            onclick="AttendQR.modal.open('modal');AttendQR.modal.setTitle('modal','Cerrar sesión');
-                     AttendQR.modal.setBody('modal','<p style=\'color:var(--text-secondary)\'>¿Confirmas cerrar la sesión activa? Los registros se guardarán.</p>');">
+    <button class="btn btn-secondary" id="btnCerrarSesion">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
       </svg>
@@ -24,11 +24,9 @@
     <strong>Sesión abierta</strong>
   </div>
   <div style="display:flex;gap:var(--sp-3);font-size:var(--text-sm);color:var(--text-secondary)">
-    <span>Inicio: 08:00 AM</span>
+    <span>Inicio: <strong id="qrHoraApertura">—</strong></span>
     <span>·</span>
-    <span>Tiempo: <strong id="sessionElapsed">00:24:15</strong></span>
-    <span>·</span>
-    <span>Cierre automático: <strong>08:30 AM</strong></span>
+    <span>Tiempo: <strong id="sessionElapsed">00:00:00</strong></span>
   </div>
 </div>
 
@@ -40,14 +38,14 @@
 
     <!-- Session info header -->
     <div class="qr-session-info">
-      <div class="qr-session-info__ficha">Ficha 2345678</div>
-      <div class="qr-session-info__program">Análisis y Desarrollo de Software</div>
+      <div class="qr-session-info__ficha">Ficha <span id="qrFichaCodigo2">—</span></div>
+      <div class="qr-session-info__program" id="qrFichaProgram2">—</div>
       <div class="qr-session-info__date">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:14px;height:14px">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
         </svg>
-        Jueves, 03 de julio de 2025
+        <?= date_create()->format('l, d \d\e F \d\e Y') ?>
       </div>
     </div>
 
@@ -59,7 +57,7 @@
         <div class="qr-corner qr-corner--bl"></div>
         <div class="qr-corner qr-corner--br"></div>
 
-        <!-- Simulated QR SVG -->
+        <!-- QR SVG decorativo — el token real se muestra en el chip debajo -->
         <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" id="qrSvg" class="qr-svg">
           <rect x="10" y="10" width="56" height="56" rx="6" fill="#1B2A3B"/>
           <rect x="18" y="18" width="40" height="40" rx="3" fill="white"/>
@@ -109,17 +107,17 @@
       <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--sp-1)">Token activo</div>
       <code id="qrToken" style="font-size:var(--text-sm);background:var(--surface-alt);
                                   padding:4px 14px;border-radius:var(--r-sm);
-                                  color:var(--text-primary)">ATQ-7F2K9X1M</code>
+                                  color:var(--text-primary)">—</code>
     </div>
 
     <!-- Countdown -->
     <div class="qr-countdown">
       <div class="qr-countdown__label">Próxima rotación en</div>
-      <div class="qr-countdown__timer" id="qrCountdown">30</div>
+      <div class="qr-countdown__timer" id="qrCountdown">—</div>
       <div class="qr-countdown__bar">
         <div class="qr-countdown__progress" id="qrProgress" style="width:100%"></div>
       </div>
-      <div class="qr-countdown__hint">El token se renueva automáticamente cada 30 segundos</div>
+      <div class="qr-countdown__hint">El token se renueva automáticamente</div>
     </div>
 
   </div><!-- /qr-display-card -->
@@ -135,19 +133,19 @@
       <div class="card-body">
         <div class="qr-counter-grid">
           <div class="qr-counter-item qr-counter-item--present">
-            <div class="qr-counter-item__num" id="countPresente">18</div>
+            <div class="qr-counter-item__num" id="countPresente">—</div>
             <div class="qr-counter-item__label">Presentes</div>
           </div>
           <div class="qr-counter-item qr-counter-item--retard">
-            <div class="qr-counter-item__num" id="countTardanza">1</div>
+            <div class="qr-counter-item__num" id="countTardanza">—</div>
             <div class="qr-counter-item__label">Tardanzas</div>
           </div>
           <div class="qr-counter-item qr-counter-item--absent">
-            <div class="qr-counter-item__num" id="countAusente">1</div>
+            <div class="qr-counter-item__num" id="countAusente">—</div>
             <div class="qr-counter-item__label">Ausentes</div>
           </div>
           <div class="qr-counter-item qr-counter-item--pending">
-            <div class="qr-counter-item__num" id="countPendiente">0</div>
+            <div class="qr-counter-item__num" id="countPendiente">—</div>
             <div class="qr-counter-item__label">Pendientes</div>
           </div>
         </div>
@@ -155,10 +153,10 @@
         <div style="margin-top:var(--sp-4)">
           <div style="display:flex;justify-content:space-between;margin-bottom:var(--sp-2)">
             <span style="font-size:var(--text-sm);color:var(--text-secondary)">Registrados</span>
-            <strong>19 / 20</strong>
+            <strong id="countTotal">—</strong>
           </div>
           <div class="progress">
-            <div class="progress-bar" style="width:95%;background:var(--green-primary)"></div>
+            <div class="progress-bar" id="attendanceBar" style="width:0%;background:var(--green-primary)"></div>
           </div>
         </div>
       </div>
@@ -173,64 +171,17 @@
         <div style="display:flex;flex-direction:column;gap:var(--sp-3)">
           <div style="display:flex;justify-content:space-between">
             <span style="font-size:var(--text-sm);color:var(--text-muted)">Apertura</span>
-            <strong style="font-size:var(--text-sm)">08:00 AM</strong>
+            <strong style="font-size:var(--text-sm)" id="qrHoraApertura2">—</strong>
           </div>
           <div style="display:flex;justify-content:space-between">
             <span style="font-size:var(--text-sm);color:var(--text-muted)">Rotación QR</span>
-            <strong style="font-size:var(--text-sm)">30 s</strong>
+            <strong style="font-size:var(--text-sm)" id="qrRotacion">—</strong>
           </div>
           <div style="display:flex;justify-content:space-between">
             <span style="font-size:var(--text-sm);color:var(--text-muted)">Límite retardo</span>
-            <strong style="font-size:var(--text-sm)">10 min</strong>
-          </div>
-          <div style="display:flex;justify-content:space-between">
-            <span style="font-size:var(--text-sm);color:var(--text-muted)">Cierre registro</span>
-            <strong style="font-size:var(--text-sm)">08:30 AM</strong>
+            <strong style="font-size:var(--text-sm)" id="qrLimiteRetardo">—</strong>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Last registrations -->
-    <div class="card">
-      <div class="card-header">
-        <h3 class="card-title">Últimos registros</h3>
-      </div>
-      <div class="card-body" style="padding:0">
-        <ul style="list-style:none;margin:0;padding:0">
-          <li style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border)">
-            <div class="avatar avatar-sm" style="background:var(--green-primary)">JM</div>
-            <div style="flex:1">
-              <div style="font-size:var(--text-sm);font-weight:var(--fw-medium)">Juliana Martínez</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted)">08:05 AM</div>
-            </div>
-            <span class="badge badge-success">Presente</span>
-          </li>
-          <li style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border)">
-            <div class="avatar avatar-sm" style="background:#6366F1">SA</div>
-            <div style="flex:1">
-              <div style="font-size:var(--text-sm);font-weight:var(--fw-medium)">Santiago Álvarez</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted)">08:04 AM</div>
-            </div>
-            <span class="badge badge-success">Presente</span>
-          </li>
-          <li style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border)">
-            <div class="avatar avatar-sm" style="background:#F59E0B">LP</div>
-            <div style="flex:1">
-              <div style="font-size:var(--text-sm);font-weight:var(--fw-medium)">Laura Pérez</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted)">08:12 AM</div>
-            </div>
-            <span class="badge badge-warning">Tardanza</span>
-          </li>
-          <li style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4)">
-            <div class="avatar avatar-sm" style="background:#8B5CF6">DC</div>
-            <div style="flex:1">
-              <div style="font-size:var(--text-sm);font-weight:var(--fw-medium)">Diego Castillo</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted)">08:02 AM</div>
-            </div>
-            <span class="badge badge-success">Presente</span>
-          </li>
-        </ul>
       </div>
     </div>
 

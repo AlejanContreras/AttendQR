@@ -16,9 +16,10 @@ $docNavItems = [
 ];
 
 $aprNavItems = [
-  ['view' => 'dashboard-aprendiz', 'label' => 'Dashboard',     'icon' => 'grid'],
-  ['view' => 'historial',          'label' => 'Mi Asistencia', 'icon' => 'list'],
-  ['view' => 'perfil',             'label' => 'Mi Perfil',     'icon' => 'user'],
+  ['view' => 'dashboard-aprendiz',   'label' => 'Dashboard',        'icon' => 'grid'],
+  ['view' => 'registrar-asistencia', 'label' => 'Registrar QR',     'icon' => 'qr-code'],
+  ['view' => 'historial',            'label' => 'Mi Asistencia',    'icon' => 'list'],
+  ['view' => 'perfil',               'label' => 'Mi Perfil',        'icon' => 'user'],
 ];
 
 $navItems = ($userRole === 'aprendiz') ? $aprNavItems : $docNavItems;
@@ -55,9 +56,9 @@ function sidebarIcon(string $name): string {
 
   <!-- User -->
   <div class="sidebar__user">
-    <div class="sidebar__avatar"><?= htmlspecialchars($userInitials ?? 'U') ?></div>
+    <div class="sidebar__avatar" data-usuario-iniciales><?= htmlspecialchars($userInitials ?? 'U') ?></div>
     <div class="sidebar__user-info">
-      <div class="sidebar__user-name"><?= htmlspecialchars($userName ?? 'Usuario') ?></div>
+      <div class="sidebar__user-name" data-usuario-nombre><?= htmlspecialchars($userName ?? 'Usuario') ?></div>
       <div class="sidebar__user-role"><?= htmlspecialchars($userSubtitle ?? ucfirst($userRole ?? 'docente')) ?></div>
     </div>
   </div>
@@ -81,11 +82,13 @@ function sidebarIcon(string $name): string {
 
   <!-- Footer / Logout -->
   <div class="sidebar__footer">
-    <a href="Views/login.php" class="sidebar__nav-item" data-label="Cerrar sesión"
-       style="border-radius: 8px; margin: 0; padding: 10px 12px; color: #8FA4BB;">
+    <button class="sidebar__nav-item" data-label="Cerrar sesión"
+            onclick="auth.logout()"
+            style="border-radius:8px;margin:0;padding:10px 12px;color:#8FA4BB;
+                   width:100%;text-align:left;background:none;border:none;cursor:pointer">
       <span class="sidebar__nav-icon"><?= sidebarIcon('logout') ?></span>
       <span class="sidebar__nav-label">Cerrar sesión</span>
-    </a>
+    </button>
   </div>
 
 </aside>

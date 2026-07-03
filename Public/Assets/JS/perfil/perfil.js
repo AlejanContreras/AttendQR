@@ -1,23 +1,124 @@
 /**
- * AttendQR — Perfil (Fase 1: UI simulada, sin API)
+ * AttendQR — Perfil (Fase 2: datos reales desde API)
  */
 const perfil = (() => {
 
-  function guardar(e) {
-    e.preventDefault();
-    const btn = e.target.querySelector('button[type=submit]');
-    btn.disabled = true;
-    setTimeout(() => {
-      btn.disabled = false;
-      AttendQR.toast.success('Perfil actualizado correctamente.');
-    }, 800);
+  let datosOriginales = null; // cache de datos del backend
+
+  // ─── Init ───────────────────────────────────────────────────────────
+
+  async function init() {
+    const usuario = window.ATTENDQR_USER;
+    if (!usuario) return;
+
+    try {
+      const datos = usuario.rol === 'aprendiz'
+        ? await Api.aprendices.consultar(usuario.id)
+        : await Api.docentes.consultar(usuario.id);
+
+      datosOriginales = datos;
+      rellenarFormulario(datos, usuario.rol);
+      await cargarEstadisticas(usuario);
+    } catch (err) {
+      AttendQR.toast.error('No se pudo cargar el perfil: ' + err.message);
+    }
   }
 
-  function cambiarPassword(e) {
+  function rellenarFormulario(datos, rol) {
+    setVal('#perfilNombre', datos.nombre ?? datos.nombre_completo ?? '');
+    setVal('#perfilEmail',  datos.correo ?? '');
+    setVal('#perfilDoc',    datos.numero_documento ?? datos.documento ?? '');
+    setVal('#perfilTel',    datos.telefono ?? '');
+
+    // Card lateral
+    const nombre = datos.nombre ?? datos.nombre_completo ?? '—';
+    const iniciales = nombre.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+
+    setTxt('#perfilNombreCard', nombre);
+    setTxt('#perfilRolCard',    rol === 'aprendiz' ? 'Aprendiz — SENA' : 'Docente — SENA');
+    setTxt('#perfilAvatar',     iniciales);
+  }
+
+  async function cargarEstadisticas(usuario) {
+    try {
+      const stats = await Api.estadisticas.dashboard(
+        usuario.rol === 'docente'
+          ? { id_docente: usuario.id }
+          : {}
+      );
+
+      if (usuario.rol === 'docente') {
+        setTxt('#statPerfilSesiones',  stats.sesiones_totales  ?? stats.sesiones_activas ?? '—');
+        setTxt('#statPerfilFichas',    stats.fichas_activas    ?? '—');
+        setTxt('#statPerfilAprendices', stats.total_aprendices ?? '—');
+        setTxt('#statPerfilPct',       stats.porcentaje_asistencia != null
+          ? Math.round(stats.porcentaje_asistencia) + '%' : '—');
+      } else {
+        // Para aprendiz: cargar historial propio
+        const historial = await Api.asistencias.historial(usuario.id);
+        const total    = historial.length;
+        const presente = historial.filter(r => r.estado === 'presente').length;
+        const retardo  = historial.filter(r => r.estado === 'retardo').length;
+        const pct      = total > 0 ? Math.round(((presente + retardo) / total) * 100) : 0;
+
+        setTxt('#statPerfilSesiones',   total);
+        setTxt('#statPerfilFichas',     presente);
+        setTxt('#statPerfilAprendices', retardo);
+        setTxt('#statPerfilPct',        pct + '%');
+        setTxt('#statPerfilLabel2',     'Presentes');
+        setTxt('#statPerfilLabel3',     'Tardanzas');
+      }
+    } catch { /* estadísticas opcionales */ }
+  }
+
+  // ─── Guardar perfil ──────────────────────────────────────────────
+
+  async function guardar(e) {
     e.preventDefault();
-    const actual  = document.getElementById('passActual')?.value;
-    const nueva   = document.getElementById('passNueva')?.value;
-    const confirm = document.getElementById('passConfirm')?.value;
+    const usuario = window.ATTENDQR_USER;
+    if (!usuario) return;
+
+    const nombre  = document.getElementById('perfilNombre')?.value.trim();
+    const correo  = document.getElementById('perfilEmail')?.value.trim();
+    const telefono = document.getElementById('perfilTel')?.value.trim();
+
+    if (!nombre || !correo) {
+      AttendQR.toast.warning('El nombre y el correo son obligatorios.');
+      return;
+    }
+
+    const btn  = document.getElementById('btnGuardarPerfil');
+    const orig = btn?.innerHTML;
+    if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+
+    try {
+      const body = { nombre, correo, telefono };
+      if (usuario.rol === 'aprendiz') {
+        await Api.aprendices.actualizar(usuario.id, body);
+      } else {
+        await Api.docentes.actualizar(usuario.id, body);
+      }
+
+      // Actualizar card lateral
+      setTxt('#perfilNombreCard', nombre);
+      const iniciales = nombre.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+      setTxt('#perfilAvatar', iniciales);
+
+      AttendQR.toast.success('Perfil actualizado correctamente.');
+    } catch (err) {
+      AttendQR.toast.error('Error al guardar: ' + err.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+    }
+  }
+
+  // ─── Cambiar contraseña ──────────────────────────────────────────
+
+  async function cambiarPassword(e) {
+    e.preventDefault();
+    const actual   = document.getElementById('passActual')?.value;
+    const nueva    = document.getElementById('passNueva')?.value;
+    const confirm  = document.getElementById('passConfirm')?.value;
 
     if (!actual || !nueva || !confirm) {
       AttendQR.toast.warning('Completa todos los campos de contraseña.');
@@ -31,15 +132,30 @@ const perfil = (() => {
       AttendQR.toast.warning('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
+
+    const usuario = window.ATTENDQR_USER;
     const btn = e.target.querySelector('button[type=submit]');
-    btn.disabled = true;
-    setTimeout(() => {
-      btn.disabled = false;
+    if (btn) btn.disabled = true;
+
+    try {
+      // Reutilizar endpoint de actualizar con campo password
+      const body = { password_actual: actual, password_nueva: nueva };
+      if (usuario?.rol === 'aprendiz') {
+        await Api.aprendices.actualizar(usuario.id, body);
+      } else {
+        await Api.docentes.actualizar(usuario?.id, body);
+      }
       e.target.reset();
       resetStrength();
       AttendQR.toast.success('Contraseña actualizada correctamente.');
-    }, 800);
+    } catch (err) {
+      AttendQR.toast.error(err.message ?? 'Error al actualizar la contraseña.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
+
+  // ─── Evaluador de fortaleza ──────────────────────────────────────
 
   function evalPassword(val) {
     const bars  = [1, 2, 3, 4].map(i => document.getElementById(`pbar${i}`));
@@ -52,8 +168,8 @@ const perfil = (() => {
     if (/[0-9]/.test(val))         score++;
     if (/[^A-Za-z0-9]/.test(val))  score++;
 
-    const colors  = ['#EF4444', '#F97316', '#F59E0B', '#22C55E'];
-    const labels  = ['Muy débil', 'Débil', 'Regular', 'Fuerte'];
+    const colors = ['#EF4444', '#F97316', '#F59E0B', '#22C55E'];
+    const labels = ['Muy débil', 'Débil', 'Regular', 'Fuerte'];
 
     bars.forEach((bar, i) => {
       bar.style.background = i < score ? colors[score - 1] : 'var(--border)';
@@ -70,6 +186,22 @@ const perfil = (() => {
     const label = document.getElementById('passLabel');
     if (label) { label.textContent = '—'; label.style.color = 'var(--text-muted)'; }
   }
+
+  // ─── Helpers ────────────────────────────────────────────────────
+
+  function setVal(sel, val) {
+    const el = document.querySelector(sel);
+    if (el) el.value = val ?? '';
+  }
+
+  function setTxt(sel, val) {
+    const el = document.querySelector(sel);
+    if (el) el.textContent = val ?? '—';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.ATTENDQR_VIEW === 'perfil') init();
+  });
 
   return { guardar, cambiarPassword, evalPassword };
 })();

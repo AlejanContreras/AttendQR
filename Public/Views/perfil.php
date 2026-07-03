@@ -1,4 +1,4 @@
-<?php /* Mi Perfil — Vista parcial */ ?>
+<?php /* Mi Perfil — Vista parcial (Fase 2) */ ?>
 
 <div class="page-header">
   <div>
@@ -16,21 +16,15 @@
       <div class="profile-card__banner"></div>
       <div class="profile-card__body">
         <div class="profile-card__avatar-wrap">
-          <div class="profile-card__avatar">CR</div>
+          <div class="profile-card__avatar" id="perfilAvatar" data-usuario-iniciales>
+            <?= htmlspecialchars($userInitials ?? 'U') ?>
+          </div>
         </div>
-        <h2 class="profile-card__name">Carlos Rodríguez</h2>
-        <p class="profile-card__role">Docente — SENA Medellín</p>
+        <h2 class="profile-card__name" id="perfilNombreCard">—</h2>
+        <p class="profile-card__role" id="perfilRolCard">—</p>
         <div class="profile-card__meta">
           <span class="badge badge-green">Activo</span>
-          <span style="font-size:var(--text-xs);color:var(--text-muted)">Desde 2021</span>
         </div>
-        <button class="btn btn-secondary btn-sm btn-full" style="margin-top:var(--sp-3)">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:14px;height:14px">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-          </svg>
-          Cambiar foto
-        </button>
       </div>
     </div>
 
@@ -43,19 +37,19 @@
         <div style="display:flex;flex-direction:column;gap:var(--sp-3)">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <span style="font-size:var(--text-sm);color:var(--text-secondary)">Sesiones totales</span>
-            <strong>142</strong>
+            <strong id="statPerfilSesiones">—</strong>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:var(--text-sm);color:var(--text-secondary)">Fichas activas</span>
-            <strong>3</strong>
+            <span style="font-size:var(--text-sm);color:var(--text-secondary)" id="statPerfilLabel2">Fichas activas</span>
+            <strong id="statPerfilFichas">—</strong>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:var(--text-sm);color:var(--text-secondary)">Aprendices</span>
-            <strong>47</strong>
+            <span style="font-size:var(--text-sm);color:var(--text-secondary)" id="statPerfilLabel3">Aprendices</span>
+            <strong id="statPerfilAprendices">—</strong>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center">
             <span style="font-size:var(--text-sm);color:var(--text-secondary)">Asistencia media</span>
-            <strong style="color:var(--green-primary)">88.4%</strong>
+            <strong style="color:var(--green-primary)" id="statPerfilPct">—</strong>
           </div>
         </div>
       </div>
@@ -80,41 +74,31 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Nombre completo</label>
-              <input type="text" class="form-control" value="Carlos Rodríguez" id="perfilNombre">
+              <input type="text" class="form-control" id="perfilNombre" placeholder="Cargando...">
             </div>
             <div class="form-group">
               <label class="form-label">Correo electrónico</label>
-              <input type="email" class="form-control" value="c.rodriguez@sena.edu.co" id="perfilEmail">
+              <input type="email" class="form-control" id="perfilEmail" placeholder="Cargando...">
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Documento</label>
-              <input type="text" class="form-control" value="71234567" id="perfilDoc" readonly
+              <input type="text" class="form-control" id="perfilDoc" readonly
                      style="background:var(--surface-alt);cursor:not-allowed">
               <small style="font-size:var(--text-xs);color:var(--text-muted)">El documento no puede modificarse</small>
             </div>
             <div class="form-group">
               <label class="form-label">Teléfono</label>
-              <input type="tel" class="form-control" value="3101234567" id="perfilTel">
+              <input type="tel" class="form-control" id="perfilTel" placeholder="Opcional">
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Regional</label>
-            <select class="form-control" id="perfilRegional">
-              <option value="antioquia" selected>Antioquia — Medellín</option>
-              <option value="bogota">Bogotá D.C.</option>
-              <option value="valle">Valle del Cauca</option>
-            </select>
-          </div>
-
           <div style="display:flex;gap:var(--sp-3);padding-top:var(--sp-4);border-top:1px solid var(--border)">
-            <button type="submit" class="btn btn-primary">
+            <button type="submit" class="btn btn-primary" id="btnGuardarPerfil">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M5 13l4 4L19 7"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
               </svg>
               Guardar cambios
             </button>
@@ -141,8 +125,7 @@
               <input type="password" class="form-control" id="passActual" placeholder="••••••••">
               <span class="input-group__append" onclick="togglePass('passActual')" style="cursor:pointer;padding:0 12px">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px;color:var(--text-muted)">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                 </svg>
@@ -196,7 +179,7 @@
               Invalida todas las sesiones activas en otros dispositivos
             </div>
           </div>
-          <button class="btn btn-danger btn-sm">Cerrar todas</button>
+          <button class="btn btn-danger btn-sm" onclick="auth.logout()">Cerrar sesión</button>
         </div>
       </div>
     </div>
@@ -208,6 +191,6 @@
 <script>
 function togglePass(id) {
   const el = document.getElementById(id);
-  el.type = el.type === 'password' ? 'text' : 'password';
+  if (el) el.type = el.type === 'password' ? 'text' : 'password';
 }
 </script>

@@ -2,17 +2,40 @@
 declare(strict_types=1);
 
 /**
- * AttendQR — Layout Shell (Frontend Fase 1)
+ * AttendQR — Layout Shell (Frontend Fase 2)
  *
- * Router visual: carga la vista solicitada dentro del layout principal.
- * No conecta con la API. Todo el contenido es UI simulada.
- *
- * Parámetros GET:
- *   ?view=dashboard-docente   (vista a renderizar)
- *   ?rol=docente              (rol simulado: docente | aprendiz)
+ * Guard de sesión PHP: si no hay sesión activa redirige a login.
+ * Los datos del usuario se leen directamente de $_SESSION['usuario'].
  */
 
-// ─── Configuración de vistas ────────────────────────────────────────
+// ─── Guard de sesión ────────────────────────────────────────────────
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+if (empty($_SESSION['usuario']) || !is_array($_SESSION['usuario'])) {
+    header('Location: Views/login.php');
+    exit;
+}
+
+$usuario = $_SESSION['usuario'];
+
+// ─── Datos del usuario desde la sesión real ──────────────────────────
+$userRole     = $usuario['rol']    ?? 'docente';
+$userName     = $usuario['nombre'] ?? '';
+$userId       = (int) ($usuario['id'] ?? 0);
+
+// Iniciales: primeras letras de nombre y apellido
+$partes        = array_filter(explode(' ', $userName));
+$userInitials  = strtoupper(
+    implode('', array_map(fn($p) => $p[0] ?? '', array_slice($partes, 0, 2)))
+);
+
+$userSubtitle = $userRole === 'aprendiz'
+    ? 'Aprendiz — SENA'
+    : 'Docente — SENA';
+
+// ─── Vista solicitada ────────────────────────────────────────────────
 $allowedViews = [
     'dashboard-docente',
     'dashboard-aprendiz',
@@ -20,63 +43,50 @@ $allowedViews = [
     'qr',
     'historial',
     'perfil',
+    'registrar-asistencia',
     '404',
 ];
 
-$currentView = $_GET['view'] ?? 'dashboard-docente';
-$userRole    = $_GET['rol']  ?? 'docente';
+$currentView = $_GET['view'] ?? ($userRole === 'aprendiz' ? 'dashboard-aprendiz' : 'dashboard-docente');
 
 if (!in_array($currentView, $allowedViews, true)) {
     $currentView = '404';
 }
 
-// Si la vista es aprendiz pero el rol es docente, ajustar
-if ($currentView === 'dashboard-aprendiz') {
-    $userRole = 'aprendiz';
+// Protección de vistas por rol
+$soloDocente  = ['crear-sesion', 'qr', 'dashboard-docente'];
+$soloAprendiz = ['dashboard-aprendiz', 'registrar-asistencia'];
+
+if ($userRole === 'aprendiz' && in_array($currentView, $soloDocente, true)) {
+    $currentView = 'dashboard-aprendiz';
 }
-
-// ─── Datos de usuario simulados ─────────────────────────────────────
-$usuarios = [
-    'docente' => [
-        'nombre'    => 'Carlos Rodríguez',
-        'iniciales' => 'CR',
-        'subtitulo' => 'Docente — SENA Medellín',
-        'email'     => 'c.rodriguez@sena.edu.co',
-    ],
-    'aprendiz' => [
-        'nombre'    => 'María García',
-        'iniciales' => 'MG',
-        'subtitulo' => 'Aprendiz · Ficha 2345678',
-        'documento' => '1098765432',
-    ],
-];
-
-$usuario      = $usuarios[$userRole] ?? $usuarios['docente'];
-$userName     = $usuario['nombre'];
-$userInitials = $usuario['iniciales'];
-$userSubtitle = $usuario['subtitulo'];
+if ($userRole === 'docente' && in_array($currentView, $soloAprendiz, true)) {
+    $currentView = 'dashboard-docente';
+}
 
 // ─── Títulos de página ───────────────────────────────────────────────
 $pageTitles = [
-    'dashboard-docente'  => 'Panel Docente',
-    'dashboard-aprendiz' => 'Panel Aprendiz',
-    'crear-sesion'       => 'Nueva Sesión de Clase',
-    'qr'                 => 'QR Dinámico',
-    'historial'          => 'Historial de Asistencia',
-    'perfil'             => 'Mi Perfil',
-    '404'                => 'Página no encontrada',
+    'dashboard-docente'    => 'Panel Docente',
+    'dashboard-aprendiz'   => 'Panel Aprendiz',
+    'crear-sesion'         => 'Nueva Sesión de Clase',
+    'qr'                   => 'QR Dinámico',
+    'historial'            => 'Historial de Asistencia',
+    'perfil'               => 'Mi Perfil',
+    'registrar-asistencia' => 'Registrar Asistencia',
+    '404'                  => 'Página no encontrada',
 ];
 
 $pageTitle = $pageTitles[$currentView] ?? 'AttendQR';
 
 // ─── CSS adicional por vista ─────────────────────────────────────────
 $viewCssMap = [
-    'dashboard-docente'  => ['dashboard.css'],
-    'dashboard-aprendiz' => ['dashboard.css'],
-    'crear-sesion'       => [],
-    'qr'                 => ['qr.css'],
-    'historial'          => ['historial.css'],
-    'perfil'             => ['perfil.css'],
+    'dashboard-docente'    => ['dashboard.css'],
+    'dashboard-aprendiz'   => ['dashboard.css'],
+    'crear-sesion'         => [],
+    'qr'                   => ['qr.css'],
+    'historial'            => ['historial.css'],
+    'perfil'               => ['perfil.css'],
+    'registrar-asistencia' => [],
 ];
 
 $viewCss = $viewCssMap[$currentView] ?? [];
@@ -108,24 +118,35 @@ $viewFile = __DIR__ . '/Views/' . $currentView . '.php';
 
 </div><!-- /app-shell -->
 
-<!-- Overlay (sidebar mobile) -->
 <div class="overlay" id="overlay" onclick="AttendQR.sidebar.close()"></div>
 
 <?php include 'Components/modal.php'; ?>
 <?php include 'Components/loader.php'; ?>
 
-<!-- JavaScript -->
+<!-- Datos del usuario para JS (sin datos sensibles) -->
+<script>
+window.ATTENDQR_USER = <?= json_encode([
+    'id'     => $userId,
+    'nombre' => $userName,
+    'rol'    => $userRole,
+], JSON_UNESCAPED_UNICODE) ?>;
+window.ATTENDQR_VIEW = <?= json_encode($currentView) ?>;
+</script>
+
+<!-- JavaScript — orden: api → utils → auth → vista específica -->
+<script src="Assets/JS/api/api.js"></script>
 <script src="Assets/JS/utils/utils.js"></script>
 <script src="Assets/JS/auth/auth.js"></script>
 
 <?php
 $viewJs = [
-    'dashboard-docente'  => 'Assets/JS/dashboard/dashboard.js',
-    'dashboard-aprendiz' => 'Assets/JS/dashboard/dashboard.js',
-    'crear-sesion'       => 'Assets/JS/sesiones/sesiones.js',
-    'qr'                 => 'Assets/JS/qr/qr.js',
-    'historial'          => 'Assets/JS/historial/historial.js',
-    'perfil'             => 'Assets/JS/perfil/perfil.js',
+    'dashboard-docente'    => 'Assets/JS/dashboard/dashboard.js',
+    'dashboard-aprendiz'   => 'Assets/JS/dashboard/dashboard.js',
+    'crear-sesion'         => 'Assets/JS/sesiones/sesiones.js',
+    'qr'                   => 'Assets/JS/qr/qr.js',
+    'historial'            => 'Assets/JS/historial/historial.js',
+    'perfil'               => 'Assets/JS/perfil/perfil.js',
+    'registrar-asistencia' => 'Assets/JS/asistencia/asistencia.js',
 ];
 
 if (isset($viewJs[$currentView])): ?>

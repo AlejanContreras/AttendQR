@@ -114,7 +114,7 @@
               </svg>
             </span>
             <input type="email" id="docenteCorreo" class="form-control"
-                   placeholder="correo@sena.edu.co" value="c.rodriguez@sena.edu.co">
+                   placeholder="correo@sena.edu.co" autocomplete="email">
           </div>
         </div>
 
@@ -130,7 +130,7 @@
               </svg>
             </span>
             <input type="password" id="docentePassword" class="form-control"
-                   placeholder="••••••••" value="demo1234">
+                   placeholder="••••••••" autocomplete="current-password">
             <span class="input-group__append" onclick="togglePassword('docentePassword', this)">
               <svg id="eyeIconDoc" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -152,12 +152,6 @@
           </button>
         </div>
 
-        <div class="demo-box">
-          <div class="demo-box__title">Credenciales de demostración</div>
-          <div class="demo-box__row"><span>Correo:</span><strong>c.rodriguez@sena.edu.co</strong></div>
-          <div class="demo-box__row"><span>Contraseña:</span><strong>demo1234</strong></div>
-        </div>
-
       </form>
 
       <!-- Form — Aprendiz (hidden initially) -->
@@ -176,7 +170,8 @@
               </svg>
             </span>
             <input type="text" id="aprendizDoc" class="form-control"
-                   placeholder="Ej. 1098765432" value="1098765432">
+                   placeholder="Ej. 1098765432" autocomplete="username"
+                   inputmode="numeric" pattern="[0-9]{5,15}">
           </div>
         </div>
 
@@ -192,7 +187,7 @@
               </svg>
             </span>
             <input type="password" id="aprendizPassword" class="form-control"
-                   placeholder="••••••••" value="demo1234">
+                   placeholder="••••••••" autocomplete="current-password">
           </div>
         </div>
 
@@ -204,12 +199,6 @@
             </svg>
             Ingresar como Aprendiz
           </button>
-        </div>
-
-        <div class="demo-box">
-          <div class="demo-box__title">Credenciales de demostración</div>
-          <div class="demo-box__row"><span>Documento:</span><strong>1098765432</strong></div>
-          <div class="demo-box__row"><span>Contraseña:</span><strong>demo1234</strong></div>
         </div>
 
       </form>
@@ -227,34 +216,10 @@
 </div><!-- /login-panel -->
 </div><!-- /login-page -->
 
+<script src="../Assets/JS/api/api.js"></script>
+<script src="../Assets/JS/utils/utils.js"></script>
+<script src="../Assets/JS/auth/auth.js"></script>
 <script src="../Assets/JS/auth/login.js"></script>
-<script>
-function switchRole(tab, role) {
-  document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('is-active'));
-  tab.classList.add('is-active');
-  document.getElementById('formDocente').style.display  = (role === 'docente')  ? 'flex' : 'none';
-  document.getElementById('formAprendiz').style.display = (role === 'aprendiz') ? 'flex' : 'none';
-}
-
-function handleLogin(e, role) {
-  e.preventDefault();
-  const btn = e.target.querySelector('button[type=submit]');
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner" style="border-color:rgba(255,255,255,.3);border-top-color:#fff"></div> Verificando...';
-  // Simulated delay — no real API call in Phase 1
-  setTimeout(() => {
-    const dest = role === 'aprendiz'
-      ? '../index.php?view=dashboard-aprendiz&rol=aprendiz'
-      : '../index.php?view=dashboard-docente&rol=docente';
-    window.location.href = dest;
-  }, 900);
-}
-
-function togglePassword(inputId, btn) {
-  const input = document.getElementById(inputId);
-  input.type = input.type === 'password' ? 'text' : 'password';
-}
-</script>
 
 </body>
 </html>
