@@ -22,7 +22,7 @@ declare(strict_types=1);
  *   /api/docentes      → DocenteController     (docente)
  *   /api/jornadas      → JornadaController     (docente)
  *   /api/estadisticas  → EstadisticaController (docente)
- *   /api/tokens        → TokenController       (docente | aprendiz)
+ *   /api/tokens        → [desactivado — vestigial, no forma parte del MVP]
  *   /api/trimestres    → TrimestreController   (docente)
  *
  * Para agregar un nuevo módulo: registrar una entrada en $routes (sección 5)
@@ -176,7 +176,6 @@ $routes = [
     'docentes'     => ['file' => 'DocenteController.php',     'class' => 'DocenteController'],
     'jornadas'     => ['file' => 'JornadaController.php',     'class' => 'JornadaController'],
     'estadisticas' => ['file' => 'EstadisticaController.php', 'class' => 'EstadisticaController'],
-    'tokens'       => ['file' => 'TokenController.php',       'class' => 'TokenController'],
     'trimestres'   => ['file' => 'TrimestreController.php',   'class' => 'TrimestreController'],
     'health'       => ['file' => 'HealthController.php',      'class' => 'HealthController'],
 ];
@@ -199,7 +198,6 @@ $politicasAcceso = [
 
     'asistencias'  => 'docente_aprendiz',
     'qr'           => 'docente_aprendiz',
-    'tokens'       => 'docente_aprendiz',
 
     'sesiones'     => 'solo_docente',
     'fichas'       => 'solo_docente',

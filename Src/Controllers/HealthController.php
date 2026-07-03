@@ -14,7 +14,7 @@ class HealthController
     public function handle(string $metodo, string $accion, array $params): void
     {
         match ($accion) {
-            'status' => $this->despacharConMetodo($metodo, 'GET',
+            '', 'status' => $this->despacharConMetodo($metodo, 'GET',
                 fn() => $this->status()
             ),
             'ping' => $this->despacharConMetodo($metodo, 'GET',

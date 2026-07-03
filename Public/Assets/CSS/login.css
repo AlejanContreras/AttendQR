@@ -1,0 +1,280 @@
+/* ============================================================
+   AttendQR — Login Page Styles
+   ============================================================ */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  background: var(--page-bg);
+}
+
+/* ─── Left Panel (branding) ──────────────────────────────── */
+
+.login-panel {
+  display: flex;
+  width: 100%;
+}
+
+.login-brand {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: var(--sp-12);
+  background: linear-gradient(145deg, #1B2A3B 0%, #243447 50%, #1B2A3B 100%);
+  width: 44%;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+@media (min-width: 960px) {
+  .login-brand { display: flex; }
+}
+
+/* Decorative circles */
+.login-brand::before {
+  content: '';
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: rgba(57,169,0,.08);
+  top: -100px;
+  right: -120px;
+}
+
+.login-brand::after {
+  content: '';
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: rgba(57,169,0,.05);
+  bottom: -60px;
+  left: -80px;
+}
+
+.login-brand__logo {
+  width: 64px;
+  height: 64px;
+  background: var(--green-primary);
+  border-radius: var(--r-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--sp-6);
+  box-shadow: 0 8px 24px rgba(57,169,0,.35);
+}
+
+.login-brand__logo svg {
+  width: 36px;
+  height: 36px;
+  color: #fff;
+}
+
+.login-brand__title {
+  font-size: var(--text-3xl);
+  font-weight: var(--fw-bold);
+  color: #fff;
+  line-height: 1.15;
+  margin-bottom: var(--sp-3);
+}
+
+.login-brand__title span {
+  color: var(--green-primary);
+}
+
+.login-brand__sub {
+  font-size: var(--text-md);
+  color: var(--sidebar-text);
+  line-height: var(--lh-relaxed);
+  max-width: 360px;
+  margin-bottom: var(--sp-8);
+}
+
+.login-brand__features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.login-brand__feature {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--text-sm);
+  color: var(--sidebar-text);
+}
+
+.login-brand__feature-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-md);
+  background: rgba(57,169,0,.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.login-brand__feature-icon svg {
+  width: 16px;
+  height: 16px;
+  color: var(--green-primary);
+}
+
+.login-brand__footer {
+  position: absolute;
+  bottom: var(--sp-8);
+  left: var(--sp-12);
+  font-size: var(--text-xs);
+  color: var(--sidebar-section);
+}
+
+/* ─── Right Panel (form) ─────────────────────────────────── */
+
+.login-form-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-8) var(--sp-6);
+}
+
+.login-form-container {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-form-header {
+  margin-bottom: var(--sp-8);
+}
+
+/* Mobile logo (shows when branding panel is hidden) */
+.login-mobile-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-8);
+}
+
+@media (min-width: 960px) {
+  .login-mobile-logo { display: none; }
+}
+
+.login-mobile-logo__icon {
+  width: 44px;
+  height: 44px;
+  background: var(--green-primary);
+  border-radius: var(--r-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-mobile-logo__icon svg {
+  width: 26px;
+  height: 26px;
+  color: #fff;
+}
+
+.login-mobile-logo__name {
+  font-size: var(--text-xl);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+}
+
+.login-form-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--sp-2);
+}
+
+.login-form-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* Role tabs */
+.login-tabs {
+  display: flex;
+  background: var(--surface-2);
+  border-radius: var(--r-lg);
+  padding: var(--sp-1);
+  margin-bottom: var(--sp-6);
+  border: 1px solid var(--border);
+}
+
+.login-tab {
+  flex: 1;
+  padding: 10px var(--sp-4);
+  text-align: center;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-muted);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), box-shadow var(--t-fast);
+}
+
+.login-tab.is-active {
+  background: var(--surface);
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Form */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.login-submit {
+  margin-top: var(--sp-2);
+}
+
+.login-submit .btn {
+  padding: 12px;
+  font-size: var(--text-md);
+}
+
+.login-footer-text {
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: var(--sp-6);
+}
+
+/* Demo credentials box */
+.demo-box {
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  margin-top: var(--sp-4);
+}
+
+.demo-box__title {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  color: var(--info-text);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: var(--sp-2);
+}
+
+.demo-box__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--info-text);
+  padding: 2px 0;
+}
+
+.demo-box__row strong {
+  font-weight: var(--fw-semibold);
+}

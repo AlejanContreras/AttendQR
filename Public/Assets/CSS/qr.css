@@ -1,0 +1,332 @@
+/* ============================================================
+   AttendQR — QR Dinámico Page Styles
+   ============================================================ */
+
+/* ─── Layout ─────────────────────────────────────────────── */
+
+.qr-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: var(--sp-6);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .qr-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── QR Display Card ────────────────────────────────────── */
+
+.qr-display-card {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  padding: var(--sp-8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-6);
+}
+
+.qr-session-info {
+  text-align: center;
+}
+
+.qr-session-info__ficha {
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+}
+
+.qr-session-info__program {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: var(--sp-1);
+}
+
+.qr-session-info__date {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* QR Code Frame */
+.qr-frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-code-wrap {
+  position: relative;
+  padding: 16px;
+  background: #fff;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  border: 2px solid var(--border);
+}
+
+/* Corner markers (QR style) */
+.qr-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: var(--green-primary);
+  border-style: solid;
+  border-width: 0;
+}
+
+.qr-corner--tl { top: 6px; left: 6px;  border-top-width: 3px; border-left-width: 3px;  }
+.qr-corner--tr { top: 6px; right: 6px; border-top-width: 3px; border-right-width: 3px; }
+.qr-corner--bl { bottom: 6px; left: 6px;  border-bottom-width: 3px; border-left-width: 3px;  }
+.qr-corner--br { bottom: 6px; right: 6px; border-bottom-width: 3px; border-right-width: 3px; }
+
+/* SVG QR placeholder */
+.qr-svg {
+  width: 220px;
+  height: 220px;
+  display: block;
+}
+
+/* Rotation overlay */
+.qr-rotating {
+  animation: qrPulse 1s ease-in-out infinite;
+}
+
+@keyframes qrPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .6; }
+}
+
+.qr-expired-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,.92);
+  border-radius: var(--r-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+}
+
+.qr-expired-overlay svg {
+  width: 40px;
+  height: 40px;
+  color: var(--text-muted);
+}
+
+/* ─── Countdown Timer ────────────────────────────────────── */
+
+.qr-countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+}
+
+.qr-countdown__label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.qr-countdown__timer {
+  font-size: var(--text-3xl);
+  font-weight: var(--fw-bold);
+  color: var(--green-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.qr-countdown__timer.is-warning {
+  color: var(--warning);
+  animation: timerFlash .5s ease infinite;
+}
+
+@keyframes timerFlash {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .4; }
+}
+
+.qr-countdown__bar {
+  width: 100%;
+  max-width: 300px;
+  height: 6px;
+  background: var(--border);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+
+.qr-countdown__progress {
+  height: 100%;
+  background: var(--green-primary);
+  border-radius: var(--r-full);
+  transition: width .8s linear;
+}
+
+.qr-countdown__hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ─── QR Controls ────────────────────────────────────────── */
+
+.qr-controls {
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ─── Sidebar Panel ──────────────────────────────────────── */
+
+.qr-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+/* Status card */
+.qr-status-card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  padding: var(--sp-5);
+}
+
+.qr-status-card__title {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: var(--sp-4);
+}
+
+.qr-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+}
+
+.qr-status-row:last-child {
+  border-bottom: none;
+}
+
+.qr-status-row__label {
+  color: var(--text-secondary);
+}
+
+.qr-status-row__value {
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+
+/* Attendance counter */
+.qr-attendance-counter {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  padding: var(--sp-5);
+}
+
+.qr-attendance-counter__title {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: var(--sp-4);
+}
+
+.qr-counter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+
+.qr-counter-item {
+  text-align: center;
+  padding: var(--sp-4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+}
+
+.qr-counter-item__num {
+  font-size: var(--text-2xl);
+  font-weight: var(--fw-bold);
+  line-height: 1;
+  margin-bottom: var(--sp-1);
+}
+
+.qr-counter-item__label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.qr-counter-item--present  { background: var(--success-bg);  }
+.qr-counter-item--present .qr-counter-item__num { color: var(--success-text);  }
+.qr-counter-item--retard   { background: var(--warning-bg);  }
+.qr-counter-item--retard .qr-counter-item__num  { color: var(--warning-text);  }
+.qr-counter-item--absent   { background: var(--danger-bg);   }
+.qr-counter-item--absent .qr-counter-item__num  { color: var(--danger-text);   }
+.qr-counter-item--pending  { background: var(--surface-2);   }
+.qr-counter-item--pending .qr-counter-item__num { color: var(--text-secondary); }
+
+/* ─── Session status bar ─────────────────────────────────── */
+
+.session-status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5);
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  border-radius: var(--r-md);
+  font-size: var(--text-sm);
+}
+
+.session-status-bar__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-full);
+  background: var(--success);
+  animation: blink 1.5s ease infinite;
+  flex-shrink: 0;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .3; }
+}
+
+.session-status-bar__text {
+  font-weight: var(--fw-semibold);
+  color: var(--success-text);
+}
+
+.session-status-bar__sub {
+  color: var(--success-text);
+  opacity: .7;
+  margin-left: auto;
+}
