@@ -25,7 +25,10 @@ const perfil = (() => {
   }
 
   function rellenarFormulario(datos, rol) {
-    setVal('#perfilNombre', datos.nombre ?? datos.nombre_completo ?? '');
+    const nombreCompleto = datos.nombre ?? datos.nombre_completo
+      ?? [datos.nombres, datos.apellidos].filter(Boolean).join(' ')
+      ?? '';
+    setVal('#perfilNombre', nombreCompleto);
     setVal('#perfilEmail',  datos.correo ?? '');
     setVal('#perfilDoc',    datos.numero_documento ?? datos.documento ?? '');
     setVal('#perfilTel',    datos.telefono ?? '');
@@ -55,10 +58,12 @@ const perfil = (() => {
           ? Math.round(stats.porcentaje_asistencia) + '%' : '—');
       } else {
         // Para aprendiz: cargar historial propio
-        const historial = await Api.asistencias.historial(usuario.id);
-        const total    = historial.length;
-        const presente = historial.filter(r => r.estado === 'presente').length;
-        const retardo  = historial.filter(r => r.estado === 'retardo').length;
+        // asistencias/historial devuelve { registros, resumen: { presentes, retardos, ausentes }, total }
+        const data     = await Api.asistencias.historial(usuario.id);
+        const resumen  = data.resumen  ?? {};
+        const total    = data.total    ?? 0;
+        const presente = resumen.presentes ?? 0;
+        const retardo  = resumen.retardos  ?? 0;
         const pct      = total > 0 ? Math.round(((presente + retardo) / total) * 100) : 0;
 
         setTxt('#statPerfilSesiones',   total);
@@ -82,8 +87,12 @@ const perfil = (() => {
     const correo  = document.getElementById('perfilEmail')?.value.trim();
     const telefono = document.getElementById('perfilTel')?.value.trim();
 
-    if (!nombre || !correo) {
-      AttendQR.toast.warning('El nombre y el correo son obligatorios.');
+    if (!nombre) {
+      AttendQR.toast.warning('El nombre es obligatorio.');
+      return;
+    }
+    if (usuario.rol !== 'aprendiz' && !correo) {
+      AttendQR.toast.warning('El correo es obligatorio.');
       return;
     }
 
@@ -92,10 +101,16 @@ const perfil = (() => {
     if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
 
     try {
-      const body = { nombre, correo, telefono };
+      let body;
       if (usuario.rol === 'aprendiz') {
+        // Aprendices: nombres + apellidos (no correo ni telefono)
+        const partes    = nombre.split(/\s+/).filter(Boolean);
+        const apellidos = partes.length > 1 ? partes.slice(-2).join(' ') : '';
+        const nombres   = partes.length > 1 ? partes.slice(0, -2).join(' ') || partes[0] : nombre;
+        body = { nombres, apellidos };
         await Api.aprendices.actualizar(usuario.id, body);
       } else {
+        body = { nombre, correo, telefono };
         await Api.docentes.actualizar(usuario.id, body);
       }
 

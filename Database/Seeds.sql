@@ -154,3 +154,52 @@ INSERT INTO asistencias (id_sesion, id_aprendiz, id_token_usado, estado, metodo_
 (7, 5, NULL,'ausente','manual',  NULL,                      0),
 (7, 6, NULL,'ausente','manual',  NULL,                      0),
 (7, 7, NULL,'ausente','manual',  NULL,                      0);
+
+
+
+
+
+
+
+
+
+
+
+-- ============================================================
+-- DOCENTES ADICIONALES
+-- Usan las jornadas y el trimestre ya existentes.
+-- ============================================================
+INSERT INTO docentes (id_docente, nombres, apellidos, correo, password_hash, activo) VALUES
+(2, 'Ana Sofía',     'Vargas Castillo', 'ana.vargas@sena.edu.co',   '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 1),
+(3, 'Luis Fernando', 'Ospina Mejía',    'luis.ospina@sena.edu.co',  '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 1);
+
+
+-- ============================================================
+-- FICHAS — una por docente nuevo
+-- Docente 2 → jornada noche (ID 2)
+-- Docente 3 → jornada tarde (ID 1)
+-- Ambas usan el trimestre existente (ID 1)
+-- ============================================================
+INSERT INTO fichas (id_ficha, codigo_ficha, nombre_programa, id_docente, id_jornada, id_trimestre, activa) VALUES
+(2, '2891467', 'Técnico en Diseño e Integración de Multimedia', 2, 2, 1, 1),
+(3, '2903521', 'Tecnólogo en Gestión de Bases de Datos',        3, 1, 1, 1);
+
+
+-- ============================================================
+-- APRENDICES — ficha 2 (Docente Ana Sofía · jornada noche)
+-- ============================================================
+INSERT INTO aprendices (id_aprendiz, numero_documento, nombres, apellidos, password_hash, id_ficha, activo) VALUES
+( 9, '1098234567', 'Alejandro', 'Pérez Muñoz',     '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 2, 1),
+(10, '1112345678', 'Natalia',   'López Arias',     '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 2, 1),
+(11, '1134567890', 'Ricardo',   'Torres Zapata',   '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 2, 1),
+(12, '1156789012', 'Camila',    'Sánchez Herrera', '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 2, 1);
+
+
+-- ============================================================
+-- APRENDICES — ficha 3 (Docente Luis Fernando · jornada tarde)
+-- ============================================================
+INSERT INTO aprendices (id_aprendiz, numero_documento, nombres, apellidos, password_hash, id_ficha, activo) VALUES
+(13, '1178901234', 'Felipe',   'Morales Duque',  '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 3, 1),
+(14, '1190123456', 'Daniela',  'Castillo Ruiz',  '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 3, 1),
+(15, '1201234567', 'Andrés',   'Cárdenas Parra', '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 3, 1),
+(16, '1223456789', 'Juliana',  'Reyes Montoya',  '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 3, 1);

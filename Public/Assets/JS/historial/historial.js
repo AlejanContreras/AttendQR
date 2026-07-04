@@ -79,20 +79,20 @@ const historial = (() => {
     const abiertas  = sesiones.filter(s => s.estado_sesion === 'abierta').length;
     const cancelada = sesiones.filter(s => s.estado_sesion === 'cancelada').length;
 
-    // Porcentaje de asistencia media de las sesiones que tienen datos
-    const conDatos = sesiones.filter(s => s.total_aprendices > 0);
+    // Calcular media de asistencia usando los counts reales que ahora devuelve sesiones/listar
+    const conDatos = sesiones.filter(s => (s.total_aprendices ?? 0) > 0);
     const mediaPct = conDatos.length
       ? Math.round(conDatos.reduce((acc, s) => {
-          const pct = ((s.presentes ?? 0) / s.total_aprendices) * 100;
+          const pct = ((parseInt(s.presentes, 10) || 0) / s.total_aprendices) * 100;
           return acc + pct;
         }, 0) / conDatos.length)
-      : 0;
+      : null;
 
     setTxt('#sumTotal',     total);
     setTxt('#sumCerradas',  cerradas);
     setTxt('#sumAbiertas',  abiertas);
     setTxt('#sumCanceladas', cancelada);
-    setTxt('#sumPct',       mediaPct + '%');
+    setTxt('#sumPct',       mediaPct !== null ? mediaPct + '%' : '—');
     setTxt('#historialSubtitle', `${total} registros encontrados`);
   }
 
@@ -115,16 +115,16 @@ const historial = (() => {
       const ficha  = esc(s.codigo_ficha ?? s.id_ficha ?? '—');
       const prog   = esc(s.nombre_programa ?? '');
       const fecha  = s.fecha_sesion ? fmtFecha(s.fecha_sesion) : '—';
-      const apertu = s.hora_apertura  ? s.hora_apertura.slice(0,5)  : '—';
-      const cierre = s.hora_cierre    ? s.hora_cierre.slice(0,5)    : '—';
+      const apertu = s.hora_apertura  ? s.hora_apertura.slice(11,16)  : '—';
+      const cierre = s.hora_cierre    ? s.hora_cierre.slice(11,16)    : '—';
       const badge  = estadoBadge(s.estado_sesion);
 
-      const presentes = s.presentes ?? 0;
-      const retardos  = s.retardos  ?? 0;
-      const ausentes  = s.ausentes  ?? 0;
-      const total     = s.total_aprendices ?? (presentes + retardos + ausentes);
-      const pct       = total > 0 ? Math.round((presentes / total) * 100) : 0;
-      const fillClass = pct >= 80 ? '' : pct >= 60 ? ' pct-cell__fill--warning' : ' pct-cell__fill--danger';
+      const presentes = s.presentes        != null ? parseInt(s.presentes, 10)        : null;
+      const retardos  = s.retardos         != null ? parseInt(s.retardos, 10)         : null;
+      const ausentes  = s.ausentes_marcados != null ? parseInt(s.ausentes_marcados, 10) : null;
+      const total     = s.total_aprendices  != null ? parseInt(s.total_aprendices, 10)  : null;
+      const pct       = (total > 0 && presentes !== null) ? Math.round((presentes / total) * 100) : null;
+      const fillClass = pct !== null ? (pct >= 80 ? '' : pct >= 60 ? ' pct-cell__fill--warning' : ' pct-cell__fill--danger') : '';
 
       return `
         <tr class="session-row" data-session="${id}" data-estado="${s.estado_sesion ?? ''}">
@@ -146,12 +146,12 @@ const historial = (() => {
           <td>${apertu}</td>
           <td>${cierre}</td>
           <td>${badge}</td>
-          <td>${presentes}</td>
-          <td>${retardos}</td>
-          <td>${ausentes}</td>
+          <td>${presentes ?? '—'}</td>
+          <td>${retardos  ?? '—'}</td>
+          <td>${ausentes  ?? '—'}</td>
           <td class="pct-cell">
-            <span>${pct}%</span>
-            <div class="pct-cell__bar"><div class="pct-cell__fill${fillClass}" style="width:${pct}%"></div></div>
+            <span>${pct !== null ? pct + '%' : '—'}</span>
+            <div class="pct-cell__bar"><div class="pct-cell__fill${fillClass}" style="width:${pct ?? 0}%"></div></div>
           </td>
         </tr>
         <tr class="session-detail-row" id="detail-${id}">

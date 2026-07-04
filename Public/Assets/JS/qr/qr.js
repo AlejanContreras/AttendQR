@@ -18,6 +18,7 @@ const qr = (() => {
   let ROTATION_SEC   = 30;
   let elapsedSeconds = 0;
   let elapsedTimer   = null;
+  let rotating       = false;
 
   async function init() {
     const params = new URLSearchParams(window.location.search);
@@ -89,9 +90,10 @@ const qr = (() => {
       if (tokenEl) tokenEl.textContent = 'Sin token';
       AttendQR.toast.warning('No hay token activo. Generando uno nuevo...');
       try {
-        await Api.qr.generar(idSesion);
-        await cargarTokenYActualizar();
-        return;
+        const generado = await Api.qr.generar(idSesion);
+        const t = generado?.token_valor ?? '';
+        if (tokenEl && t) tokenEl.textContent = t;
+        if (t) renderQrSvg(t);
       } catch { /* fallo silencioso */ }
     } finally {
       if (overlay) overlay.style.display = 'none';
@@ -123,12 +125,14 @@ const qr = (() => {
       else if (remaining > 10 && timerEl) timerEl.classList.remove('is-warning');
 
       if (remaining <= 0) {
+        if (rotating) return;
+        rotating = true;
         clearInterval(countdownTimer);
-        // Generar nuevo token y recargar
         try {
           await Api.qr.generar(idSesion);
         } catch { /* el backend ya puede haber rotado automáticamente */ }
         await cargarTokenYActualizar();
+        rotating = false;
         iniciarCountdown();
       }
     }, 1000);
@@ -154,17 +158,20 @@ const qr = (() => {
   // ─── Render ───────────────────────────────────────────────────────────
 
   function renderInfoSesion(sesion) {
-    const ficha = sesion.codigo_ficha ?? sesion.id_ficha ?? '—';
-    const prog  = sesion.nombre_programa ?? '—';
-    const hora  = sesion.hora_apertura?.slice(0,5) ?? '—';
+    const ficha    = sesion.codigo_ficha ?? sesion.id_ficha ?? '—';
+    // Mostrar nombre de la materia si existe; si no, el nombre del programa
+    const prog     = sesion.nombre_materia ?? sesion.nombre_programa ?? '—';
+    const hora     = sesion.hora_apertura?.slice(11,16) ?? '—';
+    const horaH    = sesion.hora_inicio_clase ? sesion.hora_inicio_clase.slice(0,5) : '—';
     setTxt('#qrFichaCodigo',   ficha);
     setTxt('#qrFichaCodigo2',  ficha);
     setTxt('#qrFichaProgram',  prog);
     setTxt('#qrFichaProgram2', prog);
     setTxt('#qrHoraApertura',  hora);
     setTxt('#qrHoraApertura2', hora);
-    setTxt('#qrLimiteRetardo', (sesion.limite_retardo ?? '—') + ' min');
-    setTxt('#qrRotacion',    (sesion.rotacion_qr ?? 30) + ' s');
+    setTxt('#qrHoraInicioClase', horaH);
+    setTxt('#qrLimiteRetardo', (sesion.limite_retardo_minutos ?? sesion.limite_retardo ?? 5) + ' min');
+    setTxt('#qrRotacion',    (sesion.rotacion_qr_segundos ?? sesion.rotacion_qr ?? 30) + ' s');
 
     // Actualizar link "Cerrar sesión" en el botón
     const btnCerrar = document.getElementById('btnCerrarSesion');

@@ -62,7 +62,7 @@ class SesionController
 
     /**
      * POST /api/sesiones/crear
-     * Body: { "id_ficha": 1 }
+     * Body: { "id_ficha": 1, "hora_inicio_clase": "10:00", "nombre_materia": "Bases de Datos" }
      */
     private function crear(): void
     {
@@ -73,8 +73,30 @@ class SesionController
             $this->responderError('El campo id_ficha es obligatorio.', 422);
         }
 
+        if (empty($cuerpo['hora_inicio_clase'])) {
+            $this->responderError('La hora de inicio de la clase es obligatoria.', 422);
+        }
+
+        $horaInicioClase = trim((string) $cuerpo['hora_inicio_clase']);
+        $nombreMateria   = trim((string) ($cuerpo['nombre_materia'] ?? ''));
+
+        // Validar formato HH:MM o HH:MM:SS
+        if (!preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $horaInicioClase)) {
+            $this->responderError('La hora de inicio debe tener formato HH:MM (ej: 10:00).', 422);
+        }
+
+        // Normalizar a HH:MM:SS para almacenar como TIME
+        if (strlen($horaInicioClase) === 5) {
+            $horaInicioClase .= ':00';
+        }
+
         try {
-            $sesion = $this->servicio->crear((int) $cuerpo['id_ficha'], $usuario);
+            $sesion = $this->servicio->crear(
+                (int) $cuerpo['id_ficha'],
+                $horaInicioClase,
+                $nombreMateria,
+                $usuario
+            );
             $this->responderExito('Sesión creada correctamente.', $sesion, 201);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);

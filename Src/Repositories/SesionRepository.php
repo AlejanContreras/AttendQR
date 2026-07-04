@@ -65,7 +65,7 @@ class SesionRepository extends BaseRepository
     public function obtenerPorId(int $idSesion): ?array
     {
         return $this->consultarUno(
-            'SELECT sa.id_sesion, sa.id_ficha, sa.fecha_sesion,
+            'SELECT sa.id_sesion, sa.id_ficha, sa.nombre_materia, sa.fecha_sesion,
                     sa.estado_sesion, sa.hora_apertura, sa.hora_inicio_clase,
                     sa.hora_cierre, sa.limite_retardo_minutos,
                     sa.duracion_maxima_minutos, sa.rotacion_qr_segundos,
@@ -88,7 +88,7 @@ class SesionRepository extends BaseRepository
     public function obtenerDetalle(int $idSesion): ?array
     {
         return $this->consultarUno(
-            'SELECT sa.id_sesion, sa.id_ficha, sa.fecha_sesion,
+            'SELECT sa.id_sesion, sa.id_ficha, sa.nombre_materia, sa.fecha_sesion,
                     sa.estado_sesion, sa.hora_apertura, sa.hora_inicio_clase,
                     sa.hora_cierre, sa.limite_retardo_minutos,
                     sa.duracion_maxima_minutos, sa.rotacion_qr_segundos,
@@ -114,7 +114,7 @@ class SesionRepository extends BaseRepository
     public function obtenerActivaPorFicha(int $idFicha): ?array
     {
         return $this->consultarUno(
-            "SELECT sa.id_sesion, sa.id_ficha, sa.fecha_sesion,
+            "SELECT sa.id_sesion, sa.id_ficha, sa.nombre_materia, sa.fecha_sesion,
                     sa.estado_sesion, sa.hora_apertura, sa.hora_inicio_clase,
                     sa.hora_cierre, sa.limite_retardo_minutos,
                     sa.duracion_maxima_minutos, sa.rotacion_qr_segundos,
@@ -137,11 +137,19 @@ class SesionRepository extends BaseRepository
      */
     public function listar(?int $idFicha = null, ?string $estado = null): array
     {
-        $sql    = 'SELECT sa.id_sesion, sa.id_ficha, sa.fecha_sesion,
+        $sql    = 'SELECT sa.id_sesion, sa.id_ficha, sa.nombre_materia, sa.fecha_sesion,
                           sa.estado_sesion, sa.hora_apertura, sa.hora_cierre,
-                          f.codigo_ficha, f.nombre_programa
+                          sa.hora_inicio_clase, sa.limite_retardo_minutos,
+                          f.codigo_ficha, f.nombre_programa,
+                          (SELECT COUNT(*) FROM aprendices
+                           WHERE id_ficha = sa.id_ficha AND activo = 1) AS total_aprendices,
+                          COUNT(a.id_asistencia)                              AS total_registrados,
+                          SUM(CASE WHEN a.estado = \'presente\' THEN 1 ELSE 0 END) AS presentes,
+                          SUM(CASE WHEN a.estado = \'retardo\'  THEN 1 ELSE 0 END) AS retardos,
+                          SUM(CASE WHEN a.estado = \'ausente\'  THEN 1 ELSE 0 END) AS ausentes_marcados
                    FROM sesiones_asistencia sa
                    JOIN fichas f ON f.id_ficha = sa.id_ficha
+                   LEFT JOIN asistencias a ON a.id_sesion = sa.id_sesion
                    WHERE 1=1';
         $params = [];
 
@@ -155,7 +163,7 @@ class SesionRepository extends BaseRepository
             $params[':estado'] = $estado;
         }
 
-        $sql .= ' ORDER BY sa.fecha_sesion DESC, sa.hora_apertura DESC';
+        $sql .= ' GROUP BY sa.id_sesion ORDER BY sa.fecha_sesion DESC, sa.hora_apertura DESC';
 
         return $this->consultar($sql, $params);
     }
@@ -171,20 +179,22 @@ class SesionRepository extends BaseRepository
      * @return int ID de la sesión creada.
      */
     public function crear(
-        int    $idFicha,
-        string $fechaSesion,
-        string $horaInicioClase,
-        int    $limiteRetardoMinutos,
-        int    $duracionMaximaMinutos
+        int     $idFicha,
+        string  $fechaSesion,
+        string  $horaInicioClase,
+        ?string $nombreMateria,
+        int     $limiteRetardoMinutos,
+        int     $duracionMaximaMinutos
     ): int {
         return $this->insertar(
             "INSERT INTO sesiones_asistencia
-                 (id_ficha, fecha_sesion, estado_sesion, hora_apertura,
+                 (id_ficha, nombre_materia, fecha_sesion, estado_sesion, hora_apertura,
                   hora_inicio_clase, limite_retardo_minutos, duracion_maxima_minutos)
-             VALUES (:id_ficha, :fecha, 'abierta', NOW(3),
+             VALUES (:id_ficha, :nombre_materia, :fecha, 'abierta', NOW(3),
                      :hora_inicio, :limite_retardo, :duracion_maxima)",
             [
                 ':id_ficha'        => $idFicha,
+                ':nombre_materia'  => $nombreMateria ?: null,
                 ':fecha'           => $fechaSesion,
                 ':hora_inicio'     => $horaInicioClase,
                 ':limite_retardo'  => $limiteRetardoMinutos,
@@ -269,11 +279,19 @@ class SesionRepository extends BaseRepository
      */
     public function listarPorDocente(int $idDocente, ?string $estado = null): array
     {
-        $sql    = 'SELECT sa.id_sesion, sa.id_ficha, sa.fecha_sesion,
+        $sql    = 'SELECT sa.id_sesion, sa.id_ficha, sa.nombre_materia, sa.fecha_sesion,
                           sa.estado_sesion, sa.hora_apertura, sa.hora_cierre,
-                          f.codigo_ficha, f.nombre_programa
+                          sa.hora_inicio_clase, sa.limite_retardo_minutos,
+                          f.codigo_ficha, f.nombre_programa,
+                          (SELECT COUNT(*) FROM aprendices
+                           WHERE id_ficha = sa.id_ficha AND activo = 1) AS total_aprendices,
+                          COUNT(a.id_asistencia)                              AS total_registrados,
+                          SUM(CASE WHEN a.estado = \'presente\' THEN 1 ELSE 0 END) AS presentes,
+                          SUM(CASE WHEN a.estado = \'retardo\'  THEN 1 ELSE 0 END) AS retardos,
+                          SUM(CASE WHEN a.estado = \'ausente\'  THEN 1 ELSE 0 END) AS ausentes_marcados
                    FROM sesiones_asistencia sa
                    JOIN fichas f ON f.id_ficha = sa.id_ficha
+                   LEFT JOIN asistencias a ON a.id_sesion = sa.id_sesion
                    WHERE f.id_docente = :id_docente';
         $params = [':id_docente' => $idDocente];
 
@@ -282,7 +300,7 @@ class SesionRepository extends BaseRepository
             $params[':estado'] = $estado;
         }
 
-        $sql .= ' ORDER BY sa.fecha_sesion DESC, sa.hora_apertura DESC';
+        $sql .= ' GROUP BY sa.id_sesion ORDER BY sa.fecha_sesion DESC, sa.hora_apertura DESC';
 
         return $this->consultar($sql, $params);
     }

@@ -215,37 +215,49 @@ class AsistenciaService
     // -------------------------------------------------------------------------
 
     /**
-     * Clasifica automáticamente la asistencia y calcula minutos_retardo.
+     * Clasifica automáticamente la asistencia aplicando la regla temporal oficial.
      *
-     * Reglas oficiales:
-     *   PRESENTE → hora_registro <= hora_inicio_clase + limite_retardo_minutos
-     *   RETARDO  → hora_registro >  hora_inicio_clase + limite_retardo_minutos
+     * Regla oficial (H = hora_inicio_clase):
+     *   PRESENTE  → llegada desde apertura hasta H + limite_retardo_minutos (5 min)
+     *   RETARDO   → H + limite_retardo_minutos + 1 min hasta H + duracion_maxima_minutos (20 min)
+     *   Rechazado → llegada después de H + duracion_maxima_minutos (lanza excepción 422)
      *
-     *   minutos_retardo = minutos transcurridos desde hora_inicio_clase.
-     *                     0 si estado = 'presente'.
+     *   minutos_retardo = minutos desde H. 0 si estado = 'presente'.
      *
      * La hora de referencia es siempre del servidor (parámetro $horaRegistro).
      * Nunca se usa información enviada por el cliente.
      *
-     * @param array<string, mixed> $sesion       Datos de la sesión (fecha_sesion, hora_inicio_clase, limite_retardo_minutos).
+     * @param array<string, mixed> $sesion       Datos de la sesión con fecha_sesion, hora_inicio_clase,
+     *                                           limite_retardo_minutos y duracion_maxima_minutos.
      * @param string               $horaRegistro Timestamp del servidor en formato Y-m-d H:i:s.
      * @return array{string, int}  [estado, minutos_retardo]
+     * @throws \RuntimeException 422 si el tiempo de registro ha expirado.
      */
     private function clasificar(array $sesion, string $horaRegistro): array
     {
         $tsInicioClase = strtotime(
             $sesion['fecha_sesion'] . ' ' . $sesion['hora_inicio_clase']
         );
-        $tsRegistro       = strtotime($horaRegistro);
-        $limiteRetardoSeg = (int) $sesion['limite_retardo_minutos'] * 60;
+        $tsRegistro     = strtotime($horaRegistro);
+        $minutosDesdeH  = (int) floor(($tsRegistro - $tsInicioClase) / 60);
 
-        if ($tsRegistro <= $tsInicioClase + $limiteRetardoSeg) {
+        $limitePresente = (int) $sesion['limite_retardo_minutos'];  // 5 min → fin del PRESENTE
+        $limiteRetardo  = (int) $sesion['duracion_maxima_minutos']; // 20 min → fin del RETARDO
+
+        // Después del límite de retardo ya no se acepta el registro
+        if ($minutosDesdeH > $limiteRetardo) {
+            throw new \RuntimeException(
+                "El tiempo de registro ha expirado. Solo se acepta asistencia hasta H+{$limiteRetardo} minutos.",
+                422
+            );
+        }
+
+        // Dentro del rango PRESENTE (puede ser antes de H, que da minutosDesdeH negativo)
+        if ($minutosDesdeH <= $limitePresente) {
             return ['presente', 0];
         }
 
-        // Minutos completos desde hora_inicio_clase (incluye los minutos de gracia)
-        $minutosDesdeInicio = (int) floor(($tsRegistro - $tsInicioClase) / 60);
-
-        return ['retardo', $minutosDesdeInicio];
+        // Entre limite_presente+1 y limite_retardo → RETARDO
+        return ['retardo', $minutosDesdeH];
     }
 }

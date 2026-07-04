@@ -28,20 +28,30 @@ class SesionService
      * Reglas de negocio:
      *   1. La ficha debe existir y estar activa.
      *   2. El docente autenticado debe ser el propietario de la ficha.
-     *   3. No puede existir otra sesión abierta para la misma ficha hoy.
-     *   4. hora_inicio_clase se copia desde jornadas.hora_inicio.
-     *   5. limite_retardo_minutos se copia desde jornadas.minutos_gracia.
+     *   3. No puede existir otra sesión ABIERTA para la misma ficha ahora.
+     *      (sí se permiten múltiples sesiones en el mismo día si las anteriores están cerradas)
+     *   4. hora_inicio_clase la define el docente al crear la sesión.
+     *   5. Regla temporal fija:
+     *        PRESENTE  → llegada desde apertura hasta H + 5 min
+     *        RETARDO   → H + 6 min hasta H + 20 min
+     *        Rechazado → a partir de H + 21 min
      *   6. Se genera automáticamente el primer token QR al crear la sesión.
      *
-     * @param int                  $idFicha       Identificador de la ficha.
-     * @param array<string, mixed> $usuarioActual Datos del docente autenticado.
+     * @param int                  $idFicha         Identificador de la ficha.
+     * @param string               $horaInicioClase Hora oficial H en formato HH:MM:SS.
+     * @param string               $nombreMateria   Nombre de la materia (opcional).
+     * @param array<string, mixed> $usuarioActual   Datos del docente autenticado.
      * @return array<string, mixed> Datos de la sesión creada.
      * @throws \RuntimeException 404 si la ficha no existe.
      * @throws \RuntimeException 403 si el docente no es el propietario de la ficha.
-     * @throws \RuntimeException 409 si la ficha está inactiva o ya tiene sesión abierta hoy.
+     * @throws \RuntimeException 409 si la ficha está inactiva o ya tiene sesión abierta.
      */
-    public function crear(int $idFicha, array $usuarioActual): array
-    {
+    public function crear(
+        int    $idFicha,
+        string $horaInicioClase,
+        string $nombreMateria,
+        array  $usuarioActual
+    ): array {
         $ficha = $this->sesionRepo->obtenerFichaConJornada($idFicha);
 
         if ($ficha === null) {
@@ -59,17 +69,22 @@ class SesionService
         $fecha = date('Y-m-d');
 
         if ($this->sesionRepo->existeAbiertaParaFicha($idFicha, $fecha)) {
-            throw new \RuntimeException('Ya existe una sesión abierta para esta ficha hoy.', 409);
+            throw new \RuntimeException(
+                'Ya existe una sesión abierta para esta ficha. Ciérrala antes de crear una nueva.', 409
+            );
         }
 
-        $horaInicioClase      = (string) $ficha['hora_inicio'];
-        $limiteRetardoMinutos = (int)    $ficha['minutos_gracia'];
-        $duracionMaximaMinutos = 240;
+        // Regla temporal oficial:
+        //   limite_retardo_minutos  = 5  → PRESENTE: H a H+5
+        //   duracion_maxima_minutos = 20 → RETARDO: H+6 a H+20 / rechazado H+21 en adelante
+        $limiteRetardoMinutos  = 5;
+        $duracionMaximaMinutos = 20;
 
         $idSesion = $this->sesionRepo->crear(
             $idFicha,
             $fecha,
             $horaInicioClase,
+            $nombreMateria ?: null,
             $limiteRetardoMinutos,
             $duracionMaximaMinutos
         );

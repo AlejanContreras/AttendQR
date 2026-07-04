@@ -62,7 +62,7 @@ const sesiones = (() => {
       }
 
       container.innerHTML = sesiones.map(s => {
-        const hora = s.hora_apertura ? s.hora_apertura.slice(0,5) : '—';
+        const hora = s.hora_apertura ? s.hora_apertura.slice(11,16) : '—';
         return `<div style="padding:var(--sp-3);background:var(--surface-alt);border-radius:var(--r-md);border-left:3px solid var(--green-primary)">
           <div style="font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--text-primary)">Ficha ${esc(s.codigo_ficha ?? s.id_ficha)}</div>
           <div style="font-size:var(--text-xs);color:var(--text-muted)">${esc(s.nombre_programa ?? '')} · Desde ${hora}</div>
@@ -77,10 +77,19 @@ const sesiones = (() => {
   async function crear(e) {
     e.preventDefault();
 
-    const idFicha = document.getElementById('idFicha')?.value;
+    const idFicha         = document.getElementById('idFicha')?.value;
+    const horaInicioClase = document.getElementById('horaInicioClase')?.value;
+    const nombreMateria   = document.getElementById('nombreMateria')?.value.trim() ?? '';
+
     if (!idFicha) {
       AttendQR.toast.warning('Selecciona una ficha para continuar.');
       document.getElementById('idFicha')?.focus();
+      return;
+    }
+
+    if (!horaInicioClase) {
+      AttendQR.toast.warning('Ingresa la hora oficial de inicio de la clase.');
+      document.getElementById('horaInicioClase')?.focus();
       return;
     }
 
@@ -92,7 +101,11 @@ const sesiones = (() => {
     }
 
     try {
-      const sesion = await Api.sesiones.crear({ id_ficha: parseInt(idFicha, 10) });
+      const sesion = await Api.sesiones.crear({
+        id_ficha:         parseInt(idFicha, 10),
+        hora_inicio_clase: horaInicioClase,
+        nombre_materia:   nombreMateria,
+      });
 
       AttendQR.toast.success('Sesión creada correctamente.');
 

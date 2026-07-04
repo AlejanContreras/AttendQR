@@ -9,9 +9,9 @@ const AttendQR = (() => {
       const s = document.getElementById('sidebar');
       if (!s) return;
       if (window.innerWidth < 768) {
-        s.classList.toggle('is-open');
+        s.classList.toggle('is-mobile-open');
         const ov = document.getElementById('overlay');
-        if (ov) ov.style.display = s.classList.contains('is-open') ? 'block' : 'none';
+        if (ov) ov.style.display = s.classList.contains('is-mobile-open') ? 'block' : 'none';
       } else {
         s.classList.toggle('is-collapsed');
         document.getElementById('mainWrapper')?.classList.toggle('sidebar-collapsed');
@@ -19,7 +19,7 @@ const AttendQR = (() => {
     },
     close() {
       const s = document.getElementById('sidebar');
-      if (s) s.classList.remove('is-open');
+      if (s) s.classList.remove('is-mobile-open');
       const ov = document.getElementById('overlay');
       if (ov) ov.style.display = 'none';
     },
@@ -99,7 +99,7 @@ const AttendQR = (() => {
       if (window.innerWidth >= 768) {
         const ov = document.getElementById('overlay');
         if (ov) ov.style.display = 'none';
-        document.getElementById('sidebar')?.classList.remove('is-open');
+        document.getElementById('sidebar')?.classList.remove('is-mobile-open');
       }
     });
 

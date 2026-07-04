@@ -167,6 +167,11 @@ CREATE TABLE sesiones_asistencia (
 
   id_ficha                 INT UNSIGNED NOT NULL,
 
+  -- Nombre de la materia/tema que se imparte en esta sesión.
+  -- Lo ingresa el docente al crear la sesión.
+  nombre_materia           VARCHAR(120) NULL
+                            COMMENT 'Nombre de la materia o tema de la sesión.',
+
   fecha_sesion             DATE         NOT NULL,
 
   estado_sesion            ENUM('abierta','cerrada','cancelada')
@@ -196,30 +201,30 @@ CREATE TABLE sesiones_asistencia (
                             COMMENT 'Cierre real. NULL mientras esté abierta.',
 
   -- ── LÓGICA TEMPORAL ──────────────────────────────────────
-  -- Minutos desde hora_inicio_clase que se aceptan como PRESENTE.
-  -- Superado este límite el estado pasa a retardo.
-  -- Se copia desde jornadas.minutos_gracia al crear la sesión.
-  limite_retardo_minutos   SMALLINT UNSIGNED NOT NULL DEFAULT 10
-                            COMMENT 'Desde hora_inicio_clase. Superado → retardo.',
+  -- Minutos desde hora_inicio_clase que se aceptan como PRESENTE (H a H+5).
+  -- Superado este límite el estado pasa a RETARDO.
+  limite_retardo_minutos   SMALLINT UNSIGNED NOT NULL DEFAULT 5
+                            COMMENT 'Desde H. Llegada dentro de este rango → PRESENTE.',
 
-  -- Minutos desde hora_inicio_clase hasta el cierre automático.
-  duracion_maxima_minutos  SMALLINT UNSIGNED NOT NULL DEFAULT 240
-                            COMMENT 'Desde hora_inicio_clase hasta cierre automático.',
+  -- Minutos desde hora_inicio_clase hasta el fin del RETARDO (H+6 a H+20).
+  -- A partir de H+duracion_maxima+1 min el sistema ya no acepta asistencias.
+  duracion_maxima_minutos  SMALLINT UNSIGNED NOT NULL DEFAULT 20
+                            COMMENT 'Desde H. Llegada hasta aquí → RETARDO. Superado → rechazado.',
 
   -- ── QR DINÁMICO ──────────────────────────────────────────
   rotacion_qr_segundos     SMALLINT UNSIGNED NOT NULL DEFAULT 30
                             COMMENT 'Cada cuántos segundos rota el token QR.',
 
+  -- Sin UNIQUE(id_ficha, fecha_sesion): un docente puede tener
+  -- más de una sesión por día (diferentes materias / horarios).
+  -- La lógica PHP impide dos sesiones ABIERTAS simultáneas.
+
   CONSTRAINT fk_sesion_ficha
     FOREIGN KEY (id_ficha)
-    REFERENCES fichas(id_ficha),
-
-  -- Una ficha solo puede tener una sesión por día
-  CONSTRAINT uq_ficha_fecha
-    UNIQUE (id_ficha, fecha_sesion)
+    REFERENCES fichas(id_ficha)
 
 ) ENGINE=InnoDB
-  COMMENT='Sesiones diarias. Retardo y cierre calculados desde hora_inicio_clase.';
+  COMMENT='Sesiones de clase. PRESENTE=H a H+5, RETARDO=H+6 a H+20, rechazo H+21.';
 
 CREATE INDEX idx_sesion_ficha_fecha ON sesiones_asistencia(id_ficha, fecha_sesion);
 

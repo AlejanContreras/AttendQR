@@ -55,7 +55,7 @@ const asistencia = (() => {
       case 403: return 'No perteneces a la ficha de esta sesión. Verifica con tu docente.';
       case 409: return 'Ya registraste tu asistencia en esta sesión.';
       case 410: return 'El token ha expirado o ya no está activo. Pide el token actualizado a tu docente.';
-      case 422: return 'La sesión ya no está abierta para registro de asistencia.';
+      case 422: return err.message ?? 'La sesión ya no está abierta para registro de asistencia.';
       case 404: return 'Token no encontrado. Verifica que lo hayas ingresado correctamente.';
       default:  return err.message ?? 'Error al registrar la asistencia. Intenta de nuevo.';
     }

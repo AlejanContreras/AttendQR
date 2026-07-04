@@ -136,8 +136,16 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Nueva contraseña</label>
+              <div class="input-group">
               <input type="password" class="form-control" id="passNueva"
                      placeholder="••••••••" oninput="perfil.evalPassword(this.value)">
+              <span class="input-group__append" onclick="togglePass('passNueva')" style="cursor:pointer;padding:0 12px">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px;color:var(--text-muted)">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+              </span>
+              </div>
               <div class="password-strength" id="passStrength">
                 <div class="password-strength__bars">
                   <div class="strength-bar" id="pbar1"></div>
@@ -150,7 +158,15 @@
             </div>
             <div class="form-group">
               <label class="form-label">Confirmar contraseña</label>
+              <div class="input-group">
               <input type="password" class="form-control" id="passConfirm" placeholder="••••••••">
+              <span class="input-group__append" onclick="togglePass('passConfirm')" style="cursor:pointer;padding:0 12px">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px;color:var(--text-muted)">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+              </span>
+              </div>
             </div>
           </div>
 

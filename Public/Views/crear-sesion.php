@@ -28,8 +28,27 @@
           <select id="idFicha" name="id_ficha" class="form-control" required>
             <option value="">Cargando fichas...</option>
           </select>
+        </div>
+
+        <!-- Nombre de la materia -->
+        <div class="form-group">
+          <label class="form-label" for="nombreMateria">Nombre de la materia</label>
+          <input type="text" id="nombreMateria" name="nombre_materia" class="form-control"
+                 placeholder="Ej: Bases de Datos, Programación Web...">
+          <small class="form-hint">Opcional — aparecerá en el historial y el panel QR.</small>
+        </div>
+
+        <!-- Hora de inicio -->
+        <div class="form-group">
+          <label class="form-label" for="horaInicioClase">
+            Hora oficial de inicio <span class="required">*</span>
+          </label>
+          <input type="time" id="horaInicioClase" name="hora_inicio_clase"
+                 class="form-control" required>
           <small class="form-hint">
-            La hora de inicio, duración y límite de retardo se toman automáticamente de la jornada asignada a la ficha.
+            Regla automática: <strong>Presente</strong> hasta H+5 min ·
+            <strong>Retardo</strong> H+6 a H+20 min ·
+            <strong>Cerrado</strong> después de H+20 min.
           </small>
         </div>
 
