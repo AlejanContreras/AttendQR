@@ -416,6 +416,43 @@
 
 /* ─── Responsive ─────────────────────────────────────────── */
 
+/* Sidebar collapse button — visible on desktop only */
+.sidebar__collapse-btn {
+  display: none;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  color: var(--sidebar-text);
+  cursor: pointer;
+  background: none;
+  border: none;
+  transition: background var(--t-fast), color var(--t-fast);
+  margin-right: auto;
+  order: 99;
+}
+
+.sidebar__collapse-btn:hover {
+  background: rgba(255,255,255,.08);
+  color: #fff;
+}
+
+.sidebar__collapse-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sidebar.is-collapsed .sidebar__collapse-btn svg {
+  transform: scaleX(-1);
+}
+
+@media (min-width: 769px) {
+  .sidebar__collapse-btn { display: flex; }
+  .topbar__toggle { display: none; }
+}
+
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
@@ -425,6 +462,8 @@
   .sidebar.is-mobile-open {
     transform: translateX(0);
   }
+
+  .sidebar__collapse-btn { display: none !important; }
 
   .main-wrapper {
     margin-left: 0 !important;

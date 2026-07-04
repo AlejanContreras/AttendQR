@@ -34,8 +34,8 @@ const perfil = (() => {
     setVal('#perfilTel',    datos.telefono ?? '');
 
     // Card lateral
-    const nombre = datos.nombre ?? datos.nombre_completo ?? '—';
-    const iniciales = nombre.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+    const nombre = nombreCompleto || '—';
+    const iniciales = nombre !== '—' ? nombre.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase() : '?';
 
     setTxt('#perfilNombreCard', nombre);
     setTxt('#perfilRolCard',    rol === 'aprendiz' ? 'Aprendiz — SENA' : 'Docente — SENA');
@@ -114,10 +114,12 @@ const perfil = (() => {
         await Api.docentes.actualizar(usuario.id, body);
       }
 
-      // Actualizar card lateral
+      // Actualizar card lateral + sidebar + topbar
       setTxt('#perfilNombreCard', nombre);
       const iniciales = nombre.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
       setTxt('#perfilAvatar', iniciales);
+      document.querySelectorAll('[data-usuario-nombre]').forEach(el => { el.textContent = nombre; });
+      document.querySelectorAll('[data-usuario-iniciales]').forEach(el => { el.textContent = iniciales; });
 
       AttendQR.toast.success('Perfil actualizado correctamente.');
     } catch (err) {

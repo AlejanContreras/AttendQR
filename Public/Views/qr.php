@@ -104,10 +104,21 @@
 
     <!-- Token chip -->
     <div style="text-align:center">
-      <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--sp-1)">Token activo</div>
-      <code id="qrToken" style="font-size:var(--text-sm);background:var(--surface-alt);
-                                  padding:4px 14px;border-radius:var(--r-sm);
-                                  color:var(--text-primary)">—</code>
+      <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--sp-2);text-transform:uppercase;letter-spacing:.08em;font-weight:var(--fw-semibold)">
+        Token activo — copia este código
+      </div>
+      <div style="display:inline-flex;align-items:center;gap:var(--sp-3);background:var(--surface-alt);
+                  border:2px solid var(--green-primary);border-radius:var(--r-md);padding:10px 20px;
+                  cursor:pointer;transition:background var(--t-fast)"
+           onclick="navigator.clipboard?.writeText(document.getElementById('qrToken').textContent).then(()=>AttendQR.toast.success('Token copiado'))"
+           title="Clic para copiar">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="var(--green-primary)" style="width:18px;height:18px;flex-shrink:0">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+        </svg>
+        <code id="qrToken" style="font-size:var(--text-lg);font-weight:var(--fw-bold);
+                                   letter-spacing:.12em;color:var(--text-primary)">—</code>
+      </div>
     </div>
 
     <!-- Countdown -->
@@ -172,6 +183,10 @@
           <div style="display:flex;justify-content:space-between">
             <span style="font-size:var(--text-sm);color:var(--text-muted)">Apertura</span>
             <strong style="font-size:var(--text-sm)" id="qrHoraApertura2">—</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="font-size:var(--text-sm);color:var(--text-muted)">Inicio clase (H)</span>
+            <strong style="font-size:var(--text-sm)" id="qrHoraInicioClase">—</strong>
           </div>
           <div style="display:flex;justify-content:space-between">
             <span style="font-size:var(--text-sm);color:var(--text-muted)">Rotación QR</span>

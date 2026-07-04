@@ -75,7 +75,7 @@ function renderSesionesRecientes(sesiones) {
 
   tbody.innerHTML = sesiones.slice(0, 5).map(s => {
     const fecha = s.fecha_sesion ? new Date(s.fecha_sesion).toLocaleDateString('es-CO') : '—';
-    const hora  = s.hora_apertura ? s.hora_apertura.slice(0, 5) : '—';
+    const hora  = s.hora_apertura ? s.hora_apertura.slice(11, 16) : '—';
     const badge = estadoBadge(s.estado_sesion);
     return `<tr>
       <td>
@@ -122,7 +122,7 @@ function renderHistorialAprendiz(registros) {
     const fecha = r.fecha_sesion
       ? new Date(r.fecha_sesion).toLocaleDateString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric' })
       : '—';
-    const hora  = r.hora_apertura ? r.hora_apertura.slice(0,5) : '';
+    const hora  = r.hora_apertura ? r.hora_apertura.slice(11,16) : '';
     return `<tr>
       <td>
         <div>${fecha}</div>

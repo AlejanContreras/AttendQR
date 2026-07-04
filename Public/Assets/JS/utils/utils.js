@@ -113,5 +113,9 @@ const AttendQR = (() => {
 
   document.addEventListener('DOMContentLoaded', init);
 
+  // ─── Easter eggs ────────────────────────────────────────────────────
+  console.warn('🚨 Usted no debería estar acá, sapo HP. Si encontró un bug, mejor repórtelo 😄');
+  console.error('❌ Si está leyendo esto en producción, su docente de seguridad informática llora en un rincón.');
+
   return { sidebar, toast, modal, clock, loader };
 })();

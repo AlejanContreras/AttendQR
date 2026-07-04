@@ -28,6 +28,26 @@
     </div>
     <div class="card-body">
 
+      <!-- QR scan area placeholder -->
+      <div style="position:relative;width:200px;height:200px;margin:0 auto var(--sp-5);
+                  border:2px dashed var(--border);border-radius:var(--r-lg);
+                  display:flex;flex-direction:column;align-items:center;justify-content:center;
+                  gap:var(--sp-2);color:var(--text-muted);background:var(--surface-alt)">
+        <!-- Corner markers -->
+        <span style="position:absolute;top:8px;left:8px;width:20px;height:20px;border-top:3px solid var(--green-primary);border-left:3px solid var(--green-primary);border-radius:2px 0 0 0"></span>
+        <span style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-top:3px solid var(--green-primary);border-right:3px solid var(--green-primary);border-radius:0 2px 0 0"></span>
+        <span style="position:absolute;bottom:8px;left:8px;width:20px;height:20px;border-bottom:3px solid var(--green-primary);border-left:3px solid var(--green-primary);border-radius:0 0 0 2px"></span>
+        <span style="position:absolute;bottom:8px;right:8px;width:20px;height:20px;border-bottom:3px solid var(--green-primary);border-right:3px solid var(--green-primary);border-radius:0 0 2px 0"></span>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:48px;height:48px;opacity:.3">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <span style="font-size:var(--text-xs);text-align:center;max-width:140px;line-height:1.4">
+          Cámara no disponible · Ingresa el token manualmente
+        </span>
+      </div>
+
       <form id="formRegistrarAsistencia" onsubmit="asistencia.registrar(event)">
 
         <div class="form-group">

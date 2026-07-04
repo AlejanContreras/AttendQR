@@ -66,7 +66,7 @@
         Anti-fraude por token único por sesión
       </div>
     </div>
-    <div class="login-brand__footer">SENA · Regional Antioquia · 2025</div>
+    <div class="login-brand__footer">SENA · Sistema de Control de Asistencia</div>
   </div>
 
   <!-- ─── Right form panel ─────────────────────────────────── -->
@@ -204,9 +204,9 @@
       </form>
 
       <p class="login-footer-text">
-        ¿Problemas para ingresar?
+        ¿Eres nuevo?
         <a href="#" style="color:var(--green-primary);font-weight:var(--fw-medium)">
-          Contactar soporte
+          Regístrate aquí
         </a>
       </p>
 

@@ -21,7 +21,10 @@
         Cargando fichas...
       </span>
       <a href="index.php?view=crear-sesion&rol=docente" class="btn btn-primary btn-sm" style="margin-left:var(--sp-2)">
-        + Nueva sesión
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:14px;height:14px;vertical-align:middle;margin-right:4px">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Iniciar clase
       </a>
     </div>
   </div>
@@ -111,7 +114,7 @@
                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
           </div>
-          <span class="quick-action-card__label">Nueva sesión</span>
+          <span class="quick-action-card__label">Iniciar clase</span>
         </a>
         <a href="index.php?view=qr&rol=docente" class="quick-action-card">
           <div class="quick-action-card__icon" style="background:#EEF2FF">
