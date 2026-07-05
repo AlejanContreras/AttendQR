@@ -30,6 +30,18 @@ declare(strict_types=1);
  */
 
 // ---------------------------------------------------------------------------
+// 0. Timezone de la aplicación
+//
+// PHP en este servidor corre con Europe/Berlin (UTC+2).
+// Colombia opera en America/Bogota (UTC-5).
+// Diferencia = 7 h → sin esta línea, date() y strtotime() calculan
+// mal los minutos de retardo y clasifican TODOS los registros como
+// "expirado". Debe ser la primera instrucción antes de cualquier
+// llamada a funciones de fecha.
+// ---------------------------------------------------------------------------
+date_default_timezone_set('America/Bogota');
+
+// ---------------------------------------------------------------------------
 // 1. Helpers de respuesta
 // ---------------------------------------------------------------------------
 
@@ -201,7 +213,7 @@ $politicasAcceso = [
 
     'sesiones'     => 'solo_docente',
     'fichas'       => 'solo_docente',
-    'aprendices'   => 'solo_docente',
+    'aprendices'   => 'docente_aprendiz',
     'docentes'     => 'solo_docente',
     'jornadas'     => 'solo_docente',
     'estadisticas' => 'solo_docente',

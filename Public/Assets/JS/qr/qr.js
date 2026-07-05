@@ -78,7 +78,7 @@ const qr = (() => {
       // tokenActivo devuelve: { token_valor, segundos_restantes, expira_en, id_sesion }
       const token = resultado.token_valor ?? '';
 
-      if (tokenEl) tokenEl.textContent = token;
+      if (tokenEl) tokenEl.textContent = token || '—';
       renderQrSvg(token);
 
       if (resultado.segundos_restantes != null) {
@@ -163,6 +163,18 @@ const qr = (() => {
     const prog     = sesion.nombre_materia ?? sesion.nombre_programa ?? '—';
     const hora     = sesion.hora_apertura?.slice(11,16) ?? '—';
     const horaH    = sesion.hora_inicio_clase ? sesion.hora_inicio_clase.slice(0,5) : '—';
+    const durMax   = parseInt(sesion.duracion_maxima_minutos ?? sesion.duracion_maxima ?? 20, 10);
+
+    // Calcular hora de cierre: H + duracion_maxima_minutos
+    let horaCierre = '—';
+    if (sesion.hora_inicio_clase && sesion.fecha_sesion) {
+      const base = new Date(sesion.fecha_sesion + 'T' + sesion.hora_inicio_clase);
+      if (!isNaN(base)) {
+        base.setMinutes(base.getMinutes() + durMax);
+        horaCierre = base.toTimeString().slice(0, 5);
+      }
+    }
+
     setTxt('#qrFichaCodigo',   ficha);
     setTxt('#qrFichaCodigo2',  ficha);
     setTxt('#qrFichaProgram',  prog);
@@ -170,8 +182,8 @@ const qr = (() => {
     setTxt('#qrHoraApertura',  hora);
     setTxt('#qrHoraApertura2', hora);
     setTxt('#qrHoraInicioClase', horaH);
+    setTxt('#qrHoraCierre',    horaCierre);
     setTxt('#qrLimiteRetardo', (sesion.limite_retardo_minutos ?? sesion.limite_retardo ?? 5) + ' min');
-    setTxt('#qrRotacion',    (sesion.rotacion_qr_segundos ?? sesion.rotacion_qr ?? 30) + ' s');
 
     // Actualizar link "Cerrar sesión" en el botón
     const btnCerrar = document.getElementById('btnCerrarSesion');
@@ -198,13 +210,35 @@ const qr = (() => {
   }
 
   // QR SVG simple basado en el token (visual representativo)
+  // Instancia única de QRCode para reusar el div (evita apilar QRs)
+  let _qrInstance = null;
+
   function renderQrSvg(token) {
-    const el = document.getElementById('qrSvg');
-    if (!el) return;
-    // El SVG decorativo ya está en el HTML, solo actualizamos el token visible
-    // Para un QR real se necesitaría una librería como qrcode.js
+    // Actualizar texto del chip
     const tokenEl = document.getElementById('qrToken');
-    if (tokenEl) tokenEl.textContent = token || '—';
+    if (tokenEl && token) tokenEl.textContent = token;
+
+    // Generar QR real que codifica exactamente el mismo token
+    const canvas = document.getElementById('qrCanvas');
+    if (!canvas || !token) return;
+
+    if (typeof QRCode === 'undefined') {
+      // Fallback: si la librería no cargó (sin internet), mostrar token en grande
+      canvas.innerHTML = `<div style="font-size:28px;font-weight:900;font-family:monospace;
+                           color:#1B2A3B;letter-spacing:.1em;text-align:center;padding:8px">
+                           ${token}</div>`;
+      return;
+    }
+
+    canvas.innerHTML = ''; // limpiar QR anterior
+    _qrInstance = new QRCode(canvas, {
+      text:        token,
+      width:       180,
+      height:      180,
+      colorDark:   '#1B2A3B',
+      colorLight:  '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
   }
 
   async function confirmarCierre(id) {

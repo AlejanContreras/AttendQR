@@ -38,6 +38,7 @@ class QrRepository extends BaseRepository
              FROM tokens_qr tq
              JOIN sesiones_asistencia sa ON sa.id_sesion = tq.id_sesion
              WHERE tq.token_valor = :token
+               AND tq.activo = 1
              LIMIT 1',
             [':token' => $tokenValor]
         );

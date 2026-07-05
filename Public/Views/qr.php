@@ -57,42 +57,12 @@
         <div class="qr-corner qr-corner--bl"></div>
         <div class="qr-corner qr-corner--br"></div>
 
-        <!-- QR SVG decorativo — el token real se muestra en el chip debajo -->
-        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" id="qrSvg" class="qr-svg">
-          <rect x="10" y="10" width="56" height="56" rx="6" fill="#1B2A3B"/>
-          <rect x="18" y="18" width="40" height="40" rx="3" fill="white"/>
-          <rect x="25" y="25" width="26" height="26" rx="2" fill="#1B2A3B"/>
-          <rect x="134" y="10" width="56" height="56" rx="6" fill="#1B2A3B"/>
-          <rect x="142" y="18" width="40" height="40" rx="3" fill="white"/>
-          <rect x="149" y="25" width="26" height="26" rx="2" fill="#1B2A3B"/>
-          <rect x="10" y="134" width="56" height="56" rx="6" fill="#1B2A3B"/>
-          <rect x="18" y="142" width="40" height="40" rx="3" fill="white"/>
-          <rect x="25" y="149" width="26" height="26" rx="2" fill="#1B2A3B"/>
-          <g fill="#1B2A3B">
-            <rect x="78" y="10" width="8" height="8"/><rect x="94" y="10" width="8" height="8"/>
-            <rect x="110" y="10" width="8" height="8"/><rect x="78" y="26" width="8" height="8"/>
-            <rect x="110" y="26" width="8" height="8"/><rect x="86" y="34" width="8" height="8"/>
-            <rect x="94" y="42" width="8" height="8"/><rect x="78" y="50" width="8" height="8"/>
-            <rect x="102" y="50" width="8" height="8"/>
-            <rect x="78" y="78" width="8" height="8"/><rect x="94" y="78" width="8" height="8"/>
-            <rect x="110" y="78" width="8" height="8"/><rect x="134" y="78" width="8" height="8"/>
-            <rect x="150" y="78" width="8" height="8"/><rect x="78" y="94" width="8" height="8"/>
-            <rect x="102" y="94" width="8" height="8"/><rect x="126" y="94" width="8" height="8"/>
-            <rect x="158" y="94" width="8" height="8"/><rect x="78" y="110" width="8" height="8"/>
-            <rect x="94" y="110" width="8" height="8"/><rect x="118" y="110" width="8" height="8"/>
-            <rect x="142" y="110" width="8" height="8"/>
-            <rect x="78" y="134" width="8" height="8"/><rect x="94" y="134" width="8" height="8"/>
-            <rect x="110" y="134" width="8" height="8"/><rect x="134" y="134" width="8" height="8"/>
-            <rect x="150" y="134" width="8" height="8"/><rect x="78" y="150" width="8" height="8"/>
-            <rect x="102" y="150" width="8" height="8"/><rect x="126" y="158" width="8" height="8"/>
-            <rect x="78" y="166" width="8" height="8"/><rect x="94" y="158" width="8" height="8"/>
-            <rect x="110" y="166" width="8" height="8"/><rect x="142" y="150" width="8" height="8"/>
-            <rect x="158" y="166" width="8" height="8"/>
-          </g>
-          <rect x="86" y="86" width="28" height="28" rx="4" fill="white"/>
-          <rect x="90" y="90" width="20" height="20" rx="3" fill="#39A900"/>
-          <text x="100" y="105" text-anchor="middle" font-size="11" font-weight="900" fill="white">A</text>
-        </svg>
+        <!-- QR generado dinámicamente por qrcode.js — cambia en cada rotación -->
+        <div id="qrCanvas"
+             style="display:flex;align-items:center;justify-content:center;
+                    width:180px;height:180px;background:#fff;border-radius:8px">
+          <div class="spinner"></div>
+        </div>
 
         <!-- Refresh overlay -->
         <div id="qrRefreshOverlay" class="qr-expired-overlay" style="display:none">
@@ -102,8 +72,11 @@
       </div>
     </div>
 
+    <!-- qrcode.js — genera el bitmap QR real a partir del token -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
     <!-- Token chip -->
-    <div style="text-align:center">
+    <div style="text-align:center;min-height:80px">
       <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--sp-2);text-transform:uppercase;letter-spacing:.08em;font-weight:var(--fw-semibold)">
         Token activo — copia este código
       </div>
@@ -189,8 +162,8 @@
             <strong style="font-size:var(--text-sm)" id="qrHoraInicioClase">—</strong>
           </div>
           <div style="display:flex;justify-content:space-between">
-            <span style="font-size:var(--text-sm);color:var(--text-muted)">Rotación QR</span>
-            <strong style="font-size:var(--text-sm)" id="qrRotacion">—</strong>
+            <span style="font-size:var(--text-sm);color:var(--text-muted)">Cierre asistencia</span>
+            <strong style="font-size:var(--text-sm)" id="qrHoraCierre">—</strong>
           </div>
           <div style="display:flex;justify-content:space-between">
             <span style="font-size:var(--text-sm);color:var(--text-muted)">Límite retardo</span>

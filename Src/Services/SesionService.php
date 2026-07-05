@@ -150,6 +150,8 @@ class SesionService
             );
         }
 
+        $this->sesionRepo->cerrarVencidas();
+
         $sesiones = $this->sesionRepo->listar($idFicha, $estado);
 
         return [
@@ -327,7 +329,7 @@ class SesionService
      */
     private function generarPrimerToken(int $idSesion, int $rotacionSegundos): void
     {
-        $token    = bin2hex(random_bytes(32));
+        $token    = strtoupper(bin2hex(random_bytes(3))); // 6 chars hex: e.g. "A83F12"
         $expiraEn = date('Y-m-d H:i:s', time() + $rotacionSegundos);
         $this->qrRepo->crear($idSesion, $token, $expiraEn);
     }

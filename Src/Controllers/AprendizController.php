@@ -90,6 +90,8 @@ class AprendizController
      */
     private function consultar(int $idAprendiz): void
     {
+        $this->verificarAccesoAprendiz($idAprendiz);
+
         try {
             $aprendiz = $this->servicio->consultar($idAprendiz);
             $this->responderExito('Aprendiz encontrado.', $aprendiz);
@@ -155,6 +157,8 @@ class AprendizController
      */
     private function actualizar(int $idAprendiz): void
     {
+        $this->verificarAccesoAprendiz($idAprendiz);
+
         $cuerpo = $this->leerCuerpoJson();
 
         if (empty($cuerpo)) {
@@ -163,6 +167,17 @@ class AprendizController
 
         try {
             $aprendiz = $this->servicio->actualizar($idAprendiz, $cuerpo);
+
+            // Sincronizar sesión PHP si el aprendiz actualizó su propio perfil
+            if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+            $usuarioSesion = $_SESSION['usuario'] ?? null;
+            if ($usuarioSesion && (int) $usuarioSesion['id'] === $idAprendiz) {
+                $nombreCompleto = trim(($aprendiz['nombres'] ?? '') . ' ' . ($aprendiz['apellidos'] ?? ''));
+                if ($nombreCompleto !== '') {
+                    $_SESSION['usuario']['nombre'] = $nombreCompleto;
+                }
+            }
+
             $this->responderExito('Aprendiz actualizado correctamente.', $aprendiz);
 
         } catch (\RuntimeException $e) {
@@ -191,6 +206,21 @@ class AprendizController
     // -------------------------------------------------------------------------
     // Auxiliares
     // -------------------------------------------------------------------------
+
+    /**
+     * Si el usuario autenticado es aprendiz, verifica que solo acceda a su propio registro.
+     * Docentes pasan sin restricción.
+     */
+    private function verificarAccesoAprendiz(int $idAprendiz): void
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+        $usuario = $_SESSION['usuario'] ?? null;
+        if ($usuario && ($usuario['rol'] ?? '') === 'aprendiz' && (int) $usuario['id'] !== $idAprendiz) {
+            $this->responderError('Acceso denegado.', 403);
+        }
+    }
 
     private function despacharConMetodo(string $metodoRecibido, string $metodoEsperado, callable $callback): void
     {

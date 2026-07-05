@@ -235,14 +235,34 @@ class AsistenciaService
      */
     private function clasificar(array $sesion, string $horaRegistro): array
     {
-        $tsInicioClase = strtotime(
-            $sesion['fecha_sesion'] . ' ' . $sesion['hora_inicio_clase']
-        );
-        $tsRegistro     = strtotime($horaRegistro);
+        $fechaSesion     = trim((string) ($sesion['fecha_sesion']     ?? ''));
+        $horaInicioClase = trim((string) ($sesion['hora_inicio_clase'] ?? ''));
+
+        if ($fechaSesion === '' || $horaInicioClase === '') {
+            error_log('[AsistenciaService] hora_inicio_clase o fecha_sesion vacíos. Sesión: ' . json_encode($sesion));
+            throw new \RuntimeException('Datos de sesión incompletos para calcular asistencia.', 422);
+        }
+
+        // Normalizar hora a HH:MM:SS si viene como HH:MM
+        if (strlen($horaInicioClase) === 5) {
+            $horaInicioClase .= ':00';
+        }
+
+        $tsInicioClase = strtotime($fechaSesion . ' ' . $horaInicioClase);
+        $tsRegistro    = strtotime($horaRegistro);
+
+        if ($tsInicioClase === false || $tsRegistro === false) {
+            error_log("[AsistenciaService] strtotime falló. fecha='$fechaSesion' hora='$horaInicioClase' registro='$horaRegistro'");
+            throw new \RuntimeException('No se pudo calcular el tiempo de asistencia. Contacte al administrador.', 422);
+        }
+
         $minutosDesdeH  = (int) floor(($tsRegistro - $tsInicioClase) / 60);
 
-        $limitePresente = (int) $sesion['limite_retardo_minutos'];  // 5 min → fin del PRESENTE
-        $limiteRetardo  = (int) $sesion['duracion_maxima_minutos']; // 20 min → fin del RETARDO
+        $limitePresente = (int) ($sesion['limite_retardo_minutos']  ?? 5);
+        $limiteRetardo  = (int) ($sesion['duracion_maxima_minutos'] ?? 20);
+
+        if ($limitePresente <= 0) $limitePresente = 5;
+        if ($limiteRetardo  <= 0) $limiteRetardo  = 20;
 
         // Después del límite de retardo ya no se acepta el registro
         if ($minutosDesdeH > $limiteRetardo) {

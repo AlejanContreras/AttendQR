@@ -25,7 +25,8 @@
     </button>
 
     <!-- User chip -->
-    <div class="topbar__user">
+    <div class="topbar__user" onclick="window.location.href='index.php?view=perfil&rol=<?= htmlspecialchars($userRole ?? '') ?>'"
+         style="cursor:pointer" title="Ver mi perfil">
       <div class="topbar__user-avatar" data-usuario-iniciales><?= htmlspecialchars($userInitials ?? 'U') ?></div>
       <div style="display:flex;flex-direction:column;line-height:1.2">
         <span class="topbar__user-name" data-usuario-nombre><?= htmlspecialchars($userName ?? '') ?></span>

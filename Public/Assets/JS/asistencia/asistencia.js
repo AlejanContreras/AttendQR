@@ -68,7 +68,7 @@ const asistencia = (() => {
     const estado  = resultado.estado ?? 'presente';
     const badgeClass = estado === 'presente' ? 'badge-success' : estado === 'retardo' ? 'badge-warning' : 'badge-neutral';
     const labelEstado = { presente: 'Presente', retardo: 'Tardanza', ausente: 'Ausente' }[estado] ?? estado;
-    const hora   = resultado.hora_registro ? resultado.hora_registro.slice(0,5) : '—';
+    const hora   = resultado.hora_registro ? resultado.hora_registro.slice(11,16) || resultado.hora_registro.slice(0,5) : '—';
 
     area.innerHTML = `
       <div class="alert" style="background:var(--green-light);border:1px solid var(--green-primary);border-radius:var(--r-md);padding:var(--sp-5)">

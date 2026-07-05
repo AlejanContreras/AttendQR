@@ -57,7 +57,7 @@ class QrService
 
         $this->qrRepo->invalidarPrevios($idSesion);
 
-        $tokenValor = bin2hex(random_bytes(32));
+        $tokenValor = strtoupper(bin2hex(random_bytes(3)));
         $expiraEn   = date('Y-m-d H:i:s', time() + $segundos);
 
         $idToken = $this->qrRepo->crear($idSesion, $tokenValor, $expiraEn);
@@ -84,6 +84,8 @@ class QrService
      */
     public function tokenActivo(int $idSesion): array
     {
+        $this->sesionRepo->cerrarVencidas();
+
         $qr = $this->qrRepo->obtenerActivoPorSesion($idSesion);
 
         if ($qr === null) {
@@ -133,6 +135,8 @@ class QrService
      */
     public function validar(string $tokenValor, int $idAprendiz): array
     {
+        $this->sesionRepo->cerrarVencidas();
+
         $tokenValor = trim($tokenValor);
         $qr         = $this->qrRepo->buscarToken($tokenValor);
 
@@ -183,7 +187,7 @@ class QrService
 
         $this->qrRepo->invalidarPrevios($idSesion);
 
-        $tokenValor = bin2hex(random_bytes(32));
+        $tokenValor = strtoupper(bin2hex(random_bytes(3)));
         $expiraEn   = date('Y-m-d H:i:s', time() + $segundos);
 
         $this->qrRepo->crear($idSesion, $tokenValor, $expiraEn);

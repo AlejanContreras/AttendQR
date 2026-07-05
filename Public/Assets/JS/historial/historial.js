@@ -211,7 +211,7 @@ const historial = (() => {
 
     tbody.innerHTML = pagina.map(r => {
       const fecha = r.fecha_sesion ? fmtFecha(r.fecha_sesion) : '—';
-      const hora  = r.hora_registro ? r.hora_registro.slice(0,5) : '—';
+      const hora  = r.hora_registro ? r.hora_registro.slice(11,16) || r.hora_registro.slice(0,5) : '—';
       const prog  = esc(r.nombre_programa ?? r.codigo_ficha ?? '—');
       return `<tr>
         <td>${fecha}</td>
@@ -262,7 +262,7 @@ const historial = (() => {
           ${asistencias.map(a => `<tr>
             <td>${esc(a.nombre_aprendiz ?? a.nombre ?? '—')}</td>
             <td>${esc(a.numero_documento ?? '—')}</td>
-            <td>${a.hora_registro ? a.hora_registro.slice(0,5) : '—'}</td>
+            <td>${a.hora_registro ? (a.hora_registro.slice(11,16) || a.hora_registro.slice(0,5)) : '—'}</td>
             <td>${asistenciaBadge(a.estado)}</td>
           </tr>`).join('')}
         </tbody>

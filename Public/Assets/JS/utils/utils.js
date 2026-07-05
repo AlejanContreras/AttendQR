@@ -4,6 +4,8 @@
 const AttendQR = (() => {
 
   // ─── Sidebar ────────────────────────────────────────────────────────
+  const SIDEBAR_KEY = 'attendqr_sidebar_collapsed';
+
   const sidebar = {
     toggle() {
       const s = document.getElementById('sidebar');
@@ -15,6 +17,7 @@ const AttendQR = (() => {
       } else {
         s.classList.toggle('is-collapsed');
         document.getElementById('mainWrapper')?.classList.toggle('sidebar-collapsed');
+        localStorage.setItem(SIDEBAR_KEY, s.classList.contains('is-collapsed') ? '1' : '0');
       }
     },
     close() {
@@ -22,6 +25,14 @@ const AttendQR = (() => {
       if (s) s.classList.remove('is-mobile-open');
       const ov = document.getElementById('overlay');
       if (ov) ov.style.display = 'none';
+    },
+    restoreState() {
+      if (window.innerWidth < 768) return;
+      const collapsed = localStorage.getItem(SIDEBAR_KEY) === '1';
+      if (collapsed) {
+        document.getElementById('sidebar')?.classList.add('is-collapsed');
+        document.getElementById('mainWrapper')?.classList.add('sidebar-collapsed');
+      }
     },
   };
 
@@ -103,6 +114,7 @@ const AttendQR = (() => {
       }
     });
 
+    sidebar.restoreState();
     clock.start('#topbarClock');
 
     const today = new Date().toISOString().slice(0, 10);
@@ -115,7 +127,7 @@ const AttendQR = (() => {
 
   // ─── Easter eggs ────────────────────────────────────────────────────
   console.warn('🚨 Usted no debería estar acá, sapo HP. Si encontró un bug, mejor repórtelo 😄');
-  console.error('❌ Si está leyendo esto en producción, su docente de seguridad informática llora en un rincón.');
+  console.error('Colabore reportando bugs mejor 👍');
 
   return { sidebar, toast, modal, clock, loader };
 })();

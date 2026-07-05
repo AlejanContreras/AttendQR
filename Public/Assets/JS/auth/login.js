@@ -23,6 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
       auth.clearUsuario();
     });
 
+  // Filtro numérico estricto para el campo de documento del aprendiz
+  document.getElementById('aprendizDoc')?.addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '');
+  });
+
   // Focus automático al primer campo visible
   document.querySelector('#formDocente input:not([type=hidden])')?.focus();
 
@@ -46,8 +51,9 @@ function switchRole(tab, role) {
   document.getElementById('formDocente').style.display  = role === 'docente'  ? 'flex' : 'none';
   document.getElementById('formAprendiz').style.display = role === 'aprendiz' ? 'flex' : 'none';
 
-  // Limpiar alertas del formulario anterior
+  // Limpiar campos y alertas del formulario anterior
   document.querySelectorAll('.login-alert').forEach(el => el.remove());
+  document.querySelectorAll('.login-form input').forEach(el => { el.value = ''; });
 
   // Focus al primer campo del formulario activado
   setTimeout(() => {

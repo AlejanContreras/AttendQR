@@ -221,6 +221,26 @@ class SesionRepository extends BaseRepository
     }
 
     /**
+     * Cierra automáticamente todas las sesiones cuyo tiempo H+duracion_maxima_minutos ya pasó.
+     * Invalida sus tokens QR en la misma operación.
+     * Debe llamarse de forma lazy antes de consultar estado de sesiones.
+     *
+     * @return int Número de sesiones cerradas automáticamente.
+     */
+    public function cerrarVencidas(): int
+    {
+        return $this->ejecutar(
+            "UPDATE sesiones_asistencia
+             SET estado_sesion = 'cerrada',
+                 hora_cierre   = NOW(3)
+             WHERE estado_sesion = 'abierta'
+               AND TIMESTAMPADD(MINUTE, duracion_maxima_minutos,
+                   TIMESTAMP(fecha_sesion, hora_inicio_clase)) < NOW()",
+            []
+        );
+    }
+
+    /**
      * Cuenta sesiones abiertas en este momento.
      * Usado por EstadisticaService.
      *
