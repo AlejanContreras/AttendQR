@@ -93,12 +93,13 @@
             <th>Pres.</th>
             <th>Tard.</th>
             <th>Aus.</th>
+            <th title="Excusas">Exc.</th>
             <th>Asistencia</th>
           </tr>
         </thead>
         <tbody id="historialBody">
           <tr>
-            <td colspan="10" style="text-align:center;padding:var(--sp-10)">
+            <td colspan="11" style="text-align:center;padding:var(--sp-10)">
               <div class="spinner" style="margin:0 auto"></div>
             </td>
           </tr>

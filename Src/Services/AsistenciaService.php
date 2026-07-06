@@ -145,12 +145,14 @@ class AsistenciaService
         $presentes = 0;
         $retardos  = 0;
         $ausentes  = 0;
+        $excusas   = 0;
 
         foreach ($registros as $r) {
             match ($r['estado'] ?? '') {
                 'presente' => $presentes++,
                 'retardo'  => $retardos++,
                 'ausente'  => $ausentes++,
+                'excusa'   => $excusas++,
                 default    => null,
             };
         }
@@ -163,6 +165,7 @@ class AsistenciaService
                 'presentes' => $presentes,
                 'retardos'  => $retardos,
                 'ausentes'  => $ausentes,
+                'excusas'   => $excusas,
             ],
             'filtros'     => [
                 'fecha_inicio' => $fechaInicio,
@@ -188,6 +191,89 @@ class AsistenciaService
             'id_sesion'     => $idSesion,
             'ya_registrado' => $yaRegistrado,
         ];
+    }
+
+    /**
+     * Cambia el estado de un registro de asistencia.
+     * Solo docentes pueden ejecutar esta acción.
+     * Únicamente se permiten los cambios coherentes: ausente ↔ excusa.
+     * No se puede cambiar desde presente o retardo.
+     *
+     * @param int    $idAsistencia Identificador del registro.
+     * @param string $nuevoEstado  Estado destino ('ausente' | 'excusa').
+     * @param string $observacion  Observación opcional.
+     * @param array<string, mixed> $usuario Usuario autenticado desde $_SESSION.
+     * @return array<string, mixed> Registro actualizado.
+     * @throws \RuntimeException 403 si no es docente.
+     * @throws \RuntimeException 404 si el registro no existe.
+     * @throws \RuntimeException 422 si el cambio no está permitido.
+     */
+    public function cambiarEstado(int $idAsistencia, string $nuevoEstado, string $observacion, array $usuario): array
+    {
+        if (($usuario['rol'] ?? '') !== 'docente') {
+            throw new \RuntimeException('Solo los docentes pueden cambiar el estado de asistencia.', 403);
+        }
+
+        $estadosValidos = ['ausente', 'excusa'];
+        if (!in_array($nuevoEstado, $estadosValidos, true)) {
+            throw new \RuntimeException(
+                "Estado '{$nuevoEstado}' no válido. Solo se permite: ausente, excusa.",
+                422
+            );
+        }
+
+        $asistencia = $this->asistenciaRepo->obtenerPorId($idAsistencia);
+        if ($asistencia === null) {
+            throw new \RuntimeException('Registro de asistencia no encontrado.', 404);
+        }
+
+        $estadoActual = $asistencia['estado'] ?? '';
+
+        // Reglas de negocio: solo cambios coherentes
+        $transicionesPermitidas = [
+            'ausente' => 'excusa',
+            'excusa'  => 'ausente',
+        ];
+
+        if (!isset($transicionesPermitidas[$estadoActual]) || $transicionesPermitidas[$estadoActual] !== $nuevoEstado) {
+            throw new \RuntimeException(
+                "No se puede cambiar de '{$estadoActual}' a '{$nuevoEstado}'. Solo se permite: ausente → excusa y excusa → ausente.",
+                422
+            );
+        }
+
+        $this->asistenciaRepo->actualizarEstado(
+            $idAsistencia,
+            $nuevoEstado,
+            $observacion !== '' ? $observacion : null
+        );
+
+        return $this->asistenciaRepo->obtenerPorId($idAsistencia) ?? $asistencia;
+    }
+
+    /**
+     * Genera los datos del reporte de asistencia para exportación.
+     * Respeta el rol del usuario: docente → sus sesiones, aprendiz → su historial.
+     *
+     * @param array<string, mixed> $usuario     Usuario autenticado.
+     * @param int|null             $idFicha     Filtro por ficha (solo docente).
+     * @param string|null          $fechaInicio Inicio del rango (Y-m-d).
+     * @param string|null          $fechaFin    Fin del rango (Y-m-d).
+     * @return array<int, array<string, mixed>>
+     */
+    public function generarReporte(array $usuario, ?int $idFicha, ?string $fechaInicio, ?string $fechaFin): array
+    {
+        $rol        = $usuario['rol'] ?? '';
+        $idDocente  = ($rol === 'docente')  ? (int) $usuario['id'] : null;
+        $idAprendiz = ($rol === 'aprendiz') ? (int) $usuario['id'] : null;
+
+        return $this->asistenciaRepo->listarParaExportar(
+            $idDocente,
+            $idAprendiz,
+            $idFicha,
+            $fechaInicio,
+            $fechaFin
+        );
     }
 
     /**

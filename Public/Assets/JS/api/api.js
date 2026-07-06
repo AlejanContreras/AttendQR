@@ -16,12 +16,19 @@ const Api = (() => {
 
   async function request(endpoint, options = {}) {
     const url = `${BASE}${endpoint}`;
+
+    // Si el body es FormData, no sobreescribir Content-Type
+    // (el navegador lo establece automáticamente con el boundary correcto)
+    const isFormData = options.body instanceof FormData;
+    const defaultHeaders = isFormData
+      ? { 'Accept': 'application/json' }
+      : { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+
     const res = await fetch(url, {
       credentials: 'same-origin',
       ...options,
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        ...defaultHeaders,
         ...(options.headers ?? {}),
       },
     });
@@ -58,9 +65,11 @@ const Api = (() => {
   const put  = (ep, body)   => request(ep, { method: 'PUT',    body: JSON.stringify(body ?? {}) });
 
   const auth = {
-    login:     (body)  => post('/auth/login', body),
-    logout:    ()      => post('/auth/logout'),
-    verificar: ()      => get('/auth/verificar'),
+    login:              (body)  => post('/auth/login', body),
+    logout:             ()      => post('/auth/logout'),
+    verificar:          ()      => get('/auth/verificar'),
+    verificarDocumento: (doc)   => post('/auth/verificar-documento', { documento: doc }),
+    activarCuenta:      (body)  => post('/auth/activar-cuenta', body),
   };
 
   const docentes = {
@@ -71,6 +80,10 @@ const Api = (() => {
   const aprendices = {
     consultar:  (id)       => get(`/aprendices/consultar/${id}`),
     actualizar: (id, body) => put(`/aprendices/actualizar/${id}`, body),
+    listar:     (params)   => get('/aprendices/listar', params),
+    activar:    (id)       => put(`/aprendices/actualizar/${id}`, { activo: 1 }),
+    desactivar: (id)       => put(`/aprendices/actualizar/${id}`, { activo: 0 }),
+    importar:   (formData) => request('/aprendices/importar', { method: 'POST', body: formData }),
   };
 
   const fichas = {
@@ -103,8 +116,9 @@ const Api = (() => {
   };
 
   const asistencias = {
-    historial:  (idAprendiz) => get(`/asistencias/historial/${idAprendiz}`),
-    registrar:  (body)       => post('/asistencias/registrar', body),
+    historial:    (idAprendiz) => get(`/asistencias/historial/${idAprendiz}`),
+    registrar:    (body)       => post('/asistencias/registrar', body),
+    cambiarEstado:(id, body)   => request(`/asistencias/estado/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   };
 
   const estadisticas = {

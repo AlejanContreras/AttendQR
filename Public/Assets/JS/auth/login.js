@@ -60,6 +60,10 @@ function switchRole(tab, role) {
   document.getElementById('formDocente').style.display  = role === 'docente'  ? 'flex' : 'none';
   document.getElementById('formAprendiz').style.display = role === 'aprendiz' ? 'flex' : 'none';
 
+  // Mostrar enlace de registro solo en la pestaña aprendiz
+  const regLink = document.getElementById('registroLink');
+  if (regLink) regLink.style.display = role === 'aprendiz' ? 'block' : 'none';
+
   // Limpiar campos y alertas del formulario anterior
   document.querySelectorAll('.login-alert').forEach(el => el.remove());
   document.querySelectorAll('.login-form input').forEach(el => { el.value = ''; });

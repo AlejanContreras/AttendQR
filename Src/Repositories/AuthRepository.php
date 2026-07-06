@@ -48,7 +48,8 @@ class AuthRepository extends BaseRepository
     {
         return $this->consultarUno(
             'SELECT ap.id_aprendiz, ap.nombres, ap.apellidos,
-                    ap.numero_documento, ap.password_hash, ap.id_ficha, ap.activo,
+                    ap.numero_documento, ap.password_hash, ap.id_ficha,
+                    ap.activo, ap.cuenta_activada,
                     f.codigo_ficha, f.nombre_programa
              FROM aprendices ap
              JOIN fichas f ON f.id_ficha = ap.id_ficha

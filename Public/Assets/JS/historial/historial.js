@@ -112,7 +112,7 @@ const historial = (() => {
     if (!tbody) return;
 
     if (!sesiones.length) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:var(--sp-10)">
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:var(--sp-10)">
         <div style="color:var(--text-muted);font-size:var(--text-sm)">No hay sesiones que coincidan con los filtros seleccionados</div>
         <button class="btn btn-ghost btn-sm" onclick="historial.limpiar()" style="margin-top:var(--sp-3)">Limpiar filtros</button>
       </td></tr>`;
@@ -132,9 +132,10 @@ const historial = (() => {
       const cierre = s.hora_cierre    ? s.hora_cierre.slice(11,16)    : '—';
       const badge  = estadoBadge(s.estado_sesion);
 
-      const presentes = s.presentes        != null ? parseInt(s.presentes, 10)        : null;
-      const retardos  = s.retardos         != null ? parseInt(s.retardos, 10)         : null;
+      const presentes = s.presentes         != null ? parseInt(s.presentes, 10)         : null;
+      const retardos  = s.retardos          != null ? parseInt(s.retardos, 10)          : null;
       const ausentes  = s.ausentes_marcados != null ? parseInt(s.ausentes_marcados, 10) : null;
+      const excusas   = s.excusas           != null ? parseInt(s.excusas, 10)           : null;
       const total     = s.total_aprendices  != null ? parseInt(s.total_aprendices, 10)  : null;
       const pct       = (total > 0 && presentes !== null) ? Math.round((presentes / total) * 100) : null;
       const fillClass = pct !== null ? (pct >= 80 ? '' : pct >= 60 ? ' pct-cell__fill--warning' : ' pct-cell__fill--danger') : '';
@@ -162,13 +163,14 @@ const historial = (() => {
           <td>${presentes ?? '—'}</td>
           <td>${retardos  ?? '—'}</td>
           <td>${ausentes  ?? '—'}</td>
+          <td style="color:var(--text-muted)">${excusas !== null && excusas > 0 ? excusas : '—'}</td>
           <td class="pct-cell">
             <span>${pct !== null ? pct + '%' : '—'}</span>
             <div class="pct-cell__bar"><div class="pct-cell__fill${fillClass}" style="width:${pct ?? 0}%"></div></div>
           </td>
         </tr>
         <tr class="session-detail-row" id="detail-${id}">
-          <td colspan="10">
+          <td colspan="11">
             <div class="session-detail-inner" id="detail-inner-${id}">
               <div class="spinner" style="width:20px;height:20px;margin:var(--sp-2) auto"></div>
             </div>
@@ -186,26 +188,30 @@ const historial = (() => {
     const presente = registros.filter(r => r.estado === 'presente').length;
     const retardo  = registros.filter(r => r.estado === 'retardo').length;
     const ausente  = registros.filter(r => r.estado === 'ausente').length;
+    const excusa   = registros.filter(r => r.estado === 'excusa').length;
+    // Excusas no cuentan en % asistencia (ausencia justificada, no presencia)
     const pct      = total > 0 ? Math.round(((presente + retardo) / total) * 100) : 0;
 
-    setTxt('#sumTotal',     total);
-    setTxt('#sumCerradas',  presente);
-    setTxt('#sumAbiertas',  retardo);
+    setTxt('#sumTotal',      total);
+    setTxt('#sumCerradas',   presente);
+    setTxt('#sumAbiertas',   retardo);
     setTxt('#sumCanceladas', ausente);
-    setTxt('#sumPct',       pct + '%');
+    setTxt('#sumPct',        excusa);
 
     // Renombrar etiquetas para rol aprendiz
     const labels = document.querySelectorAll('.summary-card__label');
+    if (labels[0]) labels[0].textContent = 'Total sesiones';
     if (labels[1]) labels[1].textContent = 'Presentes';
     if (labels[2]) labels[2].textContent = 'Tardanzas';
     if (labels[3]) labels[3].textContent = 'Ausencias';
+    if (labels[4]) labels[4].textContent = 'Excusas';
 
-    setTxt('#historialSubtitle', `${total} sesiones registradas`);
+    setTxt('#historialSubtitle', `${total} sesiones registradas · ${pct}% asistencia`);
 
     // Ajustar encabezados de tabla para aprendiz
     const thead = document.querySelector('#historialBody')?.closest('table')?.querySelector('thead tr');
     if (thead) {
-      thead.innerHTML = `<th>Fecha</th><th>Ficha / Programa</th><th>Estado asistencia</th><th>Hora registro</th>`;
+      thead.innerHTML = `<th>Fecha</th><th>Ficha / Programa</th><th>Estado asistencia</th><th>Hora registro</th><th>Observación</th>`;
     }
   }
 
@@ -214,7 +220,7 @@ const historial = (() => {
     if (!tbody) return;
 
     if (!registros.length) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:var(--sp-10)">
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:var(--sp-10)">
         <div style="color:var(--text-muted);font-size:var(--text-sm)">Aún no tienes registros de asistencia</div>
         <a href="index.php?view=registrar-asistencia&rol=aprendiz" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Registrar ahora</a>
       </td></tr>`;
@@ -228,11 +234,13 @@ const historial = (() => {
       const fecha = r.fecha_sesion ? fmtFecha(r.fecha_sesion) : '—';
       const hora  = r.hora_registro ? r.hora_registro.slice(11,16) || r.hora_registro.slice(0,5) : '—';
       const prog  = esc(r.nombre_programa ?? r.codigo_ficha ?? '—');
+      const obs   = r.observacion ? `<span style="font-size:var(--text-xs);color:var(--text-muted)">${esc(r.observacion)}</span>` : '—';
       return `<tr>
         <td>${fecha}</td>
         <td>${prog}</td>
         <td>${asistenciaBadge(r.estado)}</td>
         <td>${hora}</td>
+        <td>${obs}</td>
       </tr>`;
     }).join('');
 
@@ -267,21 +275,140 @@ const historial = (() => {
       container.innerHTML = `<p style="font-size:var(--text-sm);color:var(--text-muted)">Sin registros de asistencia en esta sesión.</p>`;
       return;
     }
+
+    const esDocente = (window.ATTENDQR_USER?.rol ?? '') === 'docente';
+
     container.innerHTML = `
       <h4 style="font-size:var(--text-sm);font-weight:var(--fw-semibold);margin-bottom:var(--sp-3)">
-        Detalle de asistencia
+        Detalle de asistencia (${asistencias.length} registros)
       </h4>
-      <table class="mini-table">
-        <thead><tr><th>Aprendiz</th><th>Documento</th><th>Hora registro</th><th>Estado</th></tr></thead>
-        <tbody>
-          ${asistencias.map(a => `<tr>
-            <td>${esc(a.nombre_aprendiz ?? a.nombre ?? '—')}</td>
-            <td>${esc(a.numero_documento ?? '—')}</td>
-            <td>${a.hora_registro ? (a.hora_registro.slice(11,16) || a.hora_registro.slice(0,5)) : '—'}</td>
-            <td>${asistenciaBadge(a.estado)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>`;
+      <div style="overflow-x:auto">
+        <table class="mini-table">
+          <thead><tr>
+            <th>Aprendiz</th>
+            <th>Documento</th>
+            <th>Hora registro</th>
+            <th>Estado</th>
+            <th>Observación</th>
+            ${esDocente ? '<th style="text-align:center">Acción</th>' : ''}
+          </tr></thead>
+          <tbody>
+            ${asistencias.map(a => {
+              const nombre = esc(((a.nombres ?? '') + ' ' + (a.apellidos ?? '')).trim() || '—');
+              const hora   = a.hora_registro
+                ? (a.hora_registro.slice(11,16) || a.hora_registro.slice(0,5))
+                : '—';
+              const obs    = a.observacion
+                ? `<span style="font-size:var(--text-xs)">${esc(a.observacion)}</span>`
+                : '<span style="color:var(--text-muted)">—</span>';
+
+              let accion = '';
+              if (esDocente) {
+                if (a.estado === 'ausente') {
+                  accion = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--warning)"
+                              onclick="historial.iniciarExcusa(${a.id_asistencia}, this)" title="Marcar como excusa">
+                              Excusar
+                            </button>`;
+                } else if (a.estado === 'excusa') {
+                  accion = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--text-muted)"
+                              onclick="historial.quitarExcusa(${a.id_asistencia}, this)" title="Quitar excusa">
+                              Quitar excusa
+                            </button>`;
+                }
+              }
+
+              return `<tr id="asistencia-row-${a.id_asistencia}">
+                <td>${nombre}</td>
+                <td style="font-family:monospace;font-size:var(--text-xs)">${esc(a.numero_documento ?? '—')}</td>
+                <td>${hora}</td>
+                <td id="estado-cell-${a.id_asistencia}">${asistenciaBadge(a.estado)}</td>
+                <td id="obs-cell-${a.id_asistencia}">${obs}</td>
+                ${esDocente ? `<td style="text-align:center" id="accion-cell-${a.id_asistencia}">${accion}</td>` : ''}
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  async function iniciarExcusa(idAsistencia, btn) {
+    // Reemplazar el botón con un mini-form inline
+    const cell = document.getElementById(`accion-cell-${idAsistencia}`);
+    if (!cell) return;
+
+    cell.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:var(--sp-1);min-width:180px">
+        <input type="text" id="obs-input-${idAsistencia}"
+               placeholder="Observación (opcional)"
+               class="form-control" style="font-size:var(--text-xs);padding:var(--sp-1) var(--sp-2)">
+        <div style="display:flex;gap:var(--sp-1)">
+          <button class="btn btn-primary btn-sm" style="font-size:var(--text-xs);flex:1"
+                  onclick="historial.confirmarExcusa(${idAsistencia})">✓ Confirmar</button>
+          <button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs)"
+                  onclick="historial.cancelarAccion(${idAsistencia}, 'ausente')">✗</button>
+        </div>
+      </div>`;
+
+    document.getElementById(`obs-input-${idAsistencia}`)?.focus();
+  }
+
+  async function confirmarExcusa(idAsistencia) {
+    const obs = document.getElementById(`obs-input-${idAsistencia}`)?.value ?? '';
+    await _cambiarEstadoRow(idAsistencia, 'excusa', obs);
+  }
+
+  async function quitarExcusa(idAsistencia, btn) {
+    if (!confirm('¿Quitar la excusa y marcar como ausente?')) return;
+    await _cambiarEstadoRow(idAsistencia, 'ausente', '');
+  }
+
+  async function _cambiarEstadoRow(idAsistencia, nuevoEstado, observacion) {
+    const cell = document.getElementById(`accion-cell-${idAsistencia}`);
+    if (cell) cell.innerHTML = '<span style="font-size:var(--text-xs);color:var(--text-muted)">Guardando...</span>';
+
+    try {
+      await Api.asistencias.cambiarEstado(idAsistencia, { estado: nuevoEstado, observacion });
+
+      // Actualizar badge de estado en la fila
+      const estadoCell = document.getElementById(`estado-cell-${idAsistencia}`);
+      if (estadoCell) estadoCell.innerHTML = asistenciaBadge(nuevoEstado);
+
+      // Actualizar celda de observación
+      const obsCell = document.getElementById(`obs-cell-${idAsistencia}`);
+      if (obsCell) {
+        obsCell.innerHTML = observacion
+          ? `<span style="font-size:var(--text-xs)">${esc(observacion)}</span>`
+          : '<span style="color:var(--text-muted)">—</span>';
+      }
+
+      // Actualizar botón de acción
+      if (cell) {
+        if (nuevoEstado === 'excusa') {
+          cell.innerHTML = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--text-muted)"
+            onclick="historial.quitarExcusa(${idAsistencia}, this)">Quitar excusa</button>`;
+        } else {
+          cell.innerHTML = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--warning)"
+            onclick="historial.iniciarExcusa(${idAsistencia}, this)">Excusar</button>`;
+        }
+      }
+
+      AttendQR.toast.success('Estado actualizado correctamente.');
+    } catch (err) {
+      if (cell) cell.innerHTML = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--danger)"
+        onclick="historial.iniciarExcusa(${idAsistencia}, this)">Reintentar</button>`;
+      AttendQR.toast.error(err.message ?? 'Error al actualizar el estado.');
+    }
+  }
+
+  function cancelarAccion(idAsistencia, estadoActual) {
+    const cell = document.getElementById(`accion-cell-${idAsistencia}`);
+    if (!cell) return;
+    if (estadoActual === 'ausente') {
+      cell.innerHTML = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--warning)"
+        onclick="historial.iniciarExcusa(${idAsistencia}, this)">Excusar</button>`;
+    } else {
+      cell.innerHTML = '';
+    }
   }
 
   // ─── Filtros ──────────────────────────────────────────────────────
@@ -365,28 +492,29 @@ const historial = (() => {
     }
   }
 
-  // ─── Exportar (CSV simple) ────────────────────────────────────────
+  // ─── Exportar (servidor → CSV con BOM, Excel-compatible) ─────────
 
   function exportar() {
-    if (!todasSesiones.length) {
-      AttendQR.toast.warning('No hay datos para exportar.');
-      return;
-    }
-    const cols = rol() === 'aprendiz'
-      ? ['fecha_sesion', 'nombre_programa', 'estado', 'hora_registro']
-      : ['fecha_sesion', 'codigo_ficha', 'nombre_programa', 'hora_apertura', 'hora_cierre', 'estado_sesion', 'presentes', 'retardos', 'ausentes'];
+    // Construir URL del endpoint con los mismos filtros activos
+    const params = new URLSearchParams();
+    const ficha  = document.getElementById('filterFicha')?.value;
+    const desde  = document.getElementById('filterDesde')?.value;
+    const hasta  = document.getElementById('filterHasta')?.value;
 
-    const head = cols.join(',');
-    const rows = todasSesiones.map(r =>
-      cols.map(c => `"${String(r[c] ?? '').replace(/"/g, '""')}"`).join(',')
-    );
+    if (ficha) params.set('id_ficha', ficha);
+    if (desde) params.set('fecha_inicio', desde);
+    if (hasta) params.set('fecha_fin', hasta);
 
-    const csv  = [head, ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a    = document.createElement('a');
-    a.href     = URL.createObjectURL(blob);
-    a.download = `historial_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
+    // Reutilizar la detección del BASE path que usa api.js
+    const parts  = window.location.pathname.split('/');
+    const idx    = parts.findIndex(p => p.toLowerCase() === 'attendqr');
+    const prefix = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
+    const url    = prefix + '/Public/api/asistencias/exportar'
+      + (params.toString() ? '?' + params.toString() : '');
+
+    // Navegar a la URL para descargar el archivo
+    window.location.href = url;
+    AttendQR.toast.info('Generando archivo de exportación...');
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────
@@ -419,6 +547,7 @@ const historial = (() => {
       presente: '<span class="badge badge-success">Presente</span>',
       retardo:  '<span class="badge badge-warning">Tardanza</span>',
       ausente:  '<span class="badge badge-danger">Ausente</span>',
+      excusa:   '<span class="badge badge-neutral">Excusa</span>',
     };
     return map[estado] ?? `<span class="badge badge-neutral">${esc(estado ?? '—')}</span>`;
   }
@@ -427,5 +556,6 @@ const historial = (() => {
     if (window.ATTENDQR_VIEW === 'historial') init();
   });
 
-  return { toggle, filtrar, limpiar, irPagina, exportar };
+  return { toggle, filtrar, limpiar, irPagina, exportar,
+           iniciarExcusa, confirmarExcusa, quitarExcusa, cancelarAccion };
 })();

@@ -143,10 +143,11 @@ class SesionRepository extends BaseRepository
                           f.codigo_ficha, f.nombre_programa,
                           (SELECT COUNT(*) FROM aprendices
                            WHERE id_ficha = sa.id_ficha AND activo = 1) AS total_aprendices,
-                          COUNT(a.id_asistencia)                              AS total_registrados,
+                          COUNT(a.id_asistencia)                                    AS total_registrados,
                           SUM(CASE WHEN a.estado = \'presente\' THEN 1 ELSE 0 END) AS presentes,
                           SUM(CASE WHEN a.estado = \'retardo\'  THEN 1 ELSE 0 END) AS retardos,
-                          SUM(CASE WHEN a.estado = \'ausente\'  THEN 1 ELSE 0 END) AS ausentes_marcados
+                          SUM(CASE WHEN a.estado = \'ausente\'  THEN 1 ELSE 0 END) AS ausentes_marcados,
+                          SUM(CASE WHEN a.estado = \'excusa\'   THEN 1 ELSE 0 END) AS excusas
                    FROM sesiones_asistencia sa
                    JOIN fichas f ON f.id_ficha = sa.id_ficha
                    LEFT JOIN asistencias a ON a.id_sesion = sa.id_sesion
@@ -305,10 +306,11 @@ class SesionRepository extends BaseRepository
                           f.codigo_ficha, f.nombre_programa,
                           (SELECT COUNT(*) FROM aprendices
                            WHERE id_ficha = sa.id_ficha AND activo = 1) AS total_aprendices,
-                          COUNT(a.id_asistencia)                              AS total_registrados,
+                          COUNT(a.id_asistencia)                                    AS total_registrados,
                           SUM(CASE WHEN a.estado = \'presente\' THEN 1 ELSE 0 END) AS presentes,
                           SUM(CASE WHEN a.estado = \'retardo\'  THEN 1 ELSE 0 END) AS retardos,
-                          SUM(CASE WHEN a.estado = \'ausente\'  THEN 1 ELSE 0 END) AS ausentes_marcados
+                          SUM(CASE WHEN a.estado = \'ausente\'  THEN 1 ELSE 0 END) AS ausentes_marcados,
+                          SUM(CASE WHEN a.estado = \'excusa\'   THEN 1 ELSE 0 END) AS excusas
                    FROM sesiones_asistencia sa
                    JOIN fichas f ON f.id_ficha = sa.id_ficha
                    LEFT JOIN asistencias a ON a.id_sesion = sa.id_sesion
@@ -336,7 +338,7 @@ class SesionRepository extends BaseRepository
         return $this->consultar(
             'SELECT a.id_asistencia, a.id_aprendiz, a.estado,
                     a.metodo_registro, a.hora_registro,
-                    a.minutos_retardo, a.registrado_en,
+                    a.minutos_retardo, a.observacion, a.registrado_en,
                     ap.nombres, ap.apellidos, ap.numero_documento
              FROM asistencias a
              JOIN aprendices ap ON ap.id_aprendiz = a.id_aprendiz
@@ -395,9 +397,10 @@ class SesionRepository extends BaseRepository
         $sql    = 'SELECT sa.id_sesion, sa.fecha_sesion, sa.estado_sesion,
                           sa.hora_apertura, sa.hora_cierre,
                           sa.hora_inicio_clase, sa.limite_retardo_minutos,
-                          COUNT(a.id_asistencia)                              AS total_registrados,
+                          COUNT(a.id_asistencia)                                    AS total_registrados,
                           SUM(CASE WHEN a.estado = \'presente\' THEN 1 ELSE 0 END) AS presentes,
-                          SUM(CASE WHEN a.estado = \'retardo\'  THEN 1 ELSE 0 END) AS retardos
+                          SUM(CASE WHEN a.estado = \'retardo\'  THEN 1 ELSE 0 END) AS retardos,
+                          SUM(CASE WHEN a.estado = \'excusa\'   THEN 1 ELSE 0 END) AS excusas
                    FROM sesiones_asistencia sa
                    LEFT JOIN asistencias a ON a.id_sesion = sa.id_sesion
                    WHERE sa.id_ficha = :id_ficha';

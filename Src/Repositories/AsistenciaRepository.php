@@ -33,7 +33,7 @@ class AsistenciaRepository extends BaseRepository
         return $this->consultarUno(
             'SELECT a.id_asistencia, a.id_aprendiz, a.id_sesion, a.id_token_usado,
                     a.estado, a.metodo_registro, a.hora_registro,
-                    a.minutos_retardo, a.registrado_en,
+                    a.minutos_retardo, a.observacion, a.registrado_en,
                     ap.nombres, ap.apellidos, ap.numero_documento,
                     sa.fecha_sesion, sa.hora_inicio_clase
              FROM asistencias a
@@ -94,7 +94,7 @@ class AsistenciaRepository extends BaseRepository
         ?string $fechaFin    = null
     ): array {
         $sql    = 'SELECT a.id_asistencia, a.estado, a.metodo_registro,
-                          a.hora_registro, a.minutos_retardo, a.registrado_en,
+                          a.hora_registro, a.minutos_retardo, a.observacion, a.registrado_en,
                           sa.fecha_sesion, sa.hora_inicio_clase,
                           sa.id_ficha, f.codigo_ficha, f.nombre_programa
                    FROM asistencias a
@@ -180,6 +180,91 @@ class AsistenciaRepository extends BaseRepository
                 ':minutos_retardo' => $minutosRetardo,
             ]
         );
+    }
+
+    /**
+     * Actualiza el estado de un registro de asistencia.
+     * Usado por el docente para marcar excusas (ausente ↔ excusa).
+     *
+     * @param int         $idAsistencia Identificador del registro.
+     * @param string      $nuevoEstado  Estado destino ('ausente' | 'excusa').
+     * @param string|null $observacion  Observación opcional (ej: "Cita médica").
+     * @return int Filas afectadas.
+     */
+    public function actualizarEstado(int $idAsistencia, string $nuevoEstado, ?string $observacion = null): int
+    {
+        $set    = ['estado = :estado'];
+        $params = [':estado' => $nuevoEstado, ':id' => $idAsistencia];
+
+        if ($observacion !== null) {
+            $set[]                 = 'observacion = :observacion';
+            $params[':observacion'] = $observacion;
+        }
+
+        return $this->ejecutar(
+            'UPDATE asistencias SET ' . implode(', ', $set) . ' WHERE id_asistencia = :id',
+            $params
+        );
+    }
+
+    /**
+     * Lista todos los registros de asistencia para exportación.
+     * Incluye datos de sesión, ficha y aprendiz para generar el reporte completo.
+     * Filtra por docente O por aprendiz según el rol.
+     *
+     * @param int|null    $idDocente   Filtra sesiones del docente.
+     * @param int|null    $idAprendiz  Filtra registros del aprendiz.
+     * @param int|null    $idFicha     Filtro adicional por ficha.
+     * @param string|null $fechaInicio Inicio del rango (Y-m-d).
+     * @param string|null $fechaFin    Fin del rango (Y-m-d).
+     * @return array<int, array<string, mixed>>
+     */
+    public function listarParaExportar(
+        ?int    $idDocente,
+        ?int    $idAprendiz,
+        ?int    $idFicha,
+        ?string $fechaInicio,
+        ?string $fechaFin
+    ): array {
+        $sql    = 'SELECT sa.fecha_sesion, f.codigo_ficha, f.nombre_programa,
+                          ap.numero_documento, ap.nombres, ap.apellidos,
+                          a.estado, a.hora_registro, sa.hora_inicio_clase,
+                          a.minutos_retardo, a.observacion
+                   FROM asistencias a
+                   JOIN sesiones_asistencia sa ON sa.id_sesion   = a.id_sesion
+                   JOIN fichas              f  ON f.id_ficha     = sa.id_ficha
+                   JOIN aprendices          ap ON ap.id_aprendiz = a.id_aprendiz
+                   WHERE 1=1';
+        $params = [];
+
+        if ($idDocente !== null) {
+            $sql .= ' AND f.id_docente = :id_docente';
+            $params[':id_docente'] = $idDocente;
+        }
+
+        if ($idAprendiz !== null) {
+            $sql .= ' AND a.id_aprendiz = :id_aprendiz';
+            $params[':id_aprendiz'] = $idAprendiz;
+        }
+
+        if ($idFicha !== null) {
+            $sql .= ' AND f.id_ficha = :id_ficha';
+            $params[':id_ficha'] = $idFicha;
+        }
+
+        if ($fechaInicio !== null) {
+            $sql                    .= ' AND sa.fecha_sesion >= :fecha_inicio';
+            $params[':fecha_inicio'] = $fechaInicio;
+        }
+
+        if ($fechaFin !== null) {
+            $sql                .= ' AND sa.fecha_sesion <= :fecha_fin';
+            $params[':fecha_fin'] = $fechaFin;
+        }
+
+        $sql .= ' ORDER BY sa.fecha_sesion DESC, ap.apellidos, ap.nombres';
+
+        return $this->consultar($sql, $params);
     }
 
     /**

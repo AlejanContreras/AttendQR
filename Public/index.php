@@ -44,6 +44,7 @@ $allowedViews = [
     'historial',
     'perfil',
     'registrar-asistencia',
+    'aprendices',
     '404',
 ];
 
@@ -54,7 +55,7 @@ if (!in_array($currentView, $allowedViews, true)) {
 }
 
 // Protección de vistas por rol
-$soloDocente  = ['crear-sesion', 'qr', 'dashboard-docente'];
+$soloDocente  = ['crear-sesion', 'qr', 'dashboard-docente', 'aprendices'];
 $soloAprendiz = ['dashboard-aprendiz', 'registrar-asistencia'];
 
 if ($userRole === 'aprendiz' && in_array($currentView, $soloDocente, true)) {
@@ -73,6 +74,7 @@ $pageTitles = [
     'historial'            => 'Historial de Asistencia',
     'perfil'               => 'Mi Perfil',
     'registrar-asistencia' => 'Registrar Asistencia',
+    'aprendices'           => 'Gestión de Aprendices',
     '404'                  => 'Página no encontrada',
 ];
 
@@ -87,6 +89,7 @@ $viewCssMap = [
     'historial'            => ['historial.css'],
     'perfil'               => ['perfil.css'],
     'registrar-asistencia' => [],
+    'aprendices'           => [],
 ];
 
 $viewCss = $viewCssMap[$currentView] ?? [];
@@ -147,6 +150,7 @@ $viewJs = [
     'historial'            => 'Assets/JS/historial/historial.js',
     'perfil'               => 'Assets/JS/perfil/perfil.js',
     'registrar-asistencia' => 'Assets/JS/asistencia/asistencia.js',
+    'aprendices'           => 'Assets/JS/aprendices/aprendices.js',
 ];
 
 if (isset($viewJs[$currentView])): ?>

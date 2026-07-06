@@ -48,6 +48,12 @@ class AsistenciaController
             'validar' => $this->despacharConMetodo($metodo, 'POST',
                 fn() => $this->validar()
             ),
+            'estado' => $this->despacharConMetodo($metodo, 'PUT',
+                fn() => $this->cambiarEstado($this->extraerIdRequerido($params, 'asistencia'))
+            ),
+            'exportar' => $this->despacharConMetodo($metodo, 'GET',
+                fn() => $this->exportar()
+            ),
             'eliminar' => $this->despacharConMetodo($metodo, 'DELETE',
                 fn() => $this->eliminar($this->extraerIdRequerido($params, 'asistencia'))
             ),
@@ -152,6 +158,111 @@ class AsistenciaController
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
             $this->responderError('Error interno al validar la asistencia.', 500);
+        }
+    }
+
+    /**
+     * PUT /api/asistencias/estado/{idAsistencia}
+     * Body: { "estado": "excusa", "observacion": "Cita médica" }
+     *
+     * Solo docentes. Solo transiciones coherentes: ausente ↔ excusa.
+     */
+    private function cambiarEstado(int $idAsistencia): void
+    {
+        $usuario = $this->obtenerUsuarioAutenticado();
+        $cuerpo  = $this->leerCuerpoJson();
+
+        if (empty($cuerpo['estado'])) {
+            $this->responderError("El campo 'estado' es obligatorio.", 422);
+        }
+
+        try {
+            $asistencia = $this->servicio->cambiarEstado(
+                $idAsistencia,
+                (string) $cuerpo['estado'],
+                (string) ($cuerpo['observacion'] ?? ''),
+                $usuario
+            );
+            $this->responderExito('Estado actualizado correctamente.', $asistencia);
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al cambiar el estado.', 500);
+        }
+    }
+
+    /**
+     * GET /api/asistencias/exportar
+     * Query params: ?id_ficha=X&fecha_inicio=Y&fecha_fin=Z
+     *
+     * Genera y descarga un archivo CSV con los registros de asistencia.
+     * Docente: sus sesiones (filtradas por ficha/fechas si se indica).
+     * Aprendiz: su propio historial.
+     * El CSV incluye UTF-8 BOM para compatibilidad con Excel.
+     */
+    private function exportar(): void
+    {
+        $usuario     = $this->obtenerUsuarioAutenticado();
+        $idFicha     = isset($_GET['id_ficha'])     ? (int) $_GET['id_ficha']     : null;
+        $fechaInicio = isset($_GET['fecha_inicio']) ? (string) $_GET['fecha_inicio'] : null;
+        $fechaFin    = isset($_GET['fecha_fin'])    ? (string) $_GET['fecha_fin']    : null;
+
+        try {
+            $filas    = $this->servicio->generarReporte($usuario, $idFicha, $fechaInicio, $fechaFin);
+            $fecha    = date('Y-m-d');
+            $filename = "asistencias_{$fecha}.csv";
+
+            header('Content-Type: text/csv; charset=UTF-8');
+            header("Content-Disposition: attachment; filename=\"{$filename}\"");
+            header('Cache-Control: no-cache, must-revalidate');
+            header('Pragma: no-cache');
+
+            $out = fopen('php://output', 'w');
+
+            // UTF-8 BOM — Excel lo necesita para reconocer la codificación
+            fwrite($out, "\xEF\xBB\xBF");
+
+            fputcsv($out, [
+                'Fecha', 'Ficha', 'Programa', 'Documento',
+                'Nombres', 'Apellidos', 'Estado', 'Hora ingreso',
+                'Hora clase', 'Minutos retardo', 'Observación',
+            ], ';');
+
+            foreach ($filas as $fila) {
+                $estadoLabel = match ($fila['estado'] ?? '') {
+                    'presente' => 'Presente',
+                    'retardo'  => 'Retardo',
+                    'ausente'  => 'Ausente',
+                    'excusa'   => 'Excusa',
+                    default    => $fila['estado'] ?? '',
+                };
+
+                fputcsv($out, [
+                    $fila['fecha_sesion']      ?? '',
+                    $fila['codigo_ficha']      ?? '',
+                    $fila['nombre_programa']   ?? '',
+                    $fila['numero_documento']  ?? '',
+                    $fila['nombres']           ?? '',
+                    $fila['apellidos']         ?? '',
+                    $estadoLabel,
+                    isset($fila['hora_registro']) && $fila['hora_registro']
+                        ? substr($fila['hora_registro'], 11, 5)
+                        : '',
+                    isset($fila['hora_inicio_clase']) && $fila['hora_inicio_clase']
+                        ? substr($fila['hora_inicio_clase'], 0, 5)
+                        : '',
+                    (int) ($fila['minutos_retardo'] ?? 0),
+                    $fila['observacion'] ?? '',
+                ], ';');
+            }
+
+            fclose($out);
+            exit;
+
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al generar el reporte.', 500);
         }
     }
 

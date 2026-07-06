@@ -5,6 +5,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const usuario = window.ATTENDQR_USER;
   if (!usuario) return;
 
+  // Bienvenida a nuevas cuentas recién activadas
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('nueva_cuenta') === '1') {
+    setTimeout(() => AttendQR.toast.success('¡Bienvenido a AttendQR! Tu cuenta está lista.', 5000), 300);
+  }
+
   // Skeleton state while data loads
   document.querySelectorAll('.stat-card__value').forEach(el => el.classList.add('skeleton', 'skeleton-value'));
 
@@ -102,10 +108,11 @@ function renderSesionesRecientes(sesiones) {
 // ─── Render aprendiz ──────────────────────────────────────────────────
 
 function renderStatsAprendiz(resumen, total) {
-  // resumen = { presentes, retardos, ausentes } de la API
+  // resumen = { presentes, retardos, ausentes, excusas } de la API
   const presente = resumen.presentes ?? 0;
   const retardo  = resumen.retardos  ?? 0;
   const ausente  = resumen.ausentes  ?? 0;
+  // Excusas no suman al % de asistencia (ausencias justificadas)
   const pct      = total > 0 ? Math.round((presente / total) * 100) : 0;
 
   setVal('#statAsistenciaPct',  pct + '%');
@@ -169,6 +176,7 @@ function asistenciaBadge(estado) {
     presente: '<span class="badge badge-success">Presente</span>',
     retardo:  '<span class="badge badge-warning">Tardanza</span>',
     ausente:  '<span class="badge badge-danger">Ausente</span>',
+    excusa:   '<span class="badge badge-neutral">Excusa</span>',
   };
   return map[estado] ?? `<span class="badge badge-neutral">${esc(estado)}</span>`;
 }

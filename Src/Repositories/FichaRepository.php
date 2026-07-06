@@ -85,6 +85,24 @@ class FichaRepository extends BaseRepository
     }
 
     /**
+     * Busca una ficha por su código oficial SENA.
+     * Usado por el servicio de importación masiva.
+     */
+    public function obtenerPorCodigo(string $codigoFicha): ?array
+    {
+        return $this->consultarUno(
+            'SELECT f.id_ficha, f.codigo_ficha, f.nombre_programa,
+                    f.id_jornada, f.id_docente, f.id_trimestre, f.activa,
+                    j.nombre AS nombre_jornada
+             FROM fichas f
+             LEFT JOIN jornadas j ON j.id_jornada = f.id_jornada
+             WHERE f.codigo_ficha = :codigo
+             LIMIT 1',
+            [':codigo' => $codigoFicha]
+        );
+    }
+
+    /**
      * Verifica si ya existe una ficha con el código indicado.
      *
      * @param string   $codigoFicha Código de la ficha.

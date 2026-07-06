@@ -9,11 +9,13 @@ declare(strict_types=1);
  * Delega toda la lógica a AprendizService.
  *
  * Rutas:
- *   GET    /api/aprendices/listar             → listar aprendices
+ *   GET    /api/aprendices/listar             → listar aprendices (con filtros)
  *   GET    /api/aprendices/consultar/{id}     → consultar por ID
- *   POST   /api/aprendices/registrar         → registrar nuevo aprendiz
- *   PUT    /api/aprendices/actualizar/{id}   → actualizar datos
- *   DELETE /api/aprendices/eliminar/{id}     → eliminar aprendiz
+ *   GET    /api/aprendices/ficha/{id}         → listar por ficha
+ *   POST   /api/aprendices/registrar          → registrar nuevo aprendiz (con contraseña)
+ *   POST   /api/aprendices/importar           → importar lote (CSV o JSON) — solo docente
+ *   PUT    /api/aprendices/actualizar/{id}    → actualizar datos
+ *   DELETE /api/aprendices/eliminar/{id}      → eliminar aprendiz
  *
  * Ubicación en el proyecto: Src/Controllers/AprendizController.php
  */
@@ -48,6 +50,9 @@ class AprendizController
             'registrar' => $this->despacharConMetodo($metodo, 'POST',
                 fn() => $this->registrar()
             ),
+            'importar' => $this->despacharConMetodo($metodo, 'POST',
+                fn() => $this->importar()
+            ),
             'actualizar' => $this->despacharConMetodo($metodo, 'PUT',
                 fn() => $this->actualizar($this->extraerIdRequerido($params, 'aprendiz'))
             ),
@@ -66,16 +71,17 @@ class AprendizController
 
     /**
      * GET /api/aprendices/listar
-     * Query params opcionales: ?id_ficha=15&estado=activo&documento=1234567
+     * Query params opcionales: ?id_ficha=15&estado=activo&documento=1234567&cuenta=pendiente
      */
     private function listar(): void
     {
-        $idFicha   = isset($_GET['id_ficha']) ? (int) $_GET['id_ficha'] : null;
-        $estado    = $_GET['estado']    ?? null;
-        $documento = $_GET['documento'] ?? null;
+        $idFicha      = isset($_GET['id_ficha']) ? (int) $_GET['id_ficha'] : null;
+        $estado       = $_GET['estado']   ?? null;
+        $documento    = $_GET['documento'] ?? null;
+        $cuentaEstado = $_GET['cuenta']    ?? null;
 
         try {
-            $resultado = $this->servicio->listar($idFicha, $estado, $documento);
+            $resultado = $this->servicio->listar($idFicha, $estado, $documento, $cuentaEstado);
             $this->responderExito('Aprendices obtenidos correctamente.', $resultado);
 
         } catch (\RuntimeException $e) {
@@ -200,6 +206,99 @@ class AprendizController
             $this->responderError($e->getMessage(), $e->getCode() ?: 404);
         } catch (\Throwable $e) {
             $this->responderError('Error interno al eliminar el aprendiz.', 500);
+        }
+    }
+
+    /**
+     * POST /api/aprendices/importar  — solo docente
+     *
+     * Acepta dos formatos:
+     *   A) multipart/form-data con campo 'archivo' (CSV)
+     *   B) application/json con array 'aprendices' (compatible con GAS futuro)
+     *
+     * CSV esperado (con cabecera):
+     *   numero_documento,nombres,apellidos,codigo_ficha
+     */
+    private function importar(): void
+    {
+        // Solo docentes pueden importar
+        if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+        $usuario = $_SESSION['usuario'] ?? null;
+        if (!$usuario || ($usuario['rol'] ?? '') !== 'docente') {
+            $this->responderError('Solo los docentes pueden importar aprendices.', 403);
+        }
+
+        $filas = [];
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+
+        if (str_contains($contentType, 'multipart/form-data')) {
+            // ── Modo A: CSV upload ───────────────────────────────────────────
+            $archivo = $_FILES['archivo'] ?? null;
+
+            if (!$archivo || $archivo['error'] !== UPLOAD_ERR_OK) {
+                $this->responderError('No se recibió ningún archivo válido.', 422);
+            }
+
+            $ext = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, ['csv', 'txt'], true)) {
+                $this->responderError('Solo se aceptan archivos CSV (.csv).', 422);
+            }
+
+            $handle = fopen($archivo['tmp_name'], 'r');
+            if ($handle === false) {
+                $this->responderError('No se pudo leer el archivo.', 500);
+            }
+
+            // Primera fila = cabecera
+            $cabecera = fgetcsv($handle);
+            if ($cabecera === false) {
+                fclose($handle);
+                $this->responderError('El archivo CSV está vacío.', 422);
+            }
+
+            // Normalizar nombres de columna
+            $cabecera = array_map(fn($c) => strtolower(trim($c)), $cabecera);
+            $requeridas = ['numero_documento', 'nombres', 'apellidos', 'codigo_ficha'];
+
+            foreach ($requeridas as $col) {
+                if (!in_array($col, $cabecera, true)) {
+                    fclose($handle);
+                    $this->responderError("La columna '{$col}' es obligatoria en el CSV.", 422);
+                }
+            }
+
+            while (($fila = fgetcsv($handle)) !== false) {
+                if (count($fila) === count($cabecera)) {
+                    $filas[] = array_combine($cabecera, $fila);
+                }
+            }
+            fclose($handle);
+
+        } else {
+            // ── Modo B: JSON (GAS compatible) ────────────────────────────────
+            $cuerpo = $this->leerCuerpoJson();
+            $filas  = $cuerpo['aprendices'] ?? [];
+
+            if (!is_array($filas) || empty($filas)) {
+                $this->responderError("Se requiere un array 'aprendices' con al menos una fila.", 422);
+            }
+        }
+
+        if (empty($filas)) {
+            $this->responderError('El archivo no contiene registros de aprendices.', 422);
+        }
+
+        try {
+            $resultado = $this->servicio->importar($filas);
+            $this->responderExito(
+                "Importación completada: {$resultado['exitosos']} registrados, " . count($resultado['errores']) . " con errores.",
+                $resultado
+            );
+
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno durante la importación.', 500);
         }
     }
 

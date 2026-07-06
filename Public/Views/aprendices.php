@@ -1,0 +1,147 @@
+<!-- AttendQR — Gestión de Aprendices (docente) -->
+
+<div class="page-header">
+  <div class="page-header__info">
+    <h1 class="page-header__title">Gestión de Aprendices</h1>
+    <p class="page-header__subtitle">Administra el listado de aprendices, actívalos o desactívalos e importa desde un archivo CSV.</p>
+  </div>
+  <div class="page-header__actions">
+    <label class="btn btn-secondary" id="btnImportarLabel" title="Importar CSV">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+      </svg>
+      Importar CSV
+      <input type="file" id="inputCsv" accept=".csv" style="display:none" onchange="aprendicesGestion.importar(this)">
+    </label>
+  </div>
+</div>
+
+<!-- ─── Stats rápidos ──────────────────────────────────────────────────── -->
+<div class="stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--sp-4);margin-bottom:var(--sp-6)">
+  <div class="stat-card">
+    <div class="stat-card__icon">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+    </div>
+    <div class="stat-card__value skeleton skeleton-value" id="statTotal">—</div>
+    <div class="stat-card__label">Total aprendices</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__icon" style="background:var(--green-light)">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:var(--green-dark)">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div class="stat-card__value skeleton skeleton-value" id="statActivos">—</div>
+    <div class="stat-card__label">Activos</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__icon" style="background:#FEF3C7">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#D97706">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div class="stat-card__value skeleton skeleton-value" id="statPendientes">—</div>
+    <div class="stat-card__label">Pendientes registro</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__icon" style="background:#FEE2E2">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#DC2626">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+      </svg>
+    </div>
+    <div class="stat-card__value skeleton skeleton-value" id="statInactivos">—</div>
+    <div class="stat-card__label">Inactivos</div>
+  </div>
+</div>
+
+<!-- ─── Filtros ────────────────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:var(--sp-5)">
+  <div class="card__body" style="display:flex;flex-wrap:wrap;gap:var(--sp-3);align-items:flex-end">
+
+    <div class="form-group" style="flex:1;min-width:160px;margin:0">
+      <label class="form-label" for="filtroFicha">Ficha</label>
+      <select id="filtroFicha" class="form-control" onchange="aprendicesGestion.filtrar()">
+        <option value="">Todas las fichas</option>
+      </select>
+    </div>
+
+    <div class="form-group" style="flex:1;min-width:140px;margin:0">
+      <label class="form-label" for="filtroEstado">Estado</label>
+      <select id="filtroEstado" class="form-control" onchange="aprendicesGestion.filtrar()">
+        <option value="">Todos</option>
+        <option value="activo">Activos</option>
+        <option value="inactivo">Inactivos</option>
+      </select>
+    </div>
+
+    <div class="form-group" style="flex:1;min-width:140px;margin:0">
+      <label class="form-label" for="filtroCuenta">Cuenta</label>
+      <select id="filtroCuenta" class="form-control" onchange="aprendicesGestion.filtrar()">
+        <option value="">Todas</option>
+        <option value="activada">Activadas</option>
+        <option value="pendiente">Pendientes</option>
+      </select>
+    </div>
+
+    <div class="form-group" style="flex:2;min-width:200px;margin:0">
+      <label class="form-label" for="filtroBuscar">Buscar</label>
+      <input type="text" id="filtroBuscar" class="form-control" placeholder="Nombre o documento..."
+             oninput="aprendicesGestion.buscarLocal(this.value)">
+    </div>
+
+    <button class="btn btn-ghost btn-sm" onclick="aprendicesGestion.limpiarFiltros()" style="margin-bottom:1px">
+      Limpiar
+    </button>
+
+  </div>
+</div>
+
+<!-- ─── Tabla de aprendices ────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card__body" style="padding:0;overflow-x:auto">
+    <table class="table table--hover" id="tablaAprendices">
+      <thead>
+        <tr>
+          <th class="sortable" data-sort="numero_documento" style="cursor:pointer;user-select:none" onclick="aprendicesGestion.sortBy('numero_documento')">Documento <span class="sort-icon" id="sort-numero_documento"></span></th>
+          <th class="sortable" data-sort="apellidos" style="cursor:pointer;user-select:none" onclick="aprendicesGestion.sortBy('apellidos')">Nombre completo <span class="sort-icon" id="sort-apellidos">▲</span></th>
+          <th class="sortable" data-sort="codigo_ficha" style="cursor:pointer;user-select:none" onclick="aprendicesGestion.sortBy('codigo_ficha')">Ficha <span class="sort-icon" id="sort-codigo_ficha"></span></th>
+          <th>Programa</th>
+          <th>Cuenta</th>
+          <th>Estado</th>
+          <th style="text-align:center">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyAprendices">
+        <tr><td colspan="7" style="text-align:center;padding:var(--sp-8);color:var(--text-muted)">Cargando aprendices...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── Modal de resultado de importación ────────────────────────────── -->
+<div class="modal-backdrop" id="modalImportBackdrop" style="display:none"
+     onclick="if(event.target===this)this.style.display='none'"
+     role="dialog" aria-modal="true" aria-labelledby="modalImportTitle">
+  <div class="modal" style="max-width:560px;width:100%">
+    <div class="modal__header">
+      <h3 class="modal__title" id="modalImportTitle">Resultado de importación</h3>
+      <button class="modal__close" onclick="document.getElementById('modalImportBackdrop').style.display='none'">&times;</button>
+    </div>
+    <div class="modal__body" id="modalImportBody"></div>
+    <div class="modal__footer">
+      <button class="btn btn-primary" onclick="document.getElementById('modalImportBackdrop').style.display='none'">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container (si no está en el layout global) -->
+<div id="toast-container" class="toast-container" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px"></div>
+
+<script>window.ATTENDQR_VIEW = 'aprendices';</script>

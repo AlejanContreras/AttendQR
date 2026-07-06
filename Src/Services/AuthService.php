@@ -95,6 +95,13 @@ class AuthService
             throw new \RuntimeException('El aprendiz se encuentra retirado del sistema.', 403);
         }
 
+        if ((int) ($aprendiz['cuenta_activada'] ?? 1) === 0) {
+            throw new \RuntimeException(
+                'Debes activar tu cuenta primero. Ingresa a la página de registro con tu número de documento.',
+                403
+            );
+        }
+
         return [
             'id'               => (int) $aprendiz['id_aprendiz'],
             'nombres'          => $aprendiz['nombres'],

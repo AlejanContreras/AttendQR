@@ -9,19 +9,23 @@ declare(strict_types=1);
  * Delega toda la lógica a AuthService.
  *
  * Rutas:
- *   POST /api/auth/login      → iniciar sesión (docente o aprendiz)
- *   POST /api/auth/logout     → cerrar sesión
- *   GET  /api/auth/verificar  → verificar sesión activa
+ *   POST /api/auth/login                → iniciar sesión (docente o aprendiz)
+ *   POST /api/auth/logout               → cerrar sesión
+ *   GET  /api/auth/verificar            → verificar sesión activa
+ *   POST /api/auth/verificar-documento  → paso 1 del auto-registro de aprendiz
+ *   POST /api/auth/activar-cuenta       → paso 2 del auto-registro de aprendiz
  *
  * Ubicación en el proyecto: Src/Controllers/AuthController.php
  */
 class AuthController
 {
-    private AuthService $servicio;
+    private AuthService     $servicio;
+    private AprendizService $aprendizServicio;
 
     public function __construct()
     {
-        $this->servicio = new AuthService();
+        $this->servicio           = new AuthService();
+        $this->aprendizServicio   = new AprendizService();
     }
 
     public function handle(string $metodo, string $accion, array $params): void
@@ -40,6 +44,16 @@ class AuthController
             case 'verificar':
                 $this->verificarMetodo($metodo, 'GET');
                 $this->verificar();
+                break;
+
+            case 'verificar-documento':
+                $this->verificarMetodo($metodo, 'POST');
+                $this->verificarDocumento();
+                break;
+
+            case 'activar-cuenta':
+                $this->verificarMetodo($metodo, 'POST');
+                $this->activarCuenta();
                 break;
 
             default:
@@ -128,6 +142,73 @@ class AuthController
             $this->responderError($e->getMessage(), $e->getCode() ?: 401);
         } catch (\Throwable $e) {
             $this->responderError('Error interno al verificar la sesión.', 500);
+        }
+    }
+
+    /**
+     * POST /api/auth/verificar-documento
+     * Paso 1 del auto-registro: verifica si el documento existe y está pendiente.
+     * Body: { "documento": "1098234567" }
+     */
+    private function verificarDocumento(): void
+    {
+        $cuerpo    = $this->leerCuerpoJson();
+        $documento = trim((string) ($cuerpo['documento'] ?? ''));
+
+        if ($documento === '') {
+            $this->responderError('El campo documento es obligatorio.', 422);
+        }
+
+        try {
+            $datos = $this->aprendizServicio->verificarParaRegistro($documento);
+            $this->responderExito('Documento verificado. Completa tu registro.', $datos);
+
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al verificar el documento.', 500);
+        }
+    }
+
+    /**
+     * POST /api/auth/activar-cuenta
+     * Paso 2 del auto-registro: establece contraseña y activa la cuenta.
+     * Body: { "id_aprendiz": 5, "password": "...", "confirmar_password": "..." }
+     * Tras la activación inicia sesión automáticamente.
+     */
+    private function activarCuenta(): void
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
+        $cuerpo    = $this->leerCuerpoJson();
+        $idAprendiz = (int) ($cuerpo['id_aprendiz'] ?? 0);
+        $password   = (string) ($cuerpo['password']           ?? '');
+        $confirmar  = (string) ($cuerpo['confirmar_password'] ?? '');
+
+        if ($idAprendiz <= 0) {
+            $this->responderError('El campo id_aprendiz es obligatorio.', 422);
+        }
+        if ($password === '') {
+            $this->responderError('La contraseña es obligatoria.', 422);
+        }
+        if ($password !== $confirmar) {
+            $this->responderError('Las contraseñas no coinciden.', 422);
+        }
+
+        try {
+            $usuario = $this->aprendizServicio->activarCuenta($idAprendiz, $password);
+
+            // Iniciar sesión automáticamente igual que en login
+            $_SESSION['usuario'] = $usuario;
+
+            $this->responderExito('Cuenta activada correctamente. Bienvenido a AttendQR.', $usuario, 201);
+
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al activar la cuenta.', 500);
         }
     }
 
