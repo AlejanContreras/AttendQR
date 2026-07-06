@@ -8,11 +8,11 @@
     </p>
   </div>
   <div style="display:flex;gap:var(--sp-3)">
-    <button class="btn btn-secondary" id="btnCerrarSesion">
+    <button class="btn btn-danger" id="btnCerrarSesion">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
       </svg>
-      Cerrar sesión
+      Cerrar clase
     </button>
   </div>
 </div>
@@ -45,7 +45,12 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
         </svg>
-        <?= date_create()->format('l, d \d\e F \d\e Y') ?>
+        <?php
+          $dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+          $meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+          $hoy = new DateTime();
+          echo $dias[(int)$hoy->format('w')] . ', ' . $hoy->format('j') . ' de ' . $meses[(int)$hoy->format('n')-1] . ' de ' . $hoy->format('Y');
+        ?>
       </div>
     </div>
 
@@ -60,7 +65,7 @@
         <!-- QR generado dinámicamente por qrcode.js — cambia en cada rotación -->
         <div id="qrCanvas"
              style="display:flex;align-items:center;justify-content:center;
-                    width:180px;height:180px;background:#fff;border-radius:8px">
+                    width:240px;height:240px;background:#fff;border-radius:8px">
           <div class="spinner"></div>
         </div>
 

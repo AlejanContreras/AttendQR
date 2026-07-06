@@ -120,8 +120,16 @@ const asistencia = (() => {
     // Ocultar área de resultado al inicio
     ocultarResultado();
 
-    // Focus automático al campo de token
-    document.getElementById('tokenInput')?.focus();
+    // Auto-uppercase + limit 6 chars on token input
+    const tokenEl = document.getElementById('tokenInput');
+    if (tokenEl) {
+      tokenEl.addEventListener('input', function () {
+        const pos = this.selectionStart;
+        this.value = this.value.toUpperCase().replace(/[^A-F0-9]/g, '').slice(0, 6);
+        this.setSelectionRange(pos, pos);
+      });
+      tokenEl.focus();
+    }
   });
 
   return { registrar };

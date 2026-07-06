@@ -35,6 +35,10 @@
   pointer-events: none;
 }
 
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
 /* Primary */
 .btn-primary {
   background: var(--green-primary);
@@ -182,6 +186,12 @@
   gap: var(--sp-4);
   position: relative;
   overflow: hidden;
+  transition: box-shadow var(--t-fast), transform var(--t-fast);
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .stat-card::before {
@@ -321,10 +331,20 @@
   color: var(--text-muted);
 }
 
-.form-control:disabled {
+.form-control:disabled,
+.form-control[readonly] {
   background: var(--surface-2);
   color: var(--text-muted);
   cursor: not-allowed;
+}
+
+.form-control.is-valid {
+  border-color: var(--success);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.12);
+}
+
+.form-control:focus {
+  outline: none;
 }
 
 select.form-control {
@@ -372,6 +392,16 @@ textarea.form-control {
 
 .input-group .form-control {
   padding-left: 40px;
+}
+
+/* Input con ícono a la derecha (ej: toggle de contraseña) */
+.input-group:has(.input-group__append) .form-control {
+  padding-right: 44px;
+}
+
+/* Input sin ícono a la izquierda */
+.input-group:not(:has(.input-group__icon)) .form-control {
+  padding-left: var(--sp-4);
 }
 
 .input-group__icon {
@@ -445,8 +475,20 @@ textarea.form-control {
   border-bottom: none;
 }
 
+.table tbody tr {
+  transition: background var(--t-fast);
+}
+
 .table tbody tr:hover td {
   background: var(--surface-2);
+}
+
+.table--hover tbody tr {
+  cursor: pointer;
+}
+
+.table--hover tbody tr:hover td {
+  background: var(--green-xlight);
 }
 
 .table--striped tbody tr:nth-child(even) td {
@@ -641,13 +683,129 @@ textarea.form-control {
   max-width: 340px;
 }
 
-.toast.toast-success { background: var(--success-text); }
-.toast.toast-warning { background: #92400E; }
-.toast.toast-danger  { background: var(--danger-text); }
+.toast.toast--success, .toast.toast-success { background: var(--success-text); }
+.toast.toast--warning, .toast.toast-warning { background: #92400E; }
+.toast.toast--error,   .toast.toast-danger  { background: var(--danger-text); }
+.toast.toast--info,    .toast.toast-info    { background: var(--info-text); }
 
 .toast svg { width: 18px; height: 18px; flex-shrink: 0; }
 
 @keyframes toastIn {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+.toast--out {
+  animation: toastOut .3s ease forwards;
+}
+
+@keyframes toastOut {
+  to { opacity: 0; transform: translateY(8px); }
+}
+
+/* ─── Skeleton loader ────────────────────────────────────────── */
+
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--border) 25%,
+    var(--surface-2) 50%,
+    var(--border) 75%
+  );
+  background-size: 1200px 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: var(--r-md);
+  color: transparent !important;
+  pointer-events: none;
+  user-select: none;
+}
+
+.skeleton-text {
+  height: 14px;
+  border-radius: var(--r-sm);
+  margin-bottom: 8px;
+}
+
+.skeleton-value {
+  height: 32px;
+  border-radius: var(--r-md);
+}
+
+/* ─── Form row responsive ────────────────────────────────────── */
+
+@media (max-width: 580px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Focus ring (accessibility + UX) ───────────────────────── */
+
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible {
+  outline: 2px solid var(--green-primary);
+  outline-offset: 2px;
+}
+
+/* ─── Card hover microinteraction ───────────────────────────── */
+
+.card {
+  transition: box-shadow var(--t-fast);
+}
+
+/* ─── Empty state ────────────────────────────────────────────── */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-12) var(--sp-6);
+  text-align: center;
+}
+
+.empty-state__icon {
+  font-size: 48px;
+  margin-bottom: var(--sp-4);
+  opacity: .6;
+}
+
+.empty-state__title {
+  font-size: var(--text-md);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--sp-2);
+}
+
+.empty-state__desc {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  max-width: 360px;
+  line-height: var(--lh-relaxed);
+}
+
+/* ─── Blink animation ────────────────────────────────────────── */
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .35; }
+}
+
+/* ─── Responsive: Toast position on mobile ───────────────────── */
+
+@media (max-width: 480px) {
+  #toast-container {
+    bottom: var(--sp-4);
+    right: var(--sp-4);
+    left: var(--sp-4);
+  }
+
+  .toast {
+    max-width: 100%;
+  }
 }

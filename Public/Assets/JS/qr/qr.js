@@ -63,15 +63,17 @@ const qr = (() => {
       const sesion = await Api.sesiones.detalle(idSesion);
       renderInfoSesion(sesion);
     } catch (err) {
-      AttendQR.toast.error('Error al cargar la sesión: ' + err.message);
+      AttendQR.toast.error('No se pudo cargar la sesión. Verifica la URL e intenta de nuevo.');
     }
   }
 
   async function cargarTokenYActualizar() {
     const overlay  = document.getElementById('qrRefreshOverlay');
     const tokenEl  = document.getElementById('qrToken');
+    const wrap     = document.getElementById('qrCodeWrap');
 
     if (overlay) overlay.style.display = 'flex';
+    if (wrap) wrap.classList.add('is-refreshing');
 
     try {
       const resultado = await Api.qr.tokenActivo(idSesion);
@@ -88,7 +90,7 @@ const qr = (() => {
 
     } catch (err) {
       if (tokenEl) tokenEl.textContent = 'Sin token';
-      AttendQR.toast.warning('No hay token activo. Generando uno nuevo...');
+      AttendQR.toast.warning('El token expiró. Generando uno nuevo...');
       try {
         const generado = await Api.qr.generar(idSesion);
         const t = generado?.token_valor ?? '';
@@ -97,6 +99,9 @@ const qr = (() => {
       } catch { /* fallo silencioso */ }
     } finally {
       if (overlay) overlay.style.display = 'none';
+      if (wrap) {
+        wrap.classList.remove('is-refreshing');
+      }
     }
   }
 
@@ -233,8 +238,8 @@ const qr = (() => {
     canvas.innerHTML = ''; // limpiar QR anterior
     _qrInstance = new QRCode(canvas, {
       text:        token,
-      width:       180,
-      height:      180,
+      width:       240,
+      height:      240,
       colorDark:   '#1B2A3B',
       colorLight:  '#ffffff',
       correctLevel: QRCode.CorrectLevel.M,
@@ -242,28 +247,32 @@ const qr = (() => {
   }
 
   async function confirmarCierre(id) {
-    AttendQR.modal.setTitle('modal', 'Cerrar sesión de asistencia');
+    AttendQR.modal.setTitle('modal', 'Cerrar clase');
     AttendQR.modal.setBody('modal', `
       <p style="color:var(--text-secondary);margin-bottom:var(--sp-4)">
-        ¿Confirmas cerrar la sesión activa? Los registros quedarán guardados y no se podrán agregar más asistencias.
-      </p>`);
+        ¿Deseas cerrar la clase ahora? Los registros de asistencia quedarán guardados y no se podrán agregar más.
+      </p>
+      <div style="background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--r-md);
+                  padding:var(--sp-3) var(--sp-4);font-size:var(--text-xs);color:var(--warning-text)">
+        Esta acción es irreversible.
+      </div>`);
     const confirmBtn = document.getElementById('modalConfirm');
     if (confirmBtn) {
-      confirmBtn.textContent = 'Cerrar sesión';
+      confirmBtn.textContent = 'Cerrar clase';
       confirmBtn.onclick = async () => {
         AttendQR.modal.close('modal');
-        AttendQR.loader.show('Cerrando sesión...');
+        AttendQR.loader.show('Cerrando clase...');
         try {
           await Api.sesiones.cerrar(id);
           clearInterval(countdownTimer);
           clearInterval(statsTimer);
           clearInterval(elapsedTimer);
           AttendQR.loader.hide();
-          AttendQR.toast.success('Sesión cerrada correctamente.');
+          AttendQR.toast.success('Clase cerrada. Los registros están guardados.');
           setTimeout(() => window.location.href = 'index.php?view=historial&rol=docente', 1000);
         } catch (err) {
           AttendQR.loader.hide();
-          AttendQR.toast.error('Error al cerrar la sesión: ' + err.message);
+          AttendQR.toast.error('No se pudo cerrar la clase: ' + err.message);
         }
       };
     }

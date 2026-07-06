@@ -62,9 +62,11 @@
               </svg>
             </span>
             <input type="text" id="tokenInput" class="form-control"
-                   placeholder="Ingresa el token que aparece en pantalla"
-                   autocomplete="off" autocorrect="off" spellcheck="false"
-                   style="font-family:monospace;font-size:var(--text-sm);letter-spacing:.03em">
+                   placeholder="Ej: A83F12"
+                   autocomplete="off" autocorrect="off" autocapitalize="characters"
+                   spellcheck="false" maxlength="6"
+                   style="font-family:monospace;font-size:var(--text-xl);font-weight:var(--fw-bold);
+                          letter-spacing:.18em;text-align:center;text-transform:uppercase">
           </div>
           <small style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--sp-1);display:block">
             Copia o escribe el código hexadecimal tal como aparece en la pantalla del docente.

@@ -65,7 +65,18 @@ const historial = (() => {
   async function cargarHistorialAprendiz() {
     const id        = window.ATTENDQR_USER.id;
     const data      = await Api.asistencias.historial(id);
-    const registros = data.registros ?? [];
+    let registros   = data.registros ?? [];
+    // Aplicar filtro de fecha en cliente (fecha_sesion YYYY-MM-DD)
+    const { desde, hasta } = filtrosFecha();
+    if (desde || hasta) {
+      registros = registros.filter(r => {
+        if (!r.fecha_sesion) return true;
+        const f = r.fecha_sesion.slice(0, 10);
+        if (desde && f < desde) return false;
+        if (hasta && f > hasta) return false;
+        return true;
+      });
+    }
     todasSesiones   = registros;
     renderResumenAprendiz(registros);
     renderTablaAprendiz(registros);
@@ -101,8 +112,10 @@ const historial = (() => {
     if (!tbody) return;
 
     if (!sesiones.length) {
-      tbody.innerHTML = `<tr><td colspan="10" class="empty-state" style="padding:var(--sp-10);text-align:center;color:var(--text-muted)">
-        Sin sesiones que coincidan con los filtros</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:var(--sp-10)">
+        <div style="color:var(--text-muted);font-size:var(--text-sm)">No hay sesiones que coincidan con los filtros seleccionados</div>
+        <button class="btn btn-ghost btn-sm" onclick="historial.limpiar()" style="margin-top:var(--sp-3)">Limpiar filtros</button>
+      </td></tr>`;
       renderPaginacion(0, 0);
       return;
     }
@@ -201,8 +214,10 @@ const historial = (() => {
     if (!tbody) return;
 
     if (!registros.length) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:var(--sp-10)">
-        Sin registros de asistencia</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:var(--sp-10)">
+        <div style="color:var(--text-muted);font-size:var(--text-sm)">Aún no tienes registros de asistencia</div>
+        <a href="index.php?view=registrar-asistencia&rol=aprendiz" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Registrar ahora</a>
+      </td></tr>`;
       return;
     }
 

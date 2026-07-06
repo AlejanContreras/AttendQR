@@ -90,8 +90,10 @@
               <small style="font-size:var(--text-xs);color:var(--text-muted)">El documento no puede modificarse</small>
             </div>
             <div class="form-group">
-              <label class="form-label">Teléfono</label>
-              <input type="tel" class="form-control" id="perfilTel" placeholder="Opcional">
+              <label class="form-label">Rol</label>
+              <input type="text" class="form-control" id="perfilRolInput" readonly
+                     style="background:var(--surface-alt);cursor:not-allowed">
+              <small style="font-size:var(--text-xs);color:var(--text-muted)">El rol no puede modificarse</small>
             </div>
           </div>
 
@@ -189,13 +191,13 @@
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
             <div style="font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--text-primary)">
-              Cerrar sesión en todos los dispositivos
+              Cerrar sesión
             </div>
             <div style="font-size:var(--text-xs);color:var(--text-muted)">
-              Invalida todas las sesiones activas en otros dispositivos
+              Finaliza tu sesión actual en este dispositivo
             </div>
           </div>
-          <button class="btn btn-danger btn-sm" onclick="auth.logout()">Cerrar sesión</button>
+          <button class="btn btn-danger btn-sm" onclick="auth.logout()">Salir</button>
         </div>
       </div>
     </div>

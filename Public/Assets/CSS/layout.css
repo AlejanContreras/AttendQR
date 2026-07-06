@@ -313,6 +313,8 @@
   transition: background var(--t-fast), color var(--t-fast);
   cursor: pointer;
   position: relative;
+  background: none;
+  border: none;
 }
 
 .topbar__btn:hover {
@@ -479,5 +481,29 @@
 
   .page-footer {
     padding: var(--sp-4);
+  }
+}
+
+@media (max-width: 480px) {
+  .content-area {
+    padding: var(--sp-3) var(--sp-3);
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-3);
+  }
+
+  .page-header__actions {
+    width: 100%;
+  }
+
+  .welcome-banner {
+    padding: var(--sp-5) !important;
+  }
+
+  .welcome-banner__visual {
+    display: none;
   }
 }

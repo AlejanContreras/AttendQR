@@ -31,6 +31,7 @@
   --page-bg:    #F0F2F5;
   --surface:    #FFFFFF;
   --surface-2:  #F8FAFB;
+  --surface-alt: #F8FAFB; /* alias de surface-2, usado en vistas inline */
 
   /* ─── Text ──────────────────────────────────────────── */
   --text-primary:   #1A202C;

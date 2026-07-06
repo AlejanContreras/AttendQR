@@ -28,10 +28,10 @@ const perfil = (() => {
     const nombreCompleto = datos.nombre ?? datos.nombre_completo
       ?? [datos.nombres, datos.apellidos].filter(Boolean).join(' ')
       ?? '';
-    setVal('#perfilNombre', nombreCompleto);
-    setVal('#perfilEmail',  datos.correo ?? '');
-    setVal('#perfilDoc',    datos.numero_documento ?? datos.documento ?? '');
-    setVal('#perfilTel',    datos.telefono ?? '');
+    setVal('#perfilNombre',    nombreCompleto);
+    setVal('#perfilEmail',     datos.correo ?? '');
+    setVal('#perfilDoc',       datos.numero_documento ?? datos.documento ?? '');
+    setVal('#perfilRolInput',  rol === 'aprendiz' ? 'Aprendiz' : 'Docente / Instructor');
 
     // Card lateral
     const nombre = nombreCompleto || '—';
@@ -83,9 +83,8 @@ const perfil = (() => {
     const usuario = window.ATTENDQR_USER;
     if (!usuario) return;
 
-    const nombre  = document.getElementById('perfilNombre')?.value.trim();
-    const correo  = document.getElementById('perfilEmail')?.value.trim();
-    const telefono = document.getElementById('perfilTel')?.value.trim();
+    const nombre = document.getElementById('perfilNombre')?.value.trim();
+    const correo = document.getElementById('perfilEmail')?.value.trim();
 
     if (!nombre) {
       AttendQR.toast.warning('El nombre es obligatorio.');
@@ -110,16 +109,22 @@ const perfil = (() => {
         body = { nombres, apellidos };
         await Api.aprendices.actualizar(usuario.id, body);
       } else {
-        body = { nombre, correo, telefono };
+        // Docentes: dividir nombre completo en nombres + apellidos (igual que aprendiz)
+        const partes    = nombre.split(/\s+/).filter(Boolean);
+        const apellidos = partes.length > 1 ? partes.slice(-2).join(' ') : '';
+        const nombres   = partes.length > 1 ? partes.slice(0, -2).join(' ') || partes[0] : nombre;
+        body = { nombres, apellidos, correo };
         await Api.docentes.actualizar(usuario.id, body);
       }
 
-      // Actualizar card lateral + sidebar + topbar
+      // Actualizar card lateral + sidebar + topbar + estado JS global
       setTxt('#perfilNombreCard', nombre);
       const iniciales = nombre.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
       setTxt('#perfilAvatar', iniciales);
       document.querySelectorAll('[data-usuario-nombre]').forEach(el => { el.textContent = nombre; });
       document.querySelectorAll('[data-usuario-iniciales]').forEach(el => { el.textContent = iniciales; });
+      if (window.ATTENDQR_USER) window.ATTENDQR_USER.nombre = nombre;
+      auth.setUsuario({ ...auth.getUsuario(), nombre });
 
       AttendQR.toast.success('Perfil actualizado correctamente.');
     } catch (err) {

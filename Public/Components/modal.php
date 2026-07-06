@@ -9,8 +9,10 @@ $sizePx    = ['sm' => '420px', 'md' => '560px', 'lg' => '740px'][$modalSize] ?? 
 ?>
 
 <div class="modal-backdrop" id="<?= htmlspecialchars($modalId) ?>Backdrop"
-     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:var(--z-overlay);
-            align-items:center;justify-content:center;padding:var(--sp-4)">
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(1px);
+            z-index:var(--z-overlay);align-items:center;justify-content:center;padding:var(--sp-4)"
+     onclick="if(event.target===this)AttendQR.modal.close('<?= htmlspecialchars($modalId) ?>')"
+     role="dialog" aria-modal="true" aria-labelledby="<?= htmlspecialchars($modalId) ?>Title">
 
   <div class="modal-box"
        style="background:var(--surface);border-radius:var(--r-xl);box-shadow:var(--shadow-xl);

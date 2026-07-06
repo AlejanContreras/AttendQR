@@ -203,11 +203,8 @@
 
       </form>
 
-      <p class="login-footer-text">
-        ¿Eres nuevo?
-        <a href="#" style="color:var(--green-primary);font-weight:var(--fw-medium)">
-          Regístrate aquí
-        </a>
+      <p class="login-footer-text" style="text-align:center;font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--sp-5)">
+        ¿Problemas para ingresar? Contacta al administrador del sistema.
       </p>
 
     </div><!-- /login-form-container -->

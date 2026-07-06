@@ -5,11 +5,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const usuario = window.ATTENDQR_USER;
   if (!usuario) return;
 
+  // Skeleton state while data loads
+  document.querySelectorAll('.stat-card__value').forEach(el => el.classList.add('skeleton', 'skeleton-value'));
+
   if (usuario.rol === 'docente') {
     await cargarDashboardDocente(usuario.id);
   } else {
     await cargarDashboardAprendiz(usuario.id);
   }
+
+  // Remove skeleton when done
+  document.querySelectorAll('.stat-card__value.skeleton').forEach(el => el.classList.remove('skeleton', 'skeleton-value'));
 });
 
 async function cargarDashboardDocente(idDocente) {
@@ -49,12 +55,12 @@ async function cargarDashboardAprendiz(idAprendiz) {
 // ─── Render docente ───────────────────────────────────────────────────
 
 function renderStatsDocente(stats) {
-  // Backend devuelve: { sesiones_activas, sesiones_cerradas, asistencias_hoy, filtros }
-  // total_aprendices, fichas_activas y porcentaje_asistencia no están disponibles en este endpoint
-  setVal('#statSesionesActivas', stats.sesiones_activas ?? '—');
-  setVal('#statAprendices',      '—');
-  setVal('#statAsistenciaHoy',   stats.asistencias_hoy ?? '—');
-  setVal('#statFichasActivas',   '—'); // se actualiza en renderFichasDocente
+  const sesActivas = stats.sesiones_activas ?? '—';
+  setVal('#statSesionesActivas',  sesActivas);
+  setVal('#statSesionesActivas2', sesActivas);
+  setVal('#statAprendices',       '—');
+  setVal('#statAsistenciaHoy',    stats.asistencias_hoy != null ? stats.asistencias_hoy + '%' : '—');
+  setVal('#statFichasActivas',    '—');
 }
 
 function renderFichasDocente(fichas) {
@@ -68,8 +74,10 @@ function renderSesionesRecientes(sesiones) {
   if (!tbody) return;
 
   if (!sesiones.length) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:var(--sp-6)">
-      Sin sesiones activas</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:var(--sp-8)">
+      <div style="color:var(--text-muted);font-size:var(--text-sm)">No tienes ninguna clase abierta en este momento</div>
+      <a href="index.php?view=crear-sesion&rol=docente" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Iniciar una clase</a>
+    </td></tr>`;
     return;
   }
 
@@ -101,7 +109,7 @@ function renderStatsAprendiz(resumen, total) {
   const pct      = total > 0 ? Math.round((presente / total) * 100) : 0;
 
   setVal('#statAsistenciaPct',  pct + '%');
-  setVal('#statSesionesTotal',  `${presente}/${total}`);
+  setVal('#statSesionesTotal',  total);
   setVal('#statTardanzas',      retardo);
   setVal('#statAusencias',      ausente);
 
@@ -113,8 +121,10 @@ function renderHistorialAprendiz(registros) {
   if (!tbody) return;
 
   if (!registros.length) {
-    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:var(--sp-6)">
-      Sin registros</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:var(--sp-8)">
+      <div style="color:var(--text-muted);font-size:var(--text-sm)">Aún no tienes registros de asistencia</div>
+      <a href="index.php?view=registrar-asistencia&rol=aprendiz" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Registrar ahora</a>
+    </td></tr>`;
     return;
   }
 
@@ -132,11 +142,6 @@ function renderHistorialAprendiz(registros) {
       <td>${asistenciaBadge(r.estado)}</td>
     </tr>`;
   }).join('');
-}
-
-function actualizarDonut(pct, retardo, ausente, total) {
-  const texto = document.querySelector('#attendanceCircleText');
-  if (texto) texto.textContent = pct + '%';
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────

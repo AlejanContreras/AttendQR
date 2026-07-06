@@ -24,7 +24,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
   // Filtro numérico estricto para el campo de documento del aprendiz
-  document.getElementById('aprendizDoc')?.addEventListener('input', function () {
+  // keydown: bloquea teclas de letra antes de que aparezcan en el campo
+  // input: limpia cualquier texto no numérico (cubre pegado con ratón y otras vías)
+  const docInput = document.getElementById('aprendizDoc');
+  docInput?.addEventListener('keydown', function (e) {
+    const permitidas = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Enter','Home','End'];
+    if (permitidas.includes(e.key)) return;
+    if (e.ctrlKey || e.metaKey) return; // copiar/pegar/seleccionar todo
+    if (!/^\d$/.test(e.key)) e.preventDefault();
+  });
+  docInput?.addEventListener('input', function () {
     this.value = this.value.replace(/\D/g, '');
   });
 

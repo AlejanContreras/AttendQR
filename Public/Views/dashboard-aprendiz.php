@@ -3,7 +3,7 @@
 <!-- ─── Welcome Banner ──────────────────────────────────────────────── -->
 <div class="welcome-banner">
   <div class="welcome-banner__content">
-    <div class="welcome-banner__greeting">Bienvenido/a</div>
+    <div class="welcome-banner__greeting" data-saludo>Buenos días</div>
     <h2 class="welcome-banner__name"><span data-usuario-nombre><?= htmlspecialchars($userName ?? '') ?></span></h2>
     <div class="welcome-banner__meta">
       <span class="welcome-banner__meta-item">

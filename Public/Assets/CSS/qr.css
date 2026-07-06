@@ -29,6 +29,11 @@
   flex-direction: column;
   align-items: center;
   gap: var(--sp-6);
+  transition: box-shadow var(--t);
+}
+
+.qr-display-card:hover {
+  box-shadow: var(--shadow-lg);
 }
 
 .qr-session-info {
@@ -75,6 +80,12 @@
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-md);
   border: 2px solid var(--border);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+
+.qr-code-wrap.is-refreshing {
+  border-color: var(--green-primary);
+  box-shadow: 0 0 0 4px rgba(57,169,0,.15), var(--shadow-md);
 }
 
 /* Corner markers (QR style) */
@@ -270,6 +281,11 @@
   padding: var(--sp-4);
   border-radius: var(--r-md);
   border: 1px solid var(--border);
+  transition: transform var(--t-fast);
+}
+
+.qr-counter-item:hover {
+  transform: scale(1.03);
 }
 
 .qr-counter-item__num {

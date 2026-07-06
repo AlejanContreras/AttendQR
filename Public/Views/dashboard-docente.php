@@ -3,7 +3,7 @@
 <!-- ─── Welcome Banner ──────────────────────────────────────────────── -->
 <div class="welcome-banner">
   <div class="welcome-banner__content">
-    <div class="welcome-banner__greeting">Buenos días</div>
+    <div class="welcome-banner__greeting" data-saludo>Buenos días</div>
     <h2 class="welcome-banner__name"><span data-usuario-nombre><?= htmlspecialchars($userName ?? '') ?></span></h2>
     <div class="welcome-banner__meta">
       <span class="welcome-banner__meta-item">
@@ -114,7 +114,7 @@
                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
           </div>
-          <span class="quick-action-card__label">Iniciar clase</span>
+          <div><span class="quick-action-card__label">Iniciar clase</span><span class="quick-action-card__sub">Selecciona ficha y abre sesión</span></div>
         </a>
         <a href="index.php?view=qr&rol=docente" class="quick-action-card">
           <div class="quick-action-card__icon" style="background:#EEF2FF">
@@ -123,7 +123,7 @@
                     d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
             </svg>
           </div>
-          <span class="quick-action-card__label">QR Dinámico</span>
+          <div><span class="quick-action-card__label">QR Dinámico</span><span class="quick-action-card__sub">Código que rota cada 30 s</span></div>
         </a>
         <a href="index.php?view=historial&rol=docente" class="quick-action-card">
           <div class="quick-action-card__icon" style="background:#FFF7ED">
@@ -132,7 +132,7 @@
                     d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
             </svg>
           </div>
-          <span class="quick-action-card__label">Historial</span>
+          <div><span class="quick-action-card__label">Historial</span><span class="quick-action-card__sub">Asistencia por sesión y ficha</span></div>
         </a>
         <a href="index.php?view=perfil&rol=docente" class="quick-action-card">
           <div class="quick-action-card__icon" style="background:#F0FDF4">
@@ -141,7 +141,7 @@
                     d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
             </svg>
           </div>
-          <span class="quick-action-card__label">Mi perfil</span>
+          <div><span class="quick-action-card__label">Mi perfil</span><span class="quick-action-card__sub">Nombre, correo y contraseña</span></div>
         </a>
       </div>
     </div>
@@ -179,15 +179,3 @@
 
 </div>
 
-<script>
-// Sincronizar el segundo stat-card de sesiones con el primero
-document.addEventListener('DOMContentLoaded', () => {
-  const observer = new MutationObserver(() => {
-    const v = document.getElementById('statSesionesActivas')?.textContent;
-    const el = document.getElementById('statSesionesActivas2');
-    if (el && v) el.textContent = v;
-  });
-  const src = document.getElementById('statSesionesActivas');
-  if (src) observer.observe(src, { childList: true, characterData: true, subtree: true });
-});
-</script>

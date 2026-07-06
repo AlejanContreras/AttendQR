@@ -140,6 +140,13 @@ class DocenteController
 
         try {
             $docente = $this->servicio->actualizar($idDocente, $cuerpo);
+
+            // Sincronizar nombre en la sesión PHP para que el shell lo refleje en la siguiente carga
+            $nombreCompleto = trim(($docente['nombres'] ?? '') . ' ' . ($docente['apellidos'] ?? ''));
+            if ($nombreCompleto !== '') {
+                $_SESSION['usuario']['nombre'] = $nombreCompleto;
+            }
+
             $this->responderExito('Docente actualizado correctamente.', $docente);
 
         } catch (\RuntimeException $e) {

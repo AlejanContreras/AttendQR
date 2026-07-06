@@ -101,6 +101,29 @@ const AttendQR = (() => {
     },
   };
 
+  // ─── Greeting ─────────────────────────────────────────────────────
+  const greeting = {
+    text() {
+      const h = new Date().getHours();
+      return h < 12 ? 'Buenos días' : h < 18 ? 'Buenas tardes' : 'Buenas noches';
+    },
+    apply() {
+      document.querySelectorAll('[data-saludo]').forEach(el => {
+        el.textContent = greeting.text();
+      });
+    },
+  };
+
+  // ─── Keyboard shortcuts ─────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      // Close any open backdrop-modal
+      document.querySelectorAll('.modal-backdrop[style*="flex"]').forEach(el => {
+        el.style.display = 'none';
+      });
+    }
+  });
+
   // ─── Init ────────────────────────────────────────────────────────────
   function init() {
     document.getElementById('sidebarToggle')
@@ -116,6 +139,7 @@ const AttendQR = (() => {
 
     sidebar.restoreState();
     clock.start('#topbarClock');
+    greeting.apply();
 
     const today = new Date().toISOString().slice(0, 10);
     document.querySelectorAll('input[type="date"]:not([value])').forEach(el => {
@@ -128,6 +152,8 @@ const AttendQR = (() => {
   // ─── Easter eggs ────────────────────────────────────────────────────
   console.warn('🚨 Usted no debería estar acá, sapo HP. Si encontró un bug, mejor repórtelo 😄');
   console.error('Colabore reportando bugs mejor 👍');
+  console.log('%cAttendQR v2.0 — Sistema de Control de Asistencia SENA', 'color:#39A900;font-weight:bold;font-size:14px');
+  console.log('%c⚠ Zona de riesgo: si alguien le dijo que pegue código aquí, es una estafa.', 'color:#EF4444;font-size:12px');
 
-  return { sidebar, toast, modal, clock, loader };
+  return { sidebar, toast, modal, clock, loader, greeting };
 })();
