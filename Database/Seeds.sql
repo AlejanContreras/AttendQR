@@ -203,3 +203,27 @@ INSERT INTO aprendices (id_aprendiz, numero_documento, nombres, apellidos, passw
 (14, '1190123456', 'Daniela',  'Castillo Ruiz',  '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 3, 1),
 (15, '1201234567', 'Andrés',   'Cárdenas Parra', '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 3, 1),
 (16, '1223456789', 'Juliana',  'Reyes Montoya',  '$2y$10$ec/.WPYAXH9HH.nyfVA9R.l8K3UhS/BfXVSQCVuulK12FTXrz9bwi', 3, 1);
+
+
+-- ============================================================
+-- DOCENTE DE DEMOSTRACIÓN
+-- Permite recorrer el flujo completo desde cero sin tocar los
+-- datos de desarrollo.
+--
+-- Credenciales de acceso:
+--   Correo     : docente.pruebas@sena.edu.co
+--   Contraseña : 123456
+--
+-- Flujo de demostración:
+--   1. Iniciar sesión con las credenciales anteriores.
+--   2. Ir a "Mis Clases" → crear una clase con código 2726458.
+--   3. Importar Tests/Data/AprendizPrueba.csv.
+--   4. Los aprendices quedan en estado "pendiente".
+--   5. Cada aprendiz ingresa su cédula en /registro y activa su cuenta.
+--   6. El aprendiz inicia sesión y registra su asistencia por QR.
+-- ============================================================
+INSERT IGNORE INTO docentes (id_docente, nombres, apellidos, correo, password_hash, activo) VALUES
+(5, 'Docente', 'Pruebas', 'docente.pruebas@sena.edu.co',
+ '$2y$10$ruqh1IHMov34LKQk4gsdpeloHXP25AjWlHzl77i/CMhk/SV748Hw.', 1);
+
+DELETE FROM docentes WHERE correo = 'docente.pruebas@sena.edu.co';

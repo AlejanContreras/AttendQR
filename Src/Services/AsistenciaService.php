@@ -21,6 +21,9 @@ declare(strict_types=1);
  */
 class AsistenciaService
 {
+    private const RADIO_VALIDACION_METROS = 30;
+    private const MAX_ACCURACY_METROS     = 50;
+
     private AsistenciaRepository $asistenciaRepo;
     private SesionRepository     $sesionRepo;
     private QrService            $qrService;
@@ -55,8 +58,13 @@ class AsistenciaService
      * @throws \RuntimeException 410 si el token expiró o fue rotado.
      * @throws \RuntimeException 422 si la sesión no está abierta.
      */
-    public function registrarPorQr(string $tokenValor, array $usuarioActual): array
-    {
+    public function registrarPorQr(
+        string $tokenValor,
+        array  $usuarioActual,
+        ?float $latitud  = null,
+        ?float $longitud = null,
+        ?float $accuracy = null
+    ): array {
         $idAprendiz = (int) $usuarioActual['id'];
 
         // Paso 1 — Validar token (reutiliza QrService: activo, expiración, sesión abierta)
@@ -85,6 +93,44 @@ class AsistenciaService
             throw new \RuntimeException('Ya registró su asistencia en esta sesión.', 409);
         }
 
+        // Paso 4b — Validar geolocalización si la sesión lo exige
+        $ubicacionValida = false;
+        if ((int) ($sesion['ubicacion_activa'] ?? 0) === 1) {
+            if ($latitud === null || $longitud === null) {
+                throw new \RuntimeException('Esta sesión requiere validación de ubicación.', 428);
+            }
+
+            if ($accuracy !== null && $accuracy > self::MAX_ACCURACY_METROS) {
+                throw new \RuntimeException(
+                    sprintf(
+                        'La precisión GPS es demasiado baja (%.0f m). Espera mejor señal e intenta de nuevo.',
+                        $accuracy
+                    ),
+                    422
+                );
+            }
+
+            $distancia = $this->haversine(
+                (float) $sesion['lat_docente'],
+                (float) $sesion['lng_docente'],
+                $latitud,
+                $longitud
+            );
+
+            if ($distancia > self::RADIO_VALIDACION_METROS) {
+                throw new \RuntimeException(
+                    sprintf(
+                        'Estás a %.0f m del aula. Solo se acepta registro dentro de %d m.',
+                        $distancia,
+                        self::RADIO_VALIDACION_METROS
+                    ),
+                    451
+                );
+            }
+
+            $ubicacionValida = true;
+        }
+
         // Paso 5 y 6 — Clasificar y calcular minutos de retardo
         $horaRegistro   = date('Y-m-d H:i:s');
         [$estado, $minutosRetardo] = $this->clasificar($sesion, $horaRegistro);
@@ -96,7 +142,10 @@ class AsistenciaService
             $idToken,
             $estado,
             $horaRegistro,
-            $minutosRetardo
+            $minutosRetardo,
+            $latitud,
+            $longitud,
+            $ubicacionValida
         );
 
         return [
@@ -299,6 +348,27 @@ class AsistenciaService
     // -------------------------------------------------------------------------
     // Métodos privados de apoyo
     // -------------------------------------------------------------------------
+
+    /**
+     * Calcula la distancia en metros entre dos coordenadas usando la fórmula de Haversine.
+     * Toda la validación geográfica ocurre en el backend; el cliente solo envía coordenadas.
+     *
+     * @param float $lat1 Latitud punto A (docente).
+     * @param float $lng1 Longitud punto A (docente).
+     * @param float $lat2 Latitud punto B (aprendiz).
+     * @param float $lng2 Longitud punto B (aprendiz).
+     * @return float Distancia en metros.
+     */
+    private function haversine(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $r    = 6371000.0; // Radio medio de la Tierra en metros
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a    = sin($dLat / 2) ** 2
+              + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return 2.0 * $r * asin(sqrt($a));
+    }
 
     /**
      * Clasifica automáticamente la asistencia aplicando la regla temporal oficial.

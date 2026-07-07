@@ -3,52 +3,98 @@
 <div class="page-header">
   <div>
     <h1 class="page-header__title">Registrar Asistencia</h1>
-    <p class="page-header__sub">Ingresa el token QR que te muestra tu docente</p>
+    <p class="page-header__sub">Escanea el código QR o ingresa el token manualmente</p>
   </div>
 </div>
 
-<div style="max-width:520px;margin:0 auto">
+<div style="max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-4)">
 
-  <!-- ─── Card de registro ─────────────────────────────────────────── -->
+  <!-- ─── Card principal ──────────────────────────────────────────────── -->
   <div class="card">
     <div class="card-header">
       <div style="display:flex;align-items:center;gap:var(--sp-3)">
         <div style="width:40px;height:40px;border-radius:var(--r-md);background:var(--green-light);
-                    display:flex;align-items:center;justify-content:center">
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="var(--green-primary)" style="width:20px;height:20px">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
           </svg>
         </div>
         <div>
-          <h3 class="card-title">Token QR</h3>
-          <p class="card-subtitle">El token cambia cada 30 segundos — ingrésalo rápido</p>
+          <h3 class="card-title">Código QR de clase</h3>
+          <p class="card-subtitle">El token cambia cada 30 segundos</p>
         </div>
       </div>
     </div>
+
     <div class="card-body">
 
-      <!-- QR scan area placeholder -->
-      <div style="position:relative;width:200px;height:200px;margin:0 auto var(--sp-5);
-                  border:2px dashed var(--border);border-radius:var(--r-lg);
-                  display:flex;flex-direction:column;align-items:center;justify-content:center;
-                  gap:var(--sp-2);color:var(--text-muted);background:var(--surface-alt)">
-        <!-- Corner markers -->
-        <span style="position:absolute;top:8px;left:8px;width:20px;height:20px;border-top:3px solid var(--green-primary);border-left:3px solid var(--green-primary);border-radius:2px 0 0 0"></span>
-        <span style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-top:3px solid var(--green-primary);border-right:3px solid var(--green-primary);border-radius:0 2px 0 0"></span>
-        <span style="position:absolute;bottom:8px;left:8px;width:20px;height:20px;border-bottom:3px solid var(--green-primary);border-left:3px solid var(--green-primary);border-radius:0 0 0 2px"></span>
-        <span style="position:absolute;bottom:8px;right:8px;width:20px;height:20px;border-bottom:3px solid var(--green-primary);border-right:3px solid var(--green-primary);border-radius:0 0 2px 0"></span>
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:48px;height:48px;opacity:.3">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
-        <span style="font-size:var(--text-xs);text-align:center;max-width:140px;line-height:1.4">
-          Cámara no disponible · Ingresa el token manualmente
-        </span>
+      <!-- ── Visor de cámara ──────────────────────────────────────────── -->
+      <div id="scannerSection" style="display:none">
+
+        <!-- Contenedor donde html5-qrcode inyecta el video -->
+        <div id="qrScannerContainer"
+             style="width:100%;max-width:340px;margin:0 auto var(--sp-4);
+                    border-radius:var(--r-lg);overflow:hidden;position:relative;
+                    background:#000;min-height:240px">
+          <!-- Estado de permiso / carga -->
+          <div id="scannerStatus"
+               style="position:absolute;inset:0;display:flex;flex-direction:column;
+                      align-items:center;justify-content:center;gap:var(--sp-3);
+                      color:#fff;font-size:var(--text-sm);text-align:center;padding:var(--sp-4);
+                      background:rgba(0,0,0,.85);z-index:2">
+            <div class="spinner" style="border-color:rgba(255,255,255,.3);border-top-color:#fff;width:32px;height:32px"></div>
+            <span id="scannerStatusText">Iniciando cámara...</span>
+          </div>
+        </div>
+
+        <!-- Indicador de escaneo -->
+        <div id="scannerHint"
+             style="display:none;text-align:center;font-size:var(--text-xs);color:var(--text-muted);
+                    margin-bottom:var(--sp-4)">
+          Apunta la cámara al código QR del docente
+        </div>
+
+        <!-- Botón detener cámara -->
+        <div style="display:flex;justify-content:center;margin-bottom:var(--sp-4)">
+          <button type="button" class="btn btn-ghost btn-sm" id="btnDetenerCamara"
+                  onclick="asistencia.detenerCamara()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:14px;height:14px">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+            Cancelar cámara
+          </button>
+        </div>
       </div>
 
-      <form id="formRegistrarAsistencia" onsubmit="asistencia.registrar(event)">
+      <!-- ── Estado inicial / Botón escanear ─────────────────────────── -->
+      <div id="scannerTrigger" style="margin-bottom:var(--sp-5)">
+        <div style="text-align:center;padding:var(--sp-4) 0">
+          <button type="button" class="btn btn-primary" id="btnEscanear"
+                  onclick="asistencia.iniciarCamara()"
+                  style="gap:var(--sp-2);font-size:var(--text-md);padding:var(--sp-3) var(--sp-6)">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:20px;height:20px">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Escanear QR
+          </button>
+          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--sp-2)">
+            O ingresa el token manualmente abajo
+          </p>
+        </div>
+      </div>
+
+      <!-- Separador -->
+      <div style="display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-4)">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">o ingresa manualmente</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+
+      <!-- ── Formulario manual ─────────────────────────────────────────── -->
+      <form id="formRegistrarAsistencia" onsubmit="asistencia.registrarToken(event)">
 
         <div class="form-group">
           <label class="form-label" for="tokenInput">
@@ -69,12 +115,43 @@
                           letter-spacing:.18em;text-align:center;text-transform:uppercase">
           </div>
           <small style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--sp-1);display:block">
-            Copia o escribe el código hexadecimal tal como aparece en la pantalla del docente.
+            Copia el código hexadecimal de 6 caracteres que aparece en la pantalla del docente.
           </small>
         </div>
 
         <!-- Resultado inline -->
         <div id="resultadoArea" style="display:none;margin-bottom:var(--sp-4)"></div>
+
+        <!-- Sección geo — se muestra cuando la sesión exige ubicación (HTTP 428) -->
+        <div id="geoSection" style="display:none;margin-bottom:var(--sp-4)">
+          <div style="background:var(--warning-bg,#fffbeb);border:1px solid var(--warning,#f59e0b);
+                      border-radius:var(--r-md);padding:var(--sp-4)">
+            <div style="display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-2)">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                   stroke="var(--warning,#f59e0b)" style="width:18px;height:18px;flex-shrink:0">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              <span style="font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--text-primary)">
+                Esta clase requiere verificar tu ubicación
+              </span>
+            </div>
+            <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--sp-3)">
+              Solo los aprendices dentro del aula (radio 30 m) pueden registrarse.
+              Permite el acceso a tu ubicación para continuar.
+            </p>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnPermitirUbicacion"
+                    onclick="asistencia.solicitarUbicacionYEnviar()"
+                    style="width:100%;justify-content:center">
+              📍 Compartir mi ubicación y registrar
+            </button>
+            <div id="geoStatusAprendiz"
+                 style="font-size:var(--text-xs);color:var(--text-muted);
+                        margin-top:var(--sp-2);min-height:14px;text-align:center"></div>
+          </div>
+        </div>
 
         <div style="display:flex;gap:var(--sp-3)">
           <button type="submit" class="btn btn-primary" id="btnRegistrar" style="flex:1">
@@ -84,9 +161,7 @@
             </svg>
             Registrar asistencia
           </button>
-          <a href="index.php?view=dashboard-aprendiz" class="btn btn-secondary">
-            Volver
-          </a>
+          <a href="index.php?view=dashboard-aprendiz" class="btn btn-secondary">Volver</a>
         </div>
 
       </form>
@@ -94,42 +169,49 @@
     </div>
   </div>
 
-  <!-- ─── Card de ayuda ────────────────────────────────────────────── -->
-  <div class="card" style="margin-top:var(--sp-4)">
+  <!-- ─── Card de ayuda ────────────────────────────────────────────────── -->
+  <div class="card">
     <div class="card-header">
-      <h3 class="card-title">¿Dónde encuentro el token?</h3>
+      <h3 class="card-title">¿Cómo registrar mi asistencia?</h3>
     </div>
     <div class="card-body">
       <div style="display:flex;flex-direction:column;gap:var(--sp-3)">
+
         <div style="display:flex;gap:var(--sp-3);align-items:flex-start">
           <div style="width:28px;height:28px;border-radius:50%;background:var(--green-light);
                       display:flex;align-items:center;justify-content:center;
                       flex-shrink:0;font-size:var(--text-xs);font-weight:var(--fw-bold);color:var(--green-primary)">1</div>
           <div>
-            <div style="font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--text-primary)">Tu docente abre una sesión</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted)">El docente inicia la sesión de clase desde su panel</div>
+            <div style="font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--text-primary)">El docente abre la sesión</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted)">El QR y el token aparecen en la pantalla del aula</div>
           </div>
         </div>
+
         <div style="display:flex;gap:var(--sp-3);align-items:flex-start">
           <div style="width:28px;height:28px;border-radius:50%;background:var(--green-light);
                       display:flex;align-items:center;justify-content:center;
                       flex-shrink:0;font-size:var(--text-xs);font-weight:var(--fw-bold);color:var(--green-primary)">2</div>
           <div>
-            <div style="font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--text-primary)">Observa el token en pantalla</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted)">El token QR se muestra en la pantalla del aula y cambia cada 30 segundos</div>
+            <div style="font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--text-primary)">Escanea el QR o copia el token</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted)">Usa el botón "Escanear QR" o escribe los 6 caracteres manualmente</div>
           </div>
         </div>
+
         <div style="display:flex;gap:var(--sp-3);align-items:flex-start">
           <div style="width:28px;height:28px;border-radius:50%;background:var(--green-light);
                       display:flex;align-items:center;justify-content:center;
                       flex-shrink:0;font-size:var(--text-xs);font-weight:var(--fw-bold);color:var(--green-primary)">3</div>
           <div>
-            <div style="font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--text-primary)">Ingrésalo aquí antes de que expire</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted)">Tienes 30 segundos para ingresarlo. Si expira, pide el nuevo token a tu docente</div>
+            <div style="font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--text-primary)">¡Listo! La cámara se cierra sola</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted)">Al detectar el QR se registra automáticamente. El token expira en 30 segundos</div>
           </div>
         </div>
+
       </div>
     </div>
   </div>
 
 </div>
+
+<!-- html5-qrcode — librería estable de escaneo QR con cámara -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>

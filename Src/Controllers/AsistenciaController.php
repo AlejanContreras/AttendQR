@@ -88,14 +88,25 @@ class AsistenciaController
             $this->responderError('Solo un aprendiz puede registrar su asistencia por QR.', 403);
         }
 
+        $latitud  = isset($cuerpo['latitud'])  ? (float) $cuerpo['latitud']  : null;
+        $longitud = isset($cuerpo['longitud']) ? (float) $cuerpo['longitud'] : null;
+        $accuracy = isset($cuerpo['accuracy']) ? (float) $cuerpo['accuracy'] : null;
+
         try {
             $asistencia = $this->servicio->registrarPorQr(
                 (string) $cuerpo['token'],
-                $usuario
+                $usuario,
+                $latitud,
+                $longitud,
+                $accuracy
             );
             $this->responderExito('Asistencia registrada correctamente.', $asistencia, 201);
         } catch (\RuntimeException $e) {
-            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
+            $codigo = $e->getCode() ?: 400;
+            if ($codigo === 428) {
+                $this->responderGeoRequerida($e->getMessage());
+            }
+            $this->responderError($e->getMessage(), $codigo);
         } catch (\Throwable $e) {
             $this->responderError('Error interno al registrar la asistencia.', 500);
         }
@@ -351,6 +362,17 @@ class AsistenciaController
         header('Content-Type: application/json; charset=UTF-8');
         echo json_encode(
             ['success' => false, 'message' => $mensaje],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+        exit;
+    }
+
+    private function responderGeoRequerida(string $mensaje): never
+    {
+        http_response_code(428);
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode(
+            ['success' => false, 'message' => $mensaje, 'data' => ['geo_required' => true]],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         );
         exit;

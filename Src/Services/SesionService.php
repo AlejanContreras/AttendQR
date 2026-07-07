@@ -50,7 +50,11 @@ class SesionService
         int    $idFicha,
         string $horaInicioClase,
         string $nombreMateria,
-        array  $usuarioActual
+        array  $usuarioActual,
+        bool   $ubicacionActiva  = false,
+        ?float $latDocente       = null,
+        ?float $lngDocente       = null,
+        ?float $accuracyDocente  = null
     ): array {
         $ficha = $this->sesionRepo->obtenerFichaConJornada($idFicha);
 
@@ -86,7 +90,11 @@ class SesionService
             $horaInicioClase,
             $nombreMateria ?: null,
             $limiteRetardoMinutos,
-            $duracionMaximaMinutos
+            $duracionMaximaMinutos,
+            $ubicacionActiva,
+            $latDocente,
+            $lngDocente,
+            $accuracyDocente
         );
 
         $this->generarPrimerToken($idSesion, 30);

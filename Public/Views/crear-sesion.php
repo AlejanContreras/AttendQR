@@ -224,6 +224,35 @@
           </div>
         </div>
 
+        <!-- ── Validación de ubicación (opcional) ──────────────────── -->
+        <div class="form-group"
+             style="margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid var(--border);margin-bottom:0">
+          <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer;
+                        font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--text-primary)">
+            <input type="checkbox" id="iniciarValidarUbicacion"
+                   onchange="sesiones._toggleGeoSection(this.checked)"
+                   style="width:16px;height:16px;accent-color:var(--green-primary);cursor:pointer;flex-shrink:0">
+            Validar ubicación de los aprendices
+          </label>
+          <span class="form-hint" style="display:block;margin-top:var(--sp-1)">
+            Opcional — solo aprendices dentro del aula (radio 30 m) podrán registrarse.
+          </span>
+        </div>
+
+        <div id="iniciarGeoSection" style="display:none;margin-top:var(--sp-3)">
+          <input type="hidden" id="iniciarLatDocente">
+          <input type="hidden" id="iniciarLngDocente">
+          <input type="hidden" id="iniciarAccuracyDocente">
+          <button type="button" class="btn btn-secondary btn-sm" id="btnObtenerUbicacion"
+                  onclick="sesiones.obtenerUbicacion()"
+                  style="width:100%;justify-content:center">
+            📍 Usar mi ubicación actual
+          </button>
+          <div id="iniciarGeoStatus"
+               style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--sp-2);
+                      min-height:16px;text-align:center"></div>
+        </div>
+
       </div>
 
       <div class="modal-custom__footer">

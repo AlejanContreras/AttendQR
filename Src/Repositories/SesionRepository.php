@@ -69,6 +69,7 @@ class SesionRepository extends BaseRepository
                     sa.estado_sesion, sa.hora_apertura, sa.hora_inicio_clase,
                     sa.hora_cierre, sa.limite_retardo_minutos,
                     sa.duracion_maxima_minutos, sa.rotacion_qr_segundos,
+                    sa.ubicacion_activa, sa.lat_docente, sa.lng_docente, sa.accuracy_docente,
                     f.codigo_ficha, f.nombre_programa, f.id_docente,
                     d.nombres AS nombre_docente, d.apellidos AS apellido_docente
              FROM sesiones_asistencia sa
@@ -92,6 +93,7 @@ class SesionRepository extends BaseRepository
                     sa.estado_sesion, sa.hora_apertura, sa.hora_inicio_clase,
                     sa.hora_cierre, sa.limite_retardo_minutos,
                     sa.duracion_maxima_minutos, sa.rotacion_qr_segundos,
+                    sa.ubicacion_activa, sa.lat_docente, sa.lng_docente, sa.accuracy_docente,
                     f.codigo_ficha, f.nombre_programa, f.id_docente,
                     d.nombres AS nombre_docente, d.apellidos AS apellido_docente,
                     COUNT(a.id_asistencia) AS total_asistencias
@@ -118,6 +120,7 @@ class SesionRepository extends BaseRepository
                     sa.estado_sesion, sa.hora_apertura, sa.hora_inicio_clase,
                     sa.hora_cierre, sa.limite_retardo_minutos,
                     sa.duracion_maxima_minutos, sa.rotacion_qr_segundos,
+                    sa.ubicacion_activa, sa.lat_docente, sa.lng_docente, sa.accuracy_docente,
                     f.codigo_ficha, f.nombre_programa
              FROM sesiones_asistencia sa
              JOIN fichas f ON f.id_ficha = sa.id_ficha
@@ -185,21 +188,31 @@ class SesionRepository extends BaseRepository
         string  $horaInicioClase,
         ?string $nombreMateria,
         int     $limiteRetardoMinutos,
-        int     $duracionMaximaMinutos
+        int     $duracionMaximaMinutos,
+        bool    $ubicacionActiva  = false,
+        ?float  $latDocente       = null,
+        ?float  $lngDocente       = null,
+        ?float  $accuracyDocente  = null
     ): int {
         return $this->insertar(
             "INSERT INTO sesiones_asistencia
                  (id_ficha, nombre_materia, fecha_sesion, estado_sesion, hora_apertura,
-                  hora_inicio_clase, limite_retardo_minutos, duracion_maxima_minutos)
+                  hora_inicio_clase, limite_retardo_minutos, duracion_maxima_minutos,
+                  ubicacion_activa, lat_docente, lng_docente, accuracy_docente)
              VALUES (:id_ficha, :nombre_materia, :fecha, 'abierta', NOW(3),
-                     :hora_inicio, :limite_retardo, :duracion_maxima)",
+                     :hora_inicio, :limite_retardo, :duracion_maxima,
+                     :ubicacion_activa, :lat_docente, :lng_docente, :accuracy_docente)",
             [
-                ':id_ficha'        => $idFicha,
-                ':nombre_materia'  => $nombreMateria ?: null,
-                ':fecha'           => $fechaSesion,
-                ':hora_inicio'     => $horaInicioClase,
-                ':limite_retardo'  => $limiteRetardoMinutos,
-                ':duracion_maxima' => $duracionMaximaMinutos,
+                ':id_ficha'          => $idFicha,
+                ':nombre_materia'    => $nombreMateria ?: null,
+                ':fecha'             => $fechaSesion,
+                ':hora_inicio'       => $horaInicioClase,
+                ':limite_retardo'    => $limiteRetardoMinutos,
+                ':duracion_maxima'   => $duracionMaximaMinutos,
+                ':ubicacion_activa'  => $ubicacionActiva ? 1 : 0,
+                ':lat_docente'       => $latDocente,
+                ':lng_docente'       => $lngDocente,
+                ':accuracy_docente'  => $accuracyDocente,
             ]
         );
     }

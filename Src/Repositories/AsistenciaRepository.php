@@ -162,22 +162,30 @@ class AsistenciaRepository extends BaseRepository
         int    $idTokenUsado,
         string $estado,
         string $horaRegistro,
-        int    $minutosRetardo
+        int    $minutosRetardo,
+        ?float $latitud         = null,
+        ?float $longitud        = null,
+        bool   $ubicacionValida = false
     ): int {
         return $this->insertar(
             "INSERT INTO asistencias
                  (id_aprendiz, id_sesion, id_token_usado,
-                  estado, metodo_registro, hora_registro, minutos_retardo)
+                  estado, metodo_registro, hora_registro, minutos_retardo,
+                  latitud, longitud, ubicacion_valida)
              VALUES
                  (:id_aprendiz, :id_sesion, :id_token_usado,
-                  :estado, 'qr', :hora_registro, :minutos_retardo)",
+                  :estado, 'qr', :hora_registro, :minutos_retardo,
+                  :latitud, :longitud, :ubicacion_valida)",
             [
-                ':id_aprendiz'   => $idAprendiz,
-                ':id_sesion'     => $idSesion,
-                ':id_token_usado' => $idTokenUsado,
-                ':estado'        => $estado,
-                ':hora_registro' => $horaRegistro,
-                ':minutos_retardo' => $minutosRetardo,
+                ':id_aprendiz'      => $idAprendiz,
+                ':id_sesion'        => $idSesion,
+                ':id_token_usado'   => $idTokenUsado,
+                ':estado'           => $estado,
+                ':hora_registro'    => $horaRegistro,
+                ':minutos_retardo'  => $minutosRetardo,
+                ':latitud'          => $latitud,
+                ':longitud'         => $longitud,
+                ':ubicacion_valida' => $ubicacionValida ? 1 : 0,
             ]
         );
     }

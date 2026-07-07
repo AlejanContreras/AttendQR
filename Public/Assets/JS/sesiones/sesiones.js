@@ -16,9 +16,10 @@
 const sesiones = (() => {
 
   let fichasConSesionActiva = new Set();
-  let clases    = [];       // cache de fichas del docente
-  let jornadas  = [];       // cache de jornadas disponibles
+  let clases       = [];    // cache de fichas del docente
+  let jornadas     = [];    // cache de jornadas disponibles
   let sesionesActivas = {}; // { id_ficha: id_sesion }
+  let geoDocente   = null;  // { latitud, longitud, accuracy } — geo del docente para la sesión
 
   // ─── Init ─────────────────────────────────────────────────────────────
 
@@ -364,6 +365,64 @@ const sesiones = (() => {
 
   function cerrarModalIniciar() {
     document.getElementById('modalIniciarBackdrop').style.display = 'none';
+    _resetGeo();
+  }
+
+  // ─── Geolocalización (docente) ────────────────────────────────────────
+
+  function _toggleGeoSection(visible) {
+    const section = document.getElementById('iniciarGeoSection');
+    if (section) section.style.display = visible ? 'block' : 'none';
+    if (!visible) { geoDocente = null; _setGeoStatus('', false); }
+  }
+
+  function _setGeoStatus(msg, isError = false) {
+    const el = document.getElementById('iniciarGeoStatus');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--danger)' : 'var(--text-muted)';
+  }
+
+  function _resetGeo() {
+    geoDocente = null;
+    _setGeoStatus('', false);
+    const checkbox = document.getElementById('iniciarValidarUbicacion');
+    if (checkbox) { checkbox.checked = false; _toggleGeoSection(false); }
+  }
+
+  async function obtenerUbicacion() {
+    const btn = document.getElementById('btnObtenerUbicacion');
+    if (btn) { btn.disabled = true; }
+    _setGeoStatus('Obteniendo ubicación…', false);
+
+    if (!navigator.geolocation) {
+      _setGeoStatus('Tu navegador no soporta geolocalización.', true);
+      if (btn) btn.disabled = false;
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        geoDocente = {
+          latitud:  pos.coords.latitude,
+          longitud: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        };
+        _setGeoStatus(`Ubicación obtenida ✓ — precisión: ${Math.round(pos.coords.accuracy)} m`, false);
+        if (btn) btn.disabled = false;
+      },
+      (err) => {
+        const msgs = {
+          1: 'Permiso de ubicación denegado. Habilítalo en la configuración del navegador.',
+          2: 'No se pudo obtener la ubicación. Verifica que el GPS esté activo.',
+          3: 'Tiempo de espera agotado. Intenta de nuevo.',
+        };
+        _setGeoStatus(msgs[err.code] ?? 'Error al obtener la ubicación.', true);
+        geoDocente = null;
+        if (btn) btn.disabled = false;
+      },
+      { timeout: 15000, maximumAge: 0, enableHighAccuracy: true }
+    );
   }
 
   async function iniciarSesion(e) {
@@ -383,16 +442,31 @@ const sesiones = (() => {
       return;
     }
 
+    const validarUbicacion = document.getElementById('iniciarValidarUbicacion')?.checked ?? false;
+    if (validarUbicacion && !geoDocente) {
+      AttendQR.toast.warning('Usa "Obtener mi ubicación" antes de iniciar con validación de ubicación.');
+      return;
+    }
+
     const btn  = document.getElementById('btnIniciarSesion');
     const orig = btn?.innerHTML;
     if (btn) { btn.disabled = true; btn.innerHTML = _spinnerHtml('Iniciando...'); }
 
+    const body = {
+      id_ficha:          idFicha,
+      hora_inicio_clase: horaInicioClase,
+      nombre_materia:    nombreMateria,
+    };
+
+    if (validarUbicacion && geoDocente) {
+      body.ubicacion_activa  = true;
+      body.lat_docente       = geoDocente.latitud;
+      body.lng_docente       = geoDocente.longitud;
+      body.accuracy_docente  = geoDocente.accuracy;
+    }
+
     try {
-      const sesion = await Api.sesiones.crear({
-        id_ficha:          idFicha,
-        hora_inicio_clase: horaInicioClase,
-        nombre_materia:    nombreMateria,
-      });
+      const sesion = await Api.sesiones.crear(body);
 
       try { await Api.qr.generar(sesion.id_sesion); } catch { /* continúa */ }
 
@@ -457,5 +531,6 @@ const sesiones = (() => {
     eliminarClase,
     abrirModalIniciar, cerrarModalIniciar, iniciarSesion,
     irQrFicha,
+    obtenerUbicacion, _toggleGeoSection,
   };
 })();

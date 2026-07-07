@@ -90,12 +90,25 @@ class SesionController
             $horaInicioClase .= ':00';
         }
 
+        $ubicacionActiva = !empty($cuerpo['ubicacion_activa']) && (bool) $cuerpo['ubicacion_activa'];
+        $latDocente      = isset($cuerpo['lat_docente'])      ? (float) $cuerpo['lat_docente']      : null;
+        $lngDocente      = isset($cuerpo['lng_docente'])      ? (float) $cuerpo['lng_docente']      : null;
+        $accuracyDocente = isset($cuerpo['accuracy_docente']) ? (float) $cuerpo['accuracy_docente'] : null;
+
+        if ($ubicacionActiva && ($latDocente === null || $lngDocente === null)) {
+            $this->responderError('Se activó validación de ubicación pero no se enviaron coordenadas del docente.', 422);
+        }
+
         try {
             $sesion = $this->servicio->crear(
                 (int) $cuerpo['id_ficha'],
                 $horaInicioClase,
                 $nombreMateria,
-                $usuario
+                $usuario,
+                $ubicacionActiva,
+                $latDocente,
+                $lngDocente,
+                $accuracyDocente
             );
             $this->responderExito('Sesión creada correctamente.', $sesion, 201);
         } catch (\RuntimeException $e) {
