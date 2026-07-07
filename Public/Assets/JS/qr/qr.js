@@ -10,15 +10,17 @@
  */
 const qr = (() => {
 
-  let idSesion       = null;
-  let countdownTimer = null;
-  let pollTimer      = null;
-  let statsTimer     = null;
-  let remaining      = 30;
-  let ROTATION_SEC   = 30;
-  let elapsedSeconds = 0;
-  let elapsedTimer   = null;
-  let rotating       = false;
+  let idSesion         = null;
+  let countdownTimer   = null;
+  let pollTimer        = null;
+  let statsTimer       = null;
+  let autoCloseTimer   = null;
+  let remaining        = 30;
+  let ROTATION_SEC     = 30;
+  let elapsedSeconds   = 0;
+  let elapsedTimer     = null;
+  let rotating         = false;
+  let horaCierreDate   = null; // Date usada para auto-cierre (M8)
 
   async function init() {
     const params = new URLSearchParams(window.location.search);
@@ -56,6 +58,7 @@ const qr = (() => {
     iniciarElapsed();
     iniciarCountdown();
     iniciarPollEstadisticas();
+    iniciarAutoClose();
   }
 
   async function cargarSesion() {
@@ -148,6 +151,27 @@ const qr = (() => {
     statsTimer = setInterval(cargarEstadisticas, 15_000); // cada 15s
   }
 
+  function iniciarAutoClose() {
+    clearInterval(autoCloseTimer);
+    autoCloseTimer = setInterval(async () => {
+      if (!horaCierreDate || !idSesion) return;
+      if (new Date() < horaCierreDate) return;
+
+      // Ventana de asistencia expirada — cerrar automáticamente
+      clearInterval(countdownTimer);
+      clearInterval(statsTimer);
+      clearInterval(elapsedTimer);
+      clearInterval(autoCloseTimer);
+
+      try {
+        await Api.sesiones.cerrar(idSesion);
+      } catch { /* ignorar si ya estaba cerrada */ }
+
+      AttendQR.toast.info('Sesión finalizada automáticamente. La ventana de asistencia ha expirado.', 6000);
+      setTimeout(() => window.location.href = 'index.php?view=historial&rol=docente', 3000);
+    }, 30_000); // verificar cada 30s
+  }
+
   function iniciarElapsed() {
     clearInterval(elapsedTimer);
     elapsedTimer = setInterval(() => {
@@ -180,6 +204,25 @@ const qr = (() => {
       }
     }
 
+    // M7: calcular hora límite de retardo (hora_inicio + limite_retardo_minutos)
+    const limMin = parseInt(sesion.limite_retardo_minutos ?? sesion.limite_retardo ?? 5, 10);
+    let limiteHoraStr = '—';
+    if (sesion.hora_inicio_clase) {
+      const [lh, lm] = sesion.hora_inicio_clase.slice(0, 5).split(':').map(Number);
+      const totalMin = lh * 60 + lm + limMin;
+      limiteHoraStr  = String(Math.floor(totalMin / 60) % 24).padStart(2, '0')
+                     + ':' + String(totalMin % 60).padStart(2, '0');
+    }
+
+    // M8: guardar Date de cierre para auto-close
+    if (sesion.hora_inicio_clase && sesion.fecha_sesion) {
+      const base = new Date(sesion.fecha_sesion + 'T' + sesion.hora_inicio_clase);
+      if (!isNaN(base.getTime())) {
+        base.setMinutes(base.getMinutes() + durMax);
+        horaCierreDate = base;
+      }
+    }
+
     setTxt('#qrFichaCodigo',   ficha);
     setTxt('#qrFichaCodigo2',  ficha);
     setTxt('#qrFichaProgram',  prog);
@@ -188,7 +231,7 @@ const qr = (() => {
     setTxt('#qrHoraApertura2', hora);
     setTxt('#qrHoraInicioClase', horaH);
     setTxt('#qrHoraCierre',    horaCierre);
-    setTxt('#qrLimiteRetardo', (sesion.limite_retardo_minutos ?? sesion.limite_retardo ?? 5) + ' min');
+    setTxt('#qrLimiteRetardo', limiteHoraStr);
 
     // Actualizar link "Cerrar sesión" en el botón
     const btnCerrar = document.getElementById('btnCerrarSesion');
@@ -267,6 +310,7 @@ const qr = (() => {
           clearInterval(countdownTimer);
           clearInterval(statsTimer);
           clearInterval(elapsedTimer);
+          clearInterval(autoCloseTimer);
           AttendQR.loader.hide();
           AttendQR.toast.success('Clase cerrada. Los registros están guardados.');
           setTimeout(() => window.location.href = 'index.php?view=historial&rol=docente', 1000);

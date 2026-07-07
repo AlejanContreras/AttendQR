@@ -104,17 +104,22 @@ class FichaController
 
     /**
      * POST /api/fichas/crear
-     * Body: { "codigo_ficha": "2345678", "nombre_programa": "Análisis...", "id_jornada": 1, "id_docente": 2, "id_trimestre": 3 }
-     * id_jornada, id_docente e id_trimestre son obligatorios (NOT NULL en el schema).
+     * Body: { "codigo_ficha": "2345678", "nombre_programa": "...", "id_jornada": 1, "nombre_materia": "..." (opt.) }
+     * id_docente se toma de la sesión activa del docente (no del body).
      */
     private function crear(): void
     {
         $cuerpo = $this->leerCuerpoJson();
 
-        foreach (['codigo_ficha', 'nombre_programa', 'id_jornada', 'id_docente', 'id_trimestre'] as $campo) {
+        foreach (['codigo_ficha', 'nombre_programa', 'id_jornada'] as $campo) {
             if (empty($cuerpo[$campo])) {
                 $this->responderError("El campo '{$campo}' es obligatorio.", 422);
             }
+        }
+
+        $idDocente = (int) ($_SESSION['usuario']['id'] ?? 0);
+        if (!$idDocente) {
+            $this->responderError('No se pudo identificar al docente de la sesión.', 401);
         }
 
         try {
@@ -122,20 +127,23 @@ class FichaController
                 (string) $cuerpo['codigo_ficha'],
                 (string) $cuerpo['nombre_programa'],
                 (int)    $cuerpo['id_jornada'],
-                (int)    $cuerpo['id_docente'],
-                (int)    $cuerpo['id_trimestre']
+                $idDocente,
+                isset($cuerpo['nombre_materia']) && $cuerpo['nombre_materia'] !== ''
+                    ? (string) $cuerpo['nombre_materia']
+                    : null,
+                null
             );
-            $this->responderExito('Ficha creada correctamente.', $ficha, 201);
+            $this->responderExito('Clase creada correctamente.', $ficha, 201);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
-            $this->responderError('Error interno al crear la ficha.', 500);
+            $this->responderError('Error interno al crear la clase.', 500);
         }
     }
 
     /**
      * PUT /api/fichas/actualizar/{idFicha}
-     * Body: campos a actualizar (parcial)
+     * Body: campos a actualizar (parcial) — solo campos de la clase propia del docente.
      */
     private function actualizar(int $idFicha): void
     {
@@ -145,13 +153,24 @@ class FichaController
             $this->responderError('No se recibieron datos para actualizar.', 422);
         }
 
+        $idDocente = (int) ($_SESSION['usuario']['id'] ?? 0);
+
+        try {
+            $fichaActual = $this->servicio->consultar($idFicha);
+            if ((int) ($fichaActual['id_docente'] ?? 0) !== $idDocente) {
+                $this->responderError('No tienes permiso para editar esta clase.', 403);
+            }
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 404);
+        }
+
         try {
             $ficha = $this->servicio->actualizar($idFicha, $cuerpo);
-            $this->responderExito('Ficha actualizada correctamente.', $ficha);
+            $this->responderExito('Clase actualizada correctamente.', $ficha);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
-            $this->responderError('Error interno al actualizar la ficha.', 500);
+            $this->responderError('Error interno al actualizar la clase.', 500);
         }
     }
 
@@ -160,13 +179,24 @@ class FichaController
      */
     private function eliminar(int $idFicha): void
     {
+        $idDocente = (int) ($_SESSION['usuario']['id'] ?? 0);
+
+        try {
+            $fichaActual = $this->servicio->consultar($idFicha);
+            if ((int) ($fichaActual['id_docente'] ?? 0) !== $idDocente) {
+                $this->responderError('No tienes permiso para eliminar esta clase.', 403);
+            }
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 404);
+        }
+
         try {
             $resultado = $this->servicio->eliminar($idFicha);
-            $this->responderExito($resultado['message'] ?? 'Ficha eliminada correctamente.', []);
+            $this->responderExito($resultado['message'] ?? 'Clase eliminada correctamente.', []);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 404);
         } catch (\Throwable $e) {
-            $this->responderError('Error interno al eliminar la ficha.', 500);
+            $this->responderError('Error interno al eliminar la clase.', 500);
         }
     }
 

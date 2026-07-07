@@ -69,7 +69,7 @@ if ($userRole === 'docente' && in_array($currentView, $soloAprendiz, true)) {
 $pageTitles = [
     'dashboard-docente'    => 'Panel Docente',
     'dashboard-aprendiz'   => 'Panel Aprendiz',
-    'crear-sesion'         => 'Nueva Sesión de Clase',
+    'crear-sesion'         => 'Mis Clases',
     'qr'                   => 'QR Dinámico',
     'historial'            => 'Historial de Asistencia',
     'perfil'               => 'Mi Perfil',

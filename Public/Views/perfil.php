@@ -28,6 +28,25 @@
       </div>
     </div>
 
+    <!-- Ficha card — solo aprendices, mostrado por JS -->
+    <div class="card" id="perfilFichaCard" style="display:none">
+      <div class="card-header">
+        <h3 class="card-title">Mi Ficha</h3>
+      </div>
+      <div class="card-body">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-3)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:var(--text-sm);color:var(--text-secondary)">Número de ficha</span>
+            <strong id="perfilFichaCodigo">—</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-3)">
+            <span style="font-size:var(--text-sm);color:var(--text-secondary);flex-shrink:0">Programa</span>
+            <span id="perfilFichaPrograma" style="font-size:var(--text-sm);text-align:right;color:var(--text-primary)">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Stats card -->
     <div class="card">
       <div class="card-header">

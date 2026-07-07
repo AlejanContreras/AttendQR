@@ -233,6 +233,7 @@
 
 .main-wrapper {
   flex: 1;
+  min-width: 0; /* evita que el contenido ancho expanda el flex item más allá del viewport */
   margin-left: var(--sidebar-width);
   min-height: 100vh;
   display: flex;
@@ -448,6 +449,30 @@
 
 .sidebar.is-collapsed .sidebar__collapse-btn svg {
   transform: scaleX(-1);
+}
+
+/* Indicador visible solo cuando el sidebar está contraído */
+.sidebar__collapsed-hint {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: var(--sp-3) 0;
+  font-size: 22px;
+  font-weight: var(--fw-bold);
+  color: rgba(255,255,255,.5);
+  cursor: pointer;
+  transition: color var(--t-fast), background var(--t-fast);
+  user-select: none;
+  border-radius: var(--r-md);
+  margin: var(--sp-1) var(--sp-2);
+}
+.sidebar.is-collapsed .sidebar__collapsed-hint {
+  display: flex;
+}
+.sidebar__collapsed-hint:hover {
+  color: #fff;
+  background: rgba(255,255,255,.08);
 }
 
 @media (min-width: 769px) {

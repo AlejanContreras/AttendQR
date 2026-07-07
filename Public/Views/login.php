@@ -91,16 +91,16 @@
 
       <!-- Role tabs -->
       <div class="login-tabs" id="loginTabs">
-        <div class="login-tab is-active" data-role="docente" onclick="switchRole(this, 'docente')">
+        <div class="login-tab" data-role="docente" onclick="switchRole(this, 'docente')">
           Docente
         </div>
-        <div class="login-tab" data-role="aprendiz" onclick="switchRole(this, 'aprendiz')">
+        <div class="login-tab is-active" data-role="aprendiz" onclick="switchRole(this, 'aprendiz')">
           Aprendiz
         </div>
       </div>
 
       <!-- Form — Docente -->
-      <form class="login-form" id="formDocente" onsubmit="handleLogin(event, 'docente')">
+      <form class="login-form" id="formDocente" style="display:none" onsubmit="handleLogin(event, 'docente')">
 
         <div class="form-group">
           <label class="form-label" for="docenteCorreo">
@@ -154,8 +154,8 @@
 
       </form>
 
-      <!-- Form — Aprendiz (hidden initially) -->
-      <form class="login-form" id="formAprendiz" style="display:none"
+      <!-- Form — Aprendiz (activo por defecto) -->
+      <form class="login-form" id="formAprendiz"
             onsubmit="handleLogin(event, 'aprendiz')">
 
         <div class="form-group">
@@ -203,7 +203,7 @@
 
       </form>
 
-      <p id="registroLink" style="display:none;text-align:center;font-size:var(--text-sm);color:var(--text-muted);margin-top:var(--sp-4)">
+      <p id="registroLink" style="display:block;text-align:center;font-size:var(--text-sm);color:var(--text-muted);margin-top:var(--sp-4)">
         ¿Primera vez?
         <a href="registro.php" style="color:var(--green-primary);text-decoration:none;font-weight:var(--fw-semibold)">Crear mi cuenta</a>
       </p>

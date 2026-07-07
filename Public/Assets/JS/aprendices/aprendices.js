@@ -62,10 +62,14 @@ const aprendicesGestion = (() => {
     if (lista.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="7" style="text-align:center;padding:var(--sp-8)">
+          <td colspan="7" style="text-align:center;padding:var(--sp-8);cursor:pointer"
+              onclick="document.getElementById('inputCsv').click()"
+              title="Haz clic para seleccionar un archivo CSV">
             <div style="color:var(--text-muted);font-size:var(--text-2xl);margin-bottom:var(--sp-2)">👥</div>
             <div style="font-weight:var(--fw-semibold);margin-bottom:var(--sp-1)">No hay aprendices</div>
-            <div style="font-size:var(--text-sm);color:var(--text-muted)">Cambia los filtros o importa un archivo CSV.</div>
+            <div style="font-size:var(--text-sm);color:var(--text-muted)">
+              Haz clic aquí o usa el botón <strong>Importar CSV</strong> para agregar aprendices.
+            </div>
           </td>
         </tr>`;
       return;

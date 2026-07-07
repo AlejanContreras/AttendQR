@@ -37,8 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
     this.value = this.value.replace(/\D/g, '');
   });
 
-  // Focus automático al primer campo visible
-  document.querySelector('#formDocente input:not([type=hidden])')?.focus();
+  // Focus automático al primer campo de aprendiz (pestaña activa por defecto)
+  document.querySelector('#formAprendiz input:not([type=hidden])')?.focus();
 
   // Enter en cualquier campo dispara el submit del formulario correspondiente
   document.querySelectorAll('.login-form input').forEach(input => {

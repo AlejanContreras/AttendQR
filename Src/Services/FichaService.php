@@ -82,30 +82,41 @@ class FichaService
      * @throws \RuntimeException 409 si el código ya existe.
      */
     public function crear(
-        string $codigoFicha,
-        string $nombrePrograma,
-        int    $idJornada,
-        int    $idDocente,
-        int    $idTrimestre
+        string  $codigoFicha,
+        string  $nombrePrograma,
+        int     $idJornada,
+        int     $idDocente,
+        ?string $nombreMateria = null,
+        ?int    $idTrimestre   = null
     ): array {
         $codigoFicha    = trim($codigoFicha);
         $nombrePrograma = trim($nombrePrograma);
+        $nombreMateria  = ($nombreMateria !== null) ? trim($nombreMateria) : null;
 
         if ($codigoFicha === '') {
             throw new \RuntimeException('El código de ficha no puede estar vacío.', 422);
         }
 
-        if ($this->fichaRepo->existeCodigo($codigoFicha)) {
-            throw new \RuntimeException('El código de ficha ya está registrado en el sistema.', 409);
+        if (!ctype_digit($codigoFicha)) {
+            throw new \RuntimeException('El número de ficha solo puede contener dígitos.', 422);
         }
 
-        $id    = $this->fichaRepo->crear($codigoFicha, $nombrePrograma, $idJornada, $idDocente, $idTrimestre);
+        if (strlen($codigoFicha) !== 7) {
+            throw new \RuntimeException('El número de ficha debe tener exactamente 7 dígitos (estándar SENA).', 422);
+        }
+
+        if ($this->fichaRepo->existeCodigo($codigoFicha)) {
+            throw new \RuntimeException('El número de ficha ya está registrado en el sistema.', 409);
+        }
+
+        $id    = $this->fichaRepo->crear($codigoFicha, $nombrePrograma, $idJornada, $idDocente, $nombreMateria, $idTrimestre);
         $ficha = $this->fichaRepo->obtenerPorId($id);
 
         return $ficha ?? [
             'id_ficha'        => $id,
             'codigo_ficha'    => $codigoFicha,
             'nombre_programa' => $nombrePrograma,
+            'nombre_materia'  => $nombreMateria,
             'id_jornada'      => $idJornada,
             'id_docente'      => $idDocente,
             'id_trimestre'    => $idTrimestre,

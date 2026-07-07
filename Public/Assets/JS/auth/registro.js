@@ -35,8 +35,13 @@ const registro = (() => {
     // Poblar campos del paso 2
     document.getElementById('regNombreDisplay').textContent = data.nombres ?? '';
     document.getElementById('regIdAprendiz').value = data.id_aprendiz ?? '';
-    document.getElementById('regFichaInfo').textContent =
-      `Ficha ${data.codigo_ficha} — ${data.nombre_programa}`;
+
+    // Mostrar info de ficha evitando "undefined — undefined"
+    const ficha = data.codigo_ficha ?? null;
+    const prog  = data.nombre_programa ?? null;
+    document.getElementById('regFichaInfo').textContent = ficha
+      ? `Ficha ${ficha} — ${prog ?? 'programa no registrado'}`
+      : 'Ficha no asignada';
 
     // Transición
     document.getElementById('paso1').classList.remove('is-active');
@@ -58,9 +63,15 @@ const registro = (() => {
     e.preventDefault();
     ocultarError('errorPaso2');
 
-    const idAprendiz = parseInt(document.getElementById('regIdAprendiz')?.value ?? '0', 10);
-    const password   = document.getElementById('regPassword')?.value ?? '';
-    const confirmar  = document.getElementById('regPasswordConfirm')?.value ?? '';
+    // Leer id_aprendiz desde el estado del módulo (más confiable que el DOM hidden input)
+    const idAprendiz = datosAprendiz?.id_aprendiz ?? null;
+    if (!idAprendiz) {
+      mostrarError('errorPaso2', 'errorPaso2Msg', 'Error interno: datos de aprendiz no disponibles. Vuelve al paso 1 e inténtalo de nuevo.');
+      return;
+    }
+
+    const password  = document.getElementById('regPassword')?.value ?? '';
+    const confirmar = document.getElementById('regPasswordConfirm')?.value ?? '';
 
     if (password.length < 8) {
       mostrarError('errorPaso2', 'errorPaso2Msg', 'La contraseña debe tener al menos 8 caracteres.');

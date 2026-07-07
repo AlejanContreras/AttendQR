@@ -25,7 +25,7 @@ class FichaRepository extends BaseRepository
     public function obtenerPorId(int $idFicha): ?array
     {
         return $this->consultarUno(
-            'SELECT f.id_ficha, f.codigo_ficha, f.nombre_programa,
+            'SELECT f.id_ficha, f.codigo_ficha, f.nombre_programa, f.nombre_materia,
                     f.id_jornada, f.id_docente, f.id_trimestre, f.activa,
                     j.nombre AS nombre_jornada,
                     j.hora_inicio, j.hora_fin, j.minutos_gracia
@@ -51,7 +51,7 @@ class FichaRepository extends BaseRepository
         ?int    $idJornada      = null,
         ?int    $idDocente      = null
     ): array {
-        $sql    = 'SELECT f.id_ficha, f.codigo_ficha, f.nombre_programa,
+        $sql    = 'SELECT f.id_ficha, f.codigo_ficha, f.nombre_programa, f.nombre_materia,
                           f.id_jornada, f.id_docente, f.id_trimestre, f.activa,
                           j.nombre AS nombre_jornada
                    FROM fichas f
@@ -79,7 +79,7 @@ class FichaRepository extends BaseRepository
             $params[':id_docente'] = $idDocente;
         }
 
-        $sql .= ' ORDER BY f.codigo_ficha';
+        $sql .= ' ORDER BY f.id_ficha DESC';
 
         return $this->consultar($sql, $params);
     }
@@ -91,7 +91,7 @@ class FichaRepository extends BaseRepository
     public function obtenerPorCodigo(string $codigoFicha): ?array
     {
         return $this->consultarUno(
-            'SELECT f.id_ficha, f.codigo_ficha, f.nombre_programa,
+            'SELECT f.id_ficha, f.codigo_ficha, f.nombre_programa, f.nombre_materia,
                     f.id_jornada, f.id_docente, f.id_trimestre, f.activa,
                     j.nombre AS nombre_jornada
              FROM fichas f
@@ -159,18 +159,20 @@ class FichaRepository extends BaseRepository
      * @return int ID de la ficha creada.
      */
     public function crear(
-        string $codigoFicha,
-        string $nombrePrograma,
-        int    $idJornada,
-        int    $idDocente,
-        int    $idTrimestre
+        string  $codigoFicha,
+        string  $nombrePrograma,
+        int     $idJornada,
+        int     $idDocente,
+        ?string $nombreMateria = null,
+        ?int    $idTrimestre   = null
     ): int {
         return $this->insertar(
-            'INSERT INTO fichas (codigo_ficha, nombre_programa, id_jornada, id_docente, id_trimestre, activa)
-             VALUES (:codigo, :programa, :jornada, :docente, :trimestre, 1)',
+            'INSERT INTO fichas (codigo_ficha, nombre_programa, nombre_materia, id_jornada, id_docente, id_trimestre, activa)
+             VALUES (:codigo, :programa, :materia, :jornada, :docente, :trimestre, 1)',
             [
                 ':codigo'    => $codigoFicha,
                 ':programa'  => $nombrePrograma,
+                ':materia'   => $nombreMateria,
                 ':jornada'   => $idJornada,
                 ':docente'   => $idDocente,
                 ':trimestre' => $idTrimestre,
@@ -187,7 +189,7 @@ class FichaRepository extends BaseRepository
      */
     public function actualizar(int $idFicha, array $datos): int
     {
-        $camposPermitidos = ['codigo_ficha', 'nombre_programa', 'id_jornada', 'id_docente', 'id_trimestre', 'activa'];
+        $camposPermitidos = ['codigo_ficha', 'nombre_programa', 'nombre_materia', 'id_jornada', 'id_docente', 'id_trimestre', 'activa'];
         $set    = [];
         $params = [':id' => $idFicha];
 

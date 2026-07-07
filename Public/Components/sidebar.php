@@ -7,23 +7,28 @@
  * $userSubtitle — subtítulo debajo del nombre
  */
 
-$docNavItems = [
-  ['view' => 'dashboard-docente', 'label' => 'Dashboard',     'icon' => 'grid'],
-  ['view' => 'crear-sesion',      'label' => 'Nueva Sesión',  'icon' => 'calendar-plus'],
-  ['view' => 'qr',                'label' => 'QR Dinámico',   'icon' => 'qr-code'],
-  ['view' => 'aprendices',        'label' => 'Estudiantes',   'icon' => 'users'],
-  ['view' => 'historial',         'label' => 'Historial',     'icon' => 'list'],
-  ['view' => 'perfil',            'label' => 'Mi Perfil',     'icon' => 'user'],
+$docMainItems = [
+  ['view' => 'dashboard-docente', 'label' => 'Dashboard',   'icon' => 'grid'],
+  ['view' => 'crear-sesion',      'label' => 'Mis Clases',  'icon' => 'calendar-plus'],
+  ['view' => 'qr',                'label' => 'QR Dinámico', 'icon' => 'qr-code'],
+  ['view' => 'historial',         'label' => 'Historial',   'icon' => 'list'],
+];
+$docAccountItems = [
+  ['view' => 'perfil',     'label' => 'Mi Perfil',   'icon' => 'user'],
+  ['view' => 'aprendices', 'label' => 'Estudiantes', 'icon' => 'users'],
 ];
 
-$aprNavItems = [
-  ['view' => 'dashboard-aprendiz',   'label' => 'Dashboard',        'icon' => 'grid'],
-  ['view' => 'registrar-asistencia', 'label' => 'Registrar QR',     'icon' => 'qr-code'],
-  ['view' => 'historial',            'label' => 'Mi Asistencia',    'icon' => 'list'],
-  ['view' => 'perfil',               'label' => 'Mi Perfil',        'icon' => 'user'],
+$aprMainItems = [
+  ['view' => 'dashboard-aprendiz',   'label' => 'Dashboard',          'icon' => 'grid'],
+  ['view' => 'registrar-asistencia', 'label' => 'Registrar QR',       'icon' => 'qr-code'],
+  ['view' => 'historial',            'label' => 'Mi Asistencia',      'icon' => 'list'],
+];
+$aprAccountItems = [
+  ['view' => 'perfil', 'label' => 'Mi Perfil', 'icon' => 'user'],
 ];
 
-$navItems = ($userRole === 'aprendiz') ? $aprNavItems : $docNavItems;
+$mainItems    = ($userRole === 'aprendiz') ? $aprMainItems    : $docMainItems;
+$accountItems = ($userRole === 'aprendiz') ? $aprAccountItems : $docAccountItems;
 
 // Inline SVG icon helper
 function sidebarIcon(string $name): string {
@@ -74,8 +79,10 @@ function sidebarIcon(string $name): string {
   <!-- Navigation -->
   <nav class="sidebar__nav">
     <div class="sidebar__section-label">Menú principal</div>
+    <div class="sidebar__collapsed-hint" onclick="AttendQR.sidebar.toggle()"
+         title="Expandir menú" role="button" aria-label="Expandir menú">&#187;</div>
 
-    <?php foreach ($navItems as $item): ?>
+    <?php foreach ($mainItems as $item): ?>
       <?php $isActive = ($currentView === $item['view']); ?>
       <a href="index.php?view=<?= $item['view'] ?>&rol=<?= $userRole ?>"
          class="sidebar__nav-item <?= $isActive ? 'is-active' : '' ?>"
@@ -85,7 +92,17 @@ function sidebarIcon(string $name): string {
       </a>
     <?php endforeach; ?>
 
-    <div class="sidebar__section-label" style="margin-top:8px">Cuenta</div>
+    <div class="sidebar__section-label" style="margin-top:var(--sp-4)">Cuenta</div>
+
+    <?php foreach ($accountItems as $item): ?>
+      <?php $isActive = ($currentView === $item['view']); ?>
+      <a href="index.php?view=<?= $item['view'] ?>&rol=<?= $userRole ?>"
+         class="sidebar__nav-item <?= $isActive ? 'is-active' : '' ?>"
+         data-label="<?= htmlspecialchars($item['label']) ?>">
+        <span class="sidebar__nav-icon"><?= sidebarIcon($item['icon']) ?></span>
+        <span class="sidebar__nav-label"><?= htmlspecialchars($item['label']) ?></span>
+      </a>
+    <?php endforeach; ?>
   </nav>
 
   <!-- Footer / Logout -->

@@ -86,9 +86,15 @@ const Api = (() => {
     importar:   (formData) => request('/aprendices/importar', { method: 'POST', body: formData }),
   };
 
+  const del = (ep) => request(ep, { method: 'DELETE' });
+
   const fichas = {
-    listar:    (params) => get('/fichas/listar', params),
-    historial: (id)     => get(`/fichas/historial/${id}`),
+    listar:     (params)     => get('/fichas/listar', params),
+    consultar:  (id)         => get(`/fichas/consultar/${id}`),
+    historial:  (id)         => get(`/fichas/historial/${id}`),
+    crear:      (body)       => post('/fichas/crear', body),
+    actualizar: (id, body)   => put(`/fichas/actualizar/${id}`, body),
+    eliminar:   (id)         => del(`/fichas/eliminar/${id}`),
   };
 
   const jornadas = {

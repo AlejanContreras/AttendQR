@@ -1,16 +1,56 @@
 /**
- * AttendQR — Sesiones (P2: ficha cards + modal)
+ * AttendQR — Mis Clases (sesiones.js)
+ *
+ * Flujo:
+ *   Clase  = ficha permanente (ficha + programa + materia + jornada)
+ *   Sesión = clase impartida  (se crea al presionar "Iniciar clase" → solo hora)
+ *
+ * Módulos:
+ *   1. Cargar jornadas para los selectores
+ *   2. Cargar clases del docente (fichas) → grid de cards
+ *   3. Modal Nueva Clase  → POST /api/fichas/crear
+ *   4. Modal Editar Clase → PUT  /api/fichas/actualizar/{id}
+ *   5. Eliminar Clase     → DELETE /api/fichas/eliminar/{id}
+ *   6. Modal Iniciar      → POST /api/sesiones/crear (solo hora)
  */
 const sesiones = (() => {
 
-  // IDs de fichas que tienen sesión activa actualmente
   let fichasConSesionActiva = new Set();
+  let clases    = [];       // cache de fichas del docente
+  let jornadas  = [];       // cache de jornadas disponibles
+  let sesionesActivas = {}; // { id_ficha: id_sesion }
+
+  // ─── Init ─────────────────────────────────────────────────────────────
 
   async function init() {
-    await Promise.all([cargarSesionesActivas(), cargarFichasGrid()]);
+    await Promise.all([cargarJornadas(), cargarSesionesActivas()]);
+    await cargarClases();
   }
 
-  // ─── Cargar sesiones activas → banner ─────────────────────────────
+  // ─── Jornadas ─────────────────────────────────────────────────────────
+
+  async function cargarJornadas() {
+    try {
+      const data = await Api.jornadas.listar();
+      jornadas = Array.isArray(data) ? data : (data.jornadas ?? []);
+      _poblarSelectJornadas('nuevaJornada');
+      _poblarSelectJornadas('editJornada');
+    } catch { /* jornadas son necesarias — se mostrará error si falla */ }
+  }
+
+  function _poblarSelectJornadas(selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    jornadas.forEach(j => {
+      const opt = document.createElement('option');
+      opt.value = j.id_jornada;
+      opt.textContent = j.nombre ?? `Jornada ${j.id_jornada}`;
+      sel.appendChild(opt);
+    });
+  }
+
+  // ─── Sesiones activas → banner ─────────────────────────────────────────
+
   async function cargarSesionesActivas() {
     const banner = document.getElementById('bannerSesionesActivas');
     if (!banner) return;
@@ -20,7 +60,10 @@ const sesiones = (() => {
       const activas = data.sesiones ?? [];
 
       activas.forEach(s => {
-        if (s.id_ficha) fichasConSesionActiva.add(String(s.id_ficha));
+        if (s.id_ficha) {
+          fichasConSesionActiva.add(String(s.id_ficha));
+          sesionesActivas[String(s.id_ficha)] = s.id_sesion;
+        }
       });
 
       if (!activas.length) { banner.style.display = 'none'; return; }
@@ -39,7 +82,7 @@ const sesiones = (() => {
       banner.innerHTML = `
         <div class="sesion-activa-banner">
           <span class="sesion-activa-banner__dot"></span>
-          <strong>${activas.length === 1 ? '1 clase activa ahora mismo' : `${activas.length} clases activas ahora mismo`}</strong>
+          <strong>${activas.length === 1 ? '1 clase activa ahora mismo' : `${activas.length} clases activas`}</strong>
           <div class="sesion-activa-banner__list">${links}</div>
         </div>`;
     } catch {
@@ -47,126 +90,267 @@ const sesiones = (() => {
     }
   }
 
-  // ─── Cargar fichas → grid de cards ────────────────────────────────
-  async function cargarFichasGrid() {
-    const grid = document.getElementById('fichasGrid');
+  // ─── Clases (fichas del docente) ───────────────────────────────────────
+
+  async function cargarClases() {
+    const grid = document.getElementById('clasesGrid');
     if (!grid) return;
 
     try {
       const usuario = window.ATTENDQR_USER;
       const data    = await Api.fichas.listar({ id_docente: usuario.id, estado: 'activa' });
-      const fichas  = data.fichas ?? [];
-
-      if (!fichas.length) {
-        grid.innerHTML = `
-          <div style="grid-column:1/-1;text-align:center;padding:var(--sp-12) var(--sp-6)">
-            <div style="font-size:48px;margin-bottom:var(--sp-4)">📋</div>
-            <h3 style="font-size:var(--text-lg);font-weight:var(--fw-semibold);
-                       color:var(--text-primary);margin-bottom:var(--sp-2)">
-              No tienes fichas activas asignadas
-            </h3>
-            <p style="font-size:var(--text-sm);color:var(--text-muted)">
-              Cuando el coordinador asigne una ficha a tu usuario, aparecerá aquí.
-            </p>
-          </div>`;
-        return;
-      }
-
-      grid.innerHTML = fichas.map(f => renderFichaCard(f)).join('');
+      clases = data.fichas ?? [];
+      renderClasesGrid();
     } catch (err) {
       grid.innerHTML = `
         <div style="grid-column:1/-1;text-align:center;padding:var(--sp-10);color:var(--danger)">
-          <p style="font-size:var(--text-sm)">No se pudieron cargar las fichas: ${esc(err.message)}</p>
+          <p style="font-size:var(--text-sm)">No se pudieron cargar las clases: ${esc(err.message)}</p>
         </div>`;
-      AttendQR.toast.error('No se pudieron cargar las fichas: ' + err.message);
+      AttendQR.toast.error('No se pudieron cargar las clases: ' + err.message);
     }
   }
 
-  function renderFichaCard(f) {
-    const tieneActiva = fichasConSesionActiva.has(String(f.id_ficha));
-    const fichaEsc    = esc(f.codigo_ficha);
-    const progEsc     = esc(f.nombre_programa ?? '');
+  function renderClasesGrid() {
+    const grid = document.getElementById('clasesGrid');
+    if (!grid) return;
 
-    if (tieneActiva) {
-      // Ficha ya tiene clase activa — botón Ver QR
-      const sesionActiva = [...fichasConSesionActiva].length; // solo para marcar
-      return `
-        <div class="ficha-card ficha-card--active">
-          <div class="ficha-card__icon" style="background:var(--success-bg)">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                 style="color:var(--success-text)">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-          <div class="ficha-card__body">
-            <div class="ficha-card__code">Ficha ${fichaEsc}</div>
-            <div class="ficha-card__prog">${progEsc}</div>
-            <div class="ficha-card__status">
-              <span style="display:inline-flex;align-items:center;gap:4px;
-                           color:var(--success-text);font-weight:var(--fw-medium)">
-                <span style="width:7px;height:7px;border-radius:50%;
-                             background:var(--success);display:inline-block;
-                             animation:blink 1.5s ease infinite"></span>
-                Clase activa
-              </span>
-            </div>
-          </div>
-          <div class="ficha-card__cta">
-            <a href="#" onclick="return sesiones.irQrFicha(${f.id_ficha})"
-               class="btn btn-sm"
-               style="background:var(--success-text);color:#fff;border:none;white-space:nowrap">
-              Ver QR →
-            </a>
-          </div>
+    if (!clases.length) {
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:var(--sp-12) var(--sp-6)">
+          <div style="font-size:48px;margin-bottom:var(--sp-4)">📚</div>
+          <h3 style="font-size:var(--text-lg);font-weight:var(--fw-semibold);
+                     color:var(--text-primary);margin-bottom:var(--sp-2)">
+            Aún no tienes clases creadas
+          </h3>
+          <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--sp-5)">
+            Crea tu primera clase con el número de ficha, programa y materia.
+            Solo tendrás que hacerlo una vez.
+          </p>
+          <button class="btn btn-primary" onclick="sesiones.abrirModalNueva()">
+            + Nueva Clase
+          </button>
         </div>`;
+      return;
     }
 
+    grid.innerHTML = clases.map(c => renderClaseCard(c)).join('');
+  }
+
+  function renderClaseCard(c) {
+    const idFicha    = c.id_ficha;
+    const tieneActiva = fichasConSesionActiva.has(String(idFicha));
+    const codigo     = esc(c.codigo_ficha ?? '—');
+    const programa   = esc(c.nombre_programa ?? '');
+    const materia    = c.nombre_materia ? esc(c.nombre_materia) : '';
+    const jornada    = c.nombre_jornada ? esc(c.nombre_jornada) : '';
+
+    const iconoSvg = tieneActiva
+      ? `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+         </svg>`
+      : `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                 d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+         </svg>`;
+
+    const statusHtml = tieneActiva
+      ? `<div class="clase-card__live">
+           <span class="clase-card__live-dot"></span>
+           Clase activa
+         </div>`
+      : '';
+
+    const accionPrincipal = tieneActiva
+      ? `<a href="#" onclick="return sesiones.irQrFicha(${idFicha})"
+            class="btn btn-sm clase-card__btn-iniciar"
+            style="background:var(--success-text);color:#fff;border:none;text-align:center">
+           Ver QR →
+         </a>`
+      : `<button class="btn btn-primary btn-sm clase-card__btn-iniciar"
+                  onclick="sesiones.abrirModalIniciar(${idFicha})">
+           Iniciar clase →
+         </button>`;
+
+    const jornadaHtml = jornada
+      ? `<span class="clase-card__jornada">
+           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                style="width:11px;height:11px">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+           </svg>
+           ${jornada}
+         </span>`
+      : '';
+
+    // Build data- attrs for edit (escape for HTML attrs)
+    const dataPrograma = (c.nombre_programa ?? '').replace(/"/g, '&quot;');
+    const dataMateria  = (c.nombre_materia  ?? '').replace(/"/g, '&quot;');
+
     return `
-      <div class="ficha-card"
-           onclick="sesiones.abrirModal(${f.id_ficha}, '${fichaEsc}', '${progEsc.replace(/'/g, "\\'")}')"
-           tabindex="0" role="button"
-           onkeydown="if(event.key==='Enter'||event.key===' ')sesiones.abrirModal(${f.id_ficha},'${fichaEsc}','${progEsc.replace(/'/g, "\\'")}')">
-        <div class="ficha-card__icon">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-          </svg>
-        </div>
-        <div class="ficha-card__body">
-          <div class="ficha-card__code">Ficha ${fichaEsc}</div>
-          <div class="ficha-card__prog">${progEsc}</div>
-          <div class="ficha-card__status">
-            <span style="color:var(--text-muted)">Sin clase activa</span>
+      <div class="clase-card ${tieneActiva ? 'clase-card--active' : ''}">
+        <div class="clase-card__top">
+          <div class="clase-card__icon">${iconoSvg}</div>
+          <div class="clase-card__info">
+            <div class="clase-card__ficha">Ficha ${codigo}</div>
+            <div class="clase-card__programa" title="${esc(c.nombre_programa ?? '')}">${programa || '—'}</div>
+            ${materia ? `<div class="clase-card__materia" title="${esc(c.nombre_materia ?? '')}">${materia}</div>` : ''}
+            ${jornadaHtml}
           </div>
+          ${statusHtml ? `<div style="flex-shrink:0">${statusHtml}</div>` : ''}
         </div>
-        <div class="ficha-card__cta">
-          <button class="btn btn-primary btn-sm" style="white-space:nowrap"
-                  onclick="event.stopPropagation();sesiones.abrirModal(${f.id_ficha},'${fichaEsc}','${progEsc.replace(/'/g, "\\'")}')">
-            Iniciar clase →
+        <div class="clase-card__actions">
+          ${accionPrincipal}
+          <button class="clase-card__btn-icon" title="Editar clase"
+                  onclick="sesiones.abrirModalEditar(${idFicha}, '${codigo}', '${dataPrograma}', '${dataMateria}', ${c.id_jornada ?? 'null'})">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
+          <button class="clase-card__btn-icon clase-card__btn-icon--danger" title="Eliminar clase"
+                  onclick="sesiones.eliminarClase(${idFicha}, '${codigo}')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
           </button>
         </div>
       </div>`;
   }
 
-  // ─── Navegar al QR de la ficha activa ─────────────────────────────
-  async function irQrFicha(idFicha) {
-    try {
-      const data    = await Api.sesiones.listar({ estado: 'abierta' });
-      const activas = data.sesiones ?? [];
-      const sesion  = activas.find(s => String(s.id_ficha) === String(idFicha));
-      if (sesion) {
-        window.location.href = `index.php?view=qr&rol=docente&sesion=${sesion.id_sesion}`;
-      }
-    } catch { /* ignore */ }
-    return false;
+  // ─── Modal: Nueva Clase ────────────────────────────────────────────────
+
+  function abrirModalNueva() {
+    document.getElementById('formNuevaClase')?.reset();
+    document.getElementById('modalNuevaClaseBackdrop').style.display = 'flex';
+    setTimeout(() => document.getElementById('nuevaFicha')?.focus(), 80);
   }
 
-  // ─── Modal ─────────────────────────────────────────────────────────
-  function abrirModal(idFicha, codigo, programa) {
-    document.getElementById('modalFichaId').value    = idFicha;
-    document.getElementById('modalIniciarTitulo').textContent = `Ficha ${codigo}`;
-    document.getElementById('modalIniciarSub').textContent    = programa;
+  function cerrarModalNueva() {
+    document.getElementById('modalNuevaClaseBackdrop').style.display = 'none';
+  }
+
+  async function crearClase(e) {
+    e.preventDefault();
+
+    const codigo   = document.getElementById('nuevaFicha')?.value.trim() ?? '';
+    const programa = document.getElementById('nuevaPrograma')?.value.trim() ?? '';
+    const materia  = document.getElementById('nuevaMateria')?.value.trim() ?? '';
+    const jornada  = document.getElementById('nuevaJornada')?.value;
+
+    if (!codigo || !programa || !jornada) {
+      AttendQR.toast.warning('Completa los campos obligatorios.');
+      return;
+    }
+
+    const btn  = document.getElementById('btnCrearClase');
+    const orig = btn?.innerHTML;
+    if (btn) { btn.disabled = true; btn.innerHTML = _spinnerHtml('Guardando...'); }
+
+    try {
+      const nueva = await Api.fichas.crear({
+        codigo_ficha:    codigo,
+        nombre_programa: programa,
+        nombre_materia:  materia || null,
+        id_jornada:      parseInt(jornada, 10),
+      });
+
+      clases.unshift(nueva); // agregar al inicio (más reciente primero)
+      renderClasesGrid();
+      cerrarModalNueva();
+      AttendQR.toast.success('Clase creada. Ya puedes iniciarla cuando quieras.');
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      AttendQR.toast.error(err.message ?? 'Error al crear la clase.');
+    }
+  }
+
+  // ─── Modal: Editar Clase ───────────────────────────────────────────────
+
+  function abrirModalEditar(idFicha, codigo, programa, materia, idJornada) {
+    document.getElementById('editIdFicha').value  = idFicha;
+    document.getElementById('editFicha').value    = codigo;
+    document.getElementById('editPrograma').value = programa;
+    document.getElementById('editMateria').value  = materia ?? '';
+
+    const sel = document.getElementById('editJornada');
+    if (sel && idJornada) sel.value = String(idJornada);
+
+    document.getElementById('modalEditarClaseBackdrop').style.display = 'flex';
+    setTimeout(() => document.getElementById('editFicha')?.focus(), 80);
+  }
+
+  function cerrarModalEditar() {
+    document.getElementById('modalEditarClaseBackdrop').style.display = 'none';
+  }
+
+  async function editarClase(e) {
+    e.preventDefault();
+
+    const idFicha  = parseInt(document.getElementById('editIdFicha')?.value ?? '0', 10);
+    const codigo   = document.getElementById('editFicha')?.value.trim() ?? '';
+    const programa = document.getElementById('editPrograma')?.value.trim() ?? '';
+    const materia  = document.getElementById('editMateria')?.value.trim() ?? '';
+    const jornada  = document.getElementById('editJornada')?.value;
+
+    if (!idFicha || !codigo || !programa || !jornada) {
+      AttendQR.toast.warning('Completa los campos obligatorios.');
+      return;
+    }
+
+    const btn  = document.getElementById('btnEditarClase');
+    const orig = btn?.innerHTML;
+    if (btn) { btn.disabled = true; btn.innerHTML = _spinnerHtml('Guardando...'); }
+
+    try {
+      const actualizada = await Api.fichas.actualizar(idFicha, {
+        codigo_ficha:    codigo,
+        nombre_programa: programa,
+        nombre_materia:  materia || null,
+        id_jornada:      parseInt(jornada, 10),
+      });
+
+      // Actualizar en cache
+      const idx = clases.findIndex(c => c.id_ficha === idFicha);
+      if (idx >= 0) clases[idx] = actualizada;
+      renderClasesGrid();
+      cerrarModalEditar();
+      AttendQR.toast.success('Clase actualizada correctamente.');
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      AttendQR.toast.error(err.message ?? 'Error al actualizar la clase.');
+    }
+  }
+
+  // ─── Eliminar Clase ────────────────────────────────────────────────────
+
+  async function eliminarClase(idFicha, codigo) {
+    if (!confirm(`¿Eliminar la clase Ficha ${codigo}?\n\nEsta acción no se puede deshacer. Los aprendices vinculados a esta ficha no podrán ser eliminados si están activos.`)) return;
+
+    try {
+      await Api.fichas.eliminar(idFicha);
+      clases = clases.filter(c => c.id_ficha !== idFicha);
+      renderClasesGrid();
+      AttendQR.toast.success(`Clase ${codigo} eliminada.`);
+    } catch (err) {
+      AttendQR.toast.error(err.message ?? 'Error al eliminar la clase.');
+    }
+  }
+
+  // ─── Modal: Iniciar Sesión ─────────────────────────────────────────────
+
+  function abrirModalIniciar(idFicha) {
+    const clase = clases.find(c => c.id_ficha === idFicha);
+    if (!clase) return;
+
+    document.getElementById('iniciarFichaId').value  = idFicha;
+    document.getElementById('iniciarMateria').value  = clase.nombre_materia ?? '';
+    document.getElementById('modalIniciarTitulo').textContent = `Ficha ${esc(clase.codigo_ficha)}`;
+
+    const sub = [clase.nombre_programa, clase.nombre_materia, clase.nombre_jornada]
+      .filter(Boolean).join(' · ');
+    document.getElementById('modalIniciarSub').textContent = sub;
 
     const horaInput = document.getElementById('horaInicioClase');
     if (horaInput) {
@@ -174,28 +358,23 @@ const sesiones = (() => {
       horaInput.value = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
     }
 
-    document.getElementById('nombreMateria').value = '';
-
-    const backdrop = document.getElementById('modalIniciarBackdrop');
-    backdrop.style.display = 'flex';
+    document.getElementById('modalIniciarBackdrop').style.display = 'flex';
     setTimeout(() => horaInput?.focus(), 100);
   }
 
-  function cerrarModal() {
-    const backdrop = document.getElementById('modalIniciarBackdrop');
-    if (backdrop) backdrop.style.display = 'none';
+  function cerrarModalIniciar() {
+    document.getElementById('modalIniciarBackdrop').style.display = 'none';
   }
 
-  // ─── Crear sesión ──────────────────────────────────────────────────
-  async function crear(e) {
+  async function iniciarSesion(e) {
     e.preventDefault();
 
-    const idFicha         = document.getElementById('modalFichaId')?.value;
+    const idFicha         = parseInt(document.getElementById('iniciarFichaId')?.value ?? '0', 10);
     const horaInicioClase = document.getElementById('horaInicioClase')?.value;
-    const nombreMateria   = document.getElementById('nombreMateria')?.value.trim() ?? '';
+    const nombreMateria   = document.getElementById('iniciarMateria')?.value ?? '';
 
     if (!idFicha) {
-      AttendQR.toast.warning('Error: no se identificó la ficha. Recarga la página.');
+      AttendQR.toast.warning('Error: no se identificó la clase. Recarga la página.');
       return;
     }
     if (!horaInicioClase) {
@@ -204,16 +383,13 @@ const sesiones = (() => {
       return;
     }
 
-    const btn  = document.getElementById('btnCrear');
+    const btn  = document.getElementById('btnIniciarSesion');
     const orig = btn?.innerHTML;
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-color:rgba(255,255,255,.3);border-top-color:#fff"></div> Iniciando...';
-    }
+    if (btn) { btn.disabled = true; btn.innerHTML = _spinnerHtml('Iniciando...'); }
 
     try {
       const sesion = await Api.sesiones.crear({
-        id_ficha:          parseInt(idFicha, 10),
+        id_ficha:          idFicha,
         hora_inicio_clase: horaInicioClase,
         nombre_materia:    nombreMateria,
       });
@@ -221,7 +397,7 @@ const sesiones = (() => {
       try { await Api.qr.generar(sesion.id_sesion); } catch { /* continúa */ }
 
       AttendQR.toast.success('Clase iniciada. Mostrando código QR...');
-      cerrarModal();
+      cerrarModalIniciar();
 
       setTimeout(() => {
         window.location.href = `index.php?view=qr&rol=docente&sesion=${sesion.id_sesion}`;
@@ -229,22 +405,57 @@ const sesiones = (() => {
 
     } catch (err) {
       if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-      AttendQR.toast.error(err.message ?? 'Error al crear la sesión.');
+      AttendQR.toast.error(err.message ?? 'Error al iniciar la sesión.');
     }
   }
 
-  // Cerrar modal con Escape
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') cerrarModal();
-  });
+  // ─── Navegar al QR de ficha activa ────────────────────────────────────
+
+  async function irQrFicha(idFicha) {
+    const idSesion = sesionesActivas[String(idFicha)];
+    if (idSesion) {
+      window.location.href = `index.php?view=qr&rol=docente&sesion=${idSesion}`;
+    } else {
+      // Fallback: buscar en la API
+      try {
+        const data    = await Api.sesiones.listar({ estado: 'abierta' });
+        const activas = data.sesiones ?? [];
+        const sesion  = activas.find(s => String(s.id_ficha) === String(idFicha));
+        if (sesion) {
+          window.location.href = `index.php?view=qr&rol=docente&sesion=${sesion.id_sesion}`;
+        }
+      } catch { /* silencioso */ }
+    }
+    return false;
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────
 
   function esc(str) {
     return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  function _spinnerHtml(texto) {
+    return `<div class="spinner" style="width:14px;height:14px;border-color:rgba(255,255,255,.3);border-top-color:#fff;display:inline-block;vertical-align:middle"></div> ${texto}`;
+  }
+
+  // Cerrar modales con Escape
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    cerrarModalNueva();
+    cerrarModalEditar();
+    cerrarModalIniciar();
+  });
+
   document.addEventListener('DOMContentLoaded', () => {
     if (window.ATTENDQR_VIEW === 'crear-sesion') init();
   });
 
-  return { crear, abrirModal, cerrarModal, irQrFicha };
+  return {
+    abrirModalNueva, cerrarModalNueva, crearClase,
+    abrirModalEditar, cerrarModalEditar, editarClase,
+    eliminarClase,
+    abrirModalIniciar, cerrarModalIniciar, iniciarSesion,
+    irQrFicha,
+  };
 })();

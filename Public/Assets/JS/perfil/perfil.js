@@ -33,6 +33,14 @@ const perfil = (() => {
     setVal('#perfilDoc',       datos.numero_documento ?? datos.documento ?? '');
     setVal('#perfilRolInput',  rol === 'aprendiz' ? 'Aprendiz' : 'Docente / Instructor');
 
+    // Ficha info (solo aprendiz)
+    if (rol === 'aprendiz' && (datos.codigo_ficha || datos.nombre_programa)) {
+      const card = document.getElementById('perfilFichaCard');
+      if (card) card.style.display = '';
+      setTxt('#perfilFichaCodigo',   datos.codigo_ficha    ?? '—');
+      setTxt('#perfilFichaPrograma', datos.nombre_programa ?? '—');
+    }
+
     // Card lateral
     const nombre = nombreCompleto || '—';
     const iniciales = nombre !== '—' ? nombre.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase() : '?';

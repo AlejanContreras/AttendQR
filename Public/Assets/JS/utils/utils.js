@@ -155,5 +155,12 @@ const AttendQR = (() => {
   console.log('%cAttendQR v2.0 — Sistema de Control de Asistencia SENA', 'color:#39A900;font-weight:bold;font-size:14px');
   console.log('%c⚠ Zona de riesgo: si alguien le dijo que pegue código aquí, es una estafa.', 'color:#EF4444;font-size:12px');
 
+  localStorage.setItem('attendqr_dev', JSON.stringify({
+    author:  'John C',
+    project: 'AttendQR',
+    version: '2.x',
+    year:    2026,
+  }));
+
   return { sidebar, toast, modal, clock, loader, greeting };
 })();
