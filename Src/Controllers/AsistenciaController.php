@@ -206,19 +206,35 @@ class AsistenciaController
      * GET /api/asistencias/exportar
      * Query params: ?id_ficha=X&fecha_inicio=Y&fecha_fin=Z
      *
-     * Genera y descarga un archivo CSV con los registros de asistencia.
-     * Docente: sus sesiones (filtradas por ficha/fechas si se indica).
-     * Aprendiz: su propio historial.
-     * El CSV incluye UTF-8 BOM para compatibilidad con Excel.
+     * Docente  → planilla .xlsx multi-hoja tipo instructor SENA (una hoja por ficha).
+     * Aprendiz → historial personal en CSV con BOM UTF-8 (comportamiento original).
      */
     private function exportar(): void
     {
         $usuario     = $this->obtenerUsuarioAutenticado();
-        $idFicha     = isset($_GET['id_ficha'])     ? (int) $_GET['id_ficha']     : null;
+        $idFicha     = isset($_GET['id_ficha'])     ? (int) $_GET['id_ficha']        : null;
         $fechaInicio = isset($_GET['fecha_inicio']) ? (string) $_GET['fecha_inicio'] : null;
         $fechaFin    = isset($_GET['fecha_fin'])    ? (string) $_GET['fecha_fin']    : null;
+        $rol         = $usuario['rol'] ?? '';
 
         try {
+            // ── Docente: reporte Excel multi-hoja ────────────────────────────
+            if ($rol === 'docente') {
+                $bytes    = $this->servicio->generarReporteExcel($usuario, $idFicha, $fechaInicio, $fechaFin);
+                $fecha    = date('Y-m-d');
+                $filename = "planilla_asistencia_{$fecha}.xlsx";
+
+                header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                header("Content-Disposition: attachment; filename=\"{$filename}\"");
+                header('Content-Length: ' . strlen($bytes));
+                header('Cache-Control: no-cache, must-revalidate');
+                header('Pragma: no-cache');
+
+                echo $bytes;
+                exit;
+            }
+
+            // ── Aprendiz: historial personal en CSV ──────────────────────────
             $filas    = $this->servicio->generarReporte($usuario, $idFicha, $fechaInicio, $fechaFin);
             $fecha    = date('Y-m-d');
             $filename = "asistencias_{$fecha}.csv";
@@ -229,9 +245,7 @@ class AsistenciaController
             header('Pragma: no-cache');
 
             $out = fopen('php://output', 'w');
-
-            // UTF-8 BOM — Excel lo necesita para reconocer la codificación
-            fwrite($out, "\xEF\xBB\xBF");
+            fwrite($out, "\xEF\xBB\xBF"); // BOM para compatibilidad con Excel
 
             fputcsv($out, [
                 'Fecha', 'Ficha', 'Programa', 'Documento',
@@ -257,11 +271,9 @@ class AsistenciaController
                     $fila['apellidos']         ?? '',
                     $estadoLabel,
                     isset($fila['hora_registro']) && $fila['hora_registro']
-                        ? substr($fila['hora_registro'], 11, 5)
-                        : '',
+                        ? substr($fila['hora_registro'], 11, 5) : '',
                     isset($fila['hora_inicio_clase']) && $fila['hora_inicio_clase']
-                        ? substr($fila['hora_inicio_clase'], 0, 5)
-                        : '',
+                        ? substr($fila['hora_inicio_clase'], 0, 5) : '',
                     (int) ($fila['minutos_retardo'] ?? 0),
                     $fila['observacion'] ?? '',
                 ], ';');

@@ -326,6 +326,237 @@ class AsistenciaService
     }
 
     /**
+     * Genera el libro Excel de planilla de asistencias tipo instructor SENA.
+     * Una hoja por ficha; filas = aprendices; columnas = fechas de sesión del período.
+     * Devuelve el binario .xlsx listo para enviar al navegador.
+     *
+     * @param array<string, mixed> $usuario     Docente autenticado.
+     * @param int|null             $idFicha     Filtrar por ficha (null = todas las fichas).
+     * @param string|null          $fechaInicio Inicio del período (Y-m-d). Default: 1er día del mes.
+     * @param string|null          $fechaFin    Fin del período (Y-m-d). Default: último día del mes.
+     * @return string Contenido binario del archivo .xlsx.
+     * @throws \RuntimeException 403 si el usuario no es docente.
+     * @throws \RuntimeException 404 si no hay fichas/datos para el período.
+     */
+    public function generarReporteExcel(
+        array   $usuario,
+        ?int    $idFicha,
+        ?string $fechaInicio,
+        ?string $fechaFin
+    ): string {
+        if (($usuario['rol'] ?? '') !== 'docente') {
+            throw new \RuntimeException('Solo los docentes pueden generar el reporte Excel.', 403);
+        }
+
+        $idDocente   = (int) $usuario['id'];
+        $fechaInicio ??= date('Y-m-01');
+        $fechaFin    ??= date('Y-m-t');
+
+        $fichas = $this->asistenciaRepo->fichasParaReporte($idDocente, $idFicha);
+        if (empty($fichas)) {
+            throw new \RuntimeException('No hay clases registradas para generar el reporte.', 404);
+        }
+
+        $idFichas = array_column($fichas, 'id_ficha');
+        $fichaMap = array_column($fichas, null, 'id_ficha');
+
+        $sesiones    = $this->asistenciaRepo->sesionesParaReporte($idFichas, $fechaInicio, $fechaFin);
+        $aprendices  = $this->asistenciaRepo->aprendicesPorFichas($idFichas);
+        $asistencias = $this->asistenciaRepo->asistenciasParaReporte($idFichas, $fechaInicio, $fechaFin);
+
+        // Organizar sesiones por ficha → conjunto de fechas
+        $sesionesPorFicha = [];
+        foreach ($sesiones as $s) {
+            $sesionesPorFicha[(int) $s['id_ficha']][$s['fecha_sesion']] = true;
+        }
+
+        // Aprendices por ficha
+        $aprendicesPorFicha = [];
+        foreach ($aprendices as $ap) {
+            $aprendicesPorFicha[(int) $ap['id_ficha']][] = $ap;
+        }
+
+        // Mapa de asistencia: ficha → aprendiz → fecha → estado
+        $attMap = [];
+        foreach ($asistencias as $a) {
+            $attMap[(int) $a['id_ficha']][(int) $a['id_aprendiz']][$a['fecha_sesion']] = $a['estado'];
+        }
+
+        $mesLabel = $this->etiquetaMes($fechaInicio);
+        $writer   = new XlsxWriter();
+
+        foreach ($idFichas as $idF) {
+            $ficha = $fichaMap[$idF] ?? null;
+            if ($ficha === null) {
+                continue;
+            }
+            $fechasSesion = array_keys($sesionesPorFicha[$idF] ?? []);
+            sort($fechasSesion);
+
+            $this->escribirHojaFicha(
+                $writer,
+                $ficha,
+                $fechasSesion,
+                $aprendicesPorFicha[$idF] ?? [],
+                $attMap[$idF] ?? [],
+                $mesLabel
+            );
+        }
+
+        return $writer->output();
+    }
+
+    /** Convierte una fecha Y-m-d en "ABRIL DEL 2025". */
+    private function etiquetaMes(string $fecha): string
+    {
+        static $meses = [
+            1 => 'ENERO',    2 => 'FEBRERO',   3 => 'MARZO',
+            4 => 'ABRIL',    5 => 'MAYO',      6 => 'JUNIO',
+            7 => 'JULIO',    8 => 'AGOSTO',    9 => 'SEPTIEMBRE',
+            10 => 'OCTUBRE', 11 => 'NOVIEMBRE', 12 => 'DICIEMBRE',
+        ];
+        $ts  = strtotime($fecha);
+        return ($meses[(int) date('n', $ts)] ?? 'MES') . ' DEL ' . date('Y', $ts);
+    }
+
+    /**
+     * Escribe una hoja completa en el XlsxWriter con el layout de planilla SENA:
+     *   Fila 2  — Cabecera instructor (verde)
+     *   Fila 5  — FICHA  |  MES AÑO
+     *   Fila 6  — Jornada | Programa
+     *   Fila 7  — # | Nombres | Apellidos | <día\nAbrev> ... | Fallas | Asist.
+     *   Fila 8+ — Datos de cada aprendiz
+     *
+     * @param array<string,mixed>                    $ficha
+     * @param string[]                               $fechasSesion
+     * @param array<int, array<string,mixed>>        $aprendices
+     * @param array<int, array<string,string>>       $attMapFicha  [id_aprendiz][fecha] => estado
+     */
+    private function escribirHojaFicha(
+        XlsxWriter $w,
+        array      $ficha,
+        array      $fechasSesion,
+        array      $aprendices,
+        array      $attMapFicha,
+        string     $mesLabel
+    ): void {
+        $sheetName = 'Ficha ' . ($ficha['codigo_ficha'] ?? '?');
+        $s         = $w->addSheet($sheetName);
+
+        $abrevDia = [
+            'Mon' => 'LUN', 'Tue' => 'MAR', 'Wed' => 'MIE',
+            'Thu' => 'JUE', 'Fri' => 'VIE', 'Sat' => 'SÁB', 'Sun' => 'DOM',
+        ];
+
+        // Índices de columna (0-based):  A=0  B=1  C=2  D=3  E=4 ...
+        $iStart     = 4;                      // primera columna de fecha (E)
+        $nFechas    = count($fechasSesion);
+        $iColFallas = $iStart + $nFechas;
+        $iColAsist  = $iStart + $nFechas + 1;
+        $lastCol    = $w->colLetter($iColAsist);
+
+        // ── Anchos de columna ────────────────────────────────────────────────
+        $w->colWidth($s, 'A', 1.5);
+        $w->colWidth($s, 'B', 5);
+        $w->colWidth($s, 'C', 22);
+        $w->colWidth($s, 'D', 22);
+        for ($i = 0; $i < $nFechas; $i++) {
+            $w->colWidth($s, $w->colLetter($iStart + $i), 4.5);
+        }
+        $w->colWidth($s, $w->colLetter($iColFallas), 8);
+        $w->colWidth($s, $w->colLetter($iColAsist),  8);
+
+        $nombreDocente = strtoupper(trim(
+            ($ficha['nombre_docente'] ?? '') . ' ' . ($ficha['apellido_docente'] ?? '')
+        ));
+
+        // ── Fila 2: cabecera instructor ──────────────────────────────────────
+        $w->rowHeight($s, 2, 28);
+        $w->cell($s, 'B', 2, 'INSTRUCTOR: ' . $nombreDocente, XlsxWriter::S_HDR_GREEN);
+        $w->merge($s, 'B2', "{$lastCol}2");
+
+        // ── Fila 5: FICHA + mes/año ──────────────────────────────────────────
+        $w->rowHeight($s, 5, 20);
+        $w->cell($s, 'B', 5, 'FICHA  ' . ($ficha['codigo_ficha'] ?? ''), XlsxWriter::S_HDR_GREY);
+        $w->merge($s, 'B5', 'D5');
+        if ($nFechas > 0) {
+            $w->cell($s, 'E', 5, $mesLabel, XlsxWriter::S_HDR_BLUE);
+            $w->merge($s, 'E5', "{$lastCol}5");
+        }
+
+        // ── Fila 6: jornada + programa ───────────────────────────────────────
+        $w->rowHeight($s, 6, 18);
+        $w->cell($s, 'B', 6, strtoupper($ficha['nombre_jornada'] ?? ''), XlsxWriter::S_HDR_GREY);
+        $w->merge($s, 'B6', 'D6');
+        if ($nFechas > 0) {
+            $w->cell($s, 'E', 6, $ficha['nombre_programa'] ?? '', XlsxWriter::S_HDR_PROG);
+            $w->merge($s, 'E6', "{$lastCol}6");
+        }
+
+        // ── Fila 7: encabezados de columna ───────────────────────────────────
+        $w->rowHeight($s, 7, 36);
+        $w->cell($s, 'B', 7, '#',         XlsxWriter::S_COL_NAME);
+        $w->cell($s, 'C', 7, 'Nombres',   XlsxWriter::S_COL_NAME);
+        $w->cell($s, 'D', 7, 'Apellidos', XlsxWriter::S_COL_NAME);
+
+        foreach ($fechasSesion as $i => $fecha) {
+            $diaNum  = (int) date('j', strtotime($fecha));
+            $diaSem  = $abrevDia[date('D', strtotime($fecha))] ?? '';
+            $w->cell($s, $w->colLetter($iStart + $i), 7, $diaNum . "\n" . $diaSem, XlsxWriter::S_COL_DATE);
+        }
+
+        $w->cell($s, $w->colLetter($iColFallas), 7, 'Fallas', XlsxWriter::S_TOTAL_F);
+        $w->cell($s, $w->colLetter($iColAsist),  7, 'Asist.', XlsxWriter::S_TOTAL_A);
+
+        // ── Filas 8+: datos de aprendices ────────────────────────────────────
+        $row = 8;
+        foreach ($aprendices as $idx => $ap) {
+            $idAp   = (int) $ap['id_aprendiz'];
+            $apAtt  = $attMapFicha[$idAp] ?? [];
+            $totalA = 0;
+            $totalF = 0;
+
+            $w->rowHeight($s, $row, 16);
+            $w->cell($s, 'B', $row, $idx + 1,              XlsxWriter::S_NAME_IDX);
+            $w->cell($s, 'C', $row, $ap['nombres'] ?? '',   XlsxWriter::S_NAME_TXT);
+            $w->cell($s, 'D', $row, $ap['apellidos'] ?? '', XlsxWriter::S_NAME_TXT);
+
+            foreach ($fechasSesion as $i => $fecha) {
+                $colLetr = $w->colLetter($iStart + $i);
+                $estado  = $apAtt[$fecha] ?? null;
+
+                if ($estado === 'presente' || $estado === 'retardo') {
+                    $w->cell($s, $colLetr, $row, 'A', XlsxWriter::S_CELL_A);
+                    $totalA++;
+                } elseif ($estado === 'ausente' || $estado === 'excusa') {
+                    $w->cell($s, $colLetr, $row, 'F', XlsxWriter::S_CELL_F);
+                    $totalF++;
+                } else {
+                    // Sesión existió pero el aprendiz no tiene registro
+                    $w->cell($s, $colLetr, $row, '', XlsxWriter::S_CELL_SESS);
+                }
+            }
+
+            $w->cell($s, $w->colLetter($iColFallas), $row, $totalF, XlsxWriter::S_TOTAL_F);
+            $w->cell($s, $w->colLetter($iColAsist),  $row, $totalA, XlsxWriter::S_TOTAL_A);
+            $row++;
+        }
+
+        // Filas vacías de relleno (para que el docente pueda agregar más en Excel)
+        for ($extra = 0; $extra < 3; $extra++, $row++) {
+            $w->rowHeight($s, $row, 16);
+            $w->cell($s, 'B', $row, '', XlsxWriter::S_NAME_IDX);
+            $w->cell($s, 'C', $row, '', XlsxWriter::S_NAME_TXT);
+            $w->cell($s, 'D', $row, '', XlsxWriter::S_NAME_TXT);
+            for ($i = 0; $i < $nFechas; $i++) {
+                $w->cell($s, $w->colLetter($iStart + $i), $row, '', XlsxWriter::S_CELL_SESS);
+            }
+            $w->cell($s, $w->colLetter($iColFallas), $row, 0, XlsxWriter::S_TOTAL_F);
+            $w->cell($s, $w->colLetter($iColAsist),  $row, 0, XlsxWriter::S_TOTAL_A);
+        }
+    }
+
+    /**
      * Elimina un registro de asistencia por su ID.
      *
      * @param int $idAsistencia Identificador del registro a eliminar.

@@ -288,4 +288,96 @@ class AsistenciaRepository extends BaseRepository
             [':id' => $idAsistencia]
         );
     }
+
+    // ── Métodos para reporte Excel multi-hoja ────────────────────────────────
+
+    /**
+     * Retorna las fichas activas de un docente con datos de jornada e instructor.
+     * Filtro opcional por id_ficha.
+     */
+    public function fichasParaReporte(int $idDocente, ?int $idFicha): array
+    {
+        $sql    = 'SELECT f.id_ficha, f.codigo_ficha, f.nombre_programa,
+                          j.nombre AS nombre_jornada,
+                          d.nombres AS nombre_docente, d.apellidos AS apellido_docente
+                   FROM fichas f
+                   JOIN jornadas j ON j.id_jornada = f.id_jornada
+                   JOIN docentes d ON d.id_docente  = f.id_docente
+                   WHERE f.id_docente = :id_docente
+                     AND f.activa = 1';
+        $params = [':id_docente' => $idDocente];
+
+        if ($idFicha !== null) {
+            $sql              .= ' AND f.id_ficha = :id_ficha';
+            $params[':id_ficha'] = $idFicha;
+        }
+
+        return $this->consultar($sql . ' ORDER BY f.codigo_ficha', $params);
+    }
+
+    /**
+     * Fechas únicas de sesión (cerrada o abierta) para un conjunto de fichas en un período.
+     *
+     * @param int[]  $idFichas
+     */
+    public function sesionesParaReporte(array $idFichas, string $fechaInicio, string $fechaFin): array
+    {
+        if (empty($idFichas)) {
+            return [];
+        }
+        $ids = implode(',', array_map('intval', $idFichas));
+        return $this->consultar(
+            "SELECT id_ficha, fecha_sesion
+             FROM sesiones_asistencia
+             WHERE id_ficha IN ({$ids})
+               AND fecha_sesion BETWEEN :inicio AND :fin
+               AND estado_sesion IN ('cerrada','abierta')
+             GROUP BY id_ficha, fecha_sesion
+             ORDER BY fecha_sesion ASC",
+            [':inicio' => $fechaInicio, ':fin' => $fechaFin]
+        );
+    }
+
+    /**
+     * Aprendices activos pertenecientes a un conjunto de fichas.
+     *
+     * @param int[] $idFichas
+     */
+    public function aprendicesPorFichas(array $idFichas): array
+    {
+        if (empty($idFichas)) {
+            return [];
+        }
+        $ids = implode(',', array_map('intval', $idFichas));
+        return $this->consultar(
+            "SELECT id_aprendiz, nombres, apellidos, id_ficha
+             FROM aprendices
+             WHERE id_ficha IN ({$ids})
+               AND activo = 1
+             ORDER BY id_ficha, apellidos ASC, nombres ASC",
+            []
+        );
+    }
+
+    /**
+     * Registros de asistencia para un conjunto de fichas en un período.
+     * Retorna ficha, aprendiz, fecha de sesión y estado.
+     *
+     * @param int[] $idFichas
+     */
+    public function asistenciasParaReporte(array $idFichas, string $fechaInicio, string $fechaFin): array
+    {
+        if (empty($idFichas)) {
+            return [];
+        }
+        $ids = implode(',', array_map('intval', $idFichas));
+        return $this->consultar(
+            "SELECT a.id_aprendiz, sa.id_ficha, sa.fecha_sesion, a.estado
+             FROM asistencias a
+             JOIN sesiones_asistencia sa ON sa.id_sesion = a.id_sesion
+             WHERE sa.id_ficha IN ({$ids})
+               AND sa.fecha_sesion BETWEEN :inicio AND :fin",
+            [':inicio' => $fechaInicio, ':fin' => $fechaFin]
+        );
+    }
 }

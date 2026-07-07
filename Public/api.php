@@ -73,6 +73,7 @@ define('REPOSITORIES_PATH', SRC_PATH  . '/Repositories/');
 define('MODELS_PATH',       SRC_PATH  . '/Models/');
 define('MIDDLEWARE_PATH',   SRC_PATH  . '/Middleware/');
 define('CONFIG_PATH',       SRC_PATH  . '/Config/');
+define('UTILS_PATH',        SRC_PATH  . '/Utils/');
 
 // ---------------------------------------------------------------------------
 // 3. Bootstrap – carga de dependencias en orden
@@ -118,7 +119,10 @@ require_once MODELS_PATH . 'SesionAsistenciaModel.php';
 require_once MODELS_PATH . 'TokenQRModel.php';
 require_once MODELS_PATH . 'TrimestreModel.php';
 
-// 3e. Services (dependen de Repositories — deben cargarse después)
+// 3e. Utilidades (sin dependencias de BD)
+require_once UTILS_PATH . 'XlsxWriter.php';
+
+// 3f. Services (dependen de Repositories — deben cargarse después)
 require_once SERVICES_PATH . 'AuthService.php';
 require_once SERVICES_PATH . 'AprendizService.php';
 require_once SERVICES_PATH . 'AsistenciaService.php';
