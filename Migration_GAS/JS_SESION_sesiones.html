@@ -1,0 +1,539 @@
+﻿<script>
+/**
+ * AttendQR — Mis Clases (sesiones.js)
+ *
+ * Flujo:
+ *   Clase  = ficha permanente (ficha + programa + materia + jornada)
+ *   Sesión = clase impartida  (se crea al presionar "Iniciar clase" → solo hora)
+ *
+ * Módulos:
+ *   1. Cargar jornadas para los selectores
+ *   2. Cargar clases del docente (fichas) → grid de cards
+ *   3. Modal Nueva Clase  → POST /api/fichas/crear
+ *   4. Modal Editar Clase → PUT  /api/fichas/actualizar/{id}
+ *   5. Eliminar Clase     → DELETE /api/fichas/eliminar/{id}
+ *   6. Modal Iniciar      → POST /api/sesiones/crear (solo hora)
+ */
+const sesiones = (() => {
+
+  let fichasConSesionActiva = new Set();
+  let clases       = [];    // cache de fichas del docente
+  let jornadas     = [];    // cache de jornadas disponibles
+  let sesionesActivas = {}; // { id_ficha: id_sesion }
+  let geoDocente   = null;  // { latitud, longitud, accuracy } — geo del docente para la sesión
+
+  // ─── Init ─────────────────────────────────────────────────────────────
+
+  async function init() {
+    await Promise.all([cargarJornadas(), cargarSesionesActivas()]);
+    await cargarClases();
+  }
+
+  // ─── Jornadas ─────────────────────────────────────────────────────────
+
+  async function cargarJornadas() {
+    try {
+      const data = await Api.jornadas.listar();
+      jornadas = Array.isArray(data) ? data : (data.jornadas ?? []);
+      _poblarSelectJornadas('nuevaJornada');
+      _poblarSelectJornadas('editJornada');
+    } catch { /* jornadas son necesarias — se mostrará error si falla */ }
+  }
+
+  function _poblarSelectJornadas(selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    jornadas.forEach(j => {
+      const opt = document.createElement('option');
+      opt.value = j.id_jornada;
+      opt.textContent = j.nombre ?? `Jornada ${j.id_jornada}`;
+      sel.appendChild(opt);
+    });
+  }
+
+  // ─── Sesiones activas → banner ─────────────────────────────────────────
+
+  async function cargarSesionesActivas() {
+    const banner = document.getElementById('bannerSesionesActivas');
+    if (!banner) return;
+
+    try {
+      const data    = await Api.sesiones.listar({ estado: 'abierta' });
+      const activas = data.sesiones ?? [];
+
+      activas.forEach(s => {
+        if (s.id_ficha) {
+          fichasConSesionActiva.add(String(s.id_ficha));
+          sesionesActivas[String(s.id_ficha)] = s.id_sesion;
+        }
+      });
+
+      if (!activas.length) { banner.style.display = 'none'; return; }
+
+      const links = activas.map(s => {
+        const hora   = s.hora_apertura ? s.hora_apertura.slice(11, 16) : '—';
+        const codigo = esc(s.codigo_ficha ?? `Sesión ${s.id_sesion}`);
+        return `<a href="index.php?view=qr&rol=docente&sesion=${s.id_sesion}"
+                   class="btn btn-sm"
+                   style="background:var(--success-text);color:#fff;border:none">
+                  Ver QR · ${codigo} (${hora})
+                </a>`;
+      }).join('');
+
+      banner.style.display = 'block';
+      banner.innerHTML = `
+        <div class="sesion-activa-banner">
+          <span class="sesion-activa-banner__dot"></span>
+          <strong>${activas.length === 1 ? '1 clase activa ahora mismo' : `${activas.length} clases activas`}</strong>
+          <div class="sesion-activa-banner__list">${links}</div>
+        </div>`;
+    } catch {
+      banner.style.display = 'none';
+    }
+  }
+
+  // ─── Clases (fichas del docente) ───────────────────────────────────────
+
+  async function cargarClases() {
+    const grid = document.getElementById('clasesGrid');
+    if (!grid) return;
+
+    try {
+      const usuario = window.ATTENDQR_USER;
+      const data    = await Api.fichas.listar({ id_docente: usuario.id, estado: 'activa' });
+      clases = data.fichas ?? [];
+      renderClasesGrid();
+    } catch (err) {
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:var(--sp-10);color:var(--danger)">
+          <p style="font-size:var(--text-sm)">No se pudieron cargar las clases: ${esc(err.message)}</p>
+        </div>`;
+      AttendQR.toast.error('No se pudieron cargar las clases: ' + err.message);
+    }
+  }
+
+  function renderClasesGrid() {
+    const grid = document.getElementById('clasesGrid');
+    if (!grid) return;
+
+    if (!clases.length) {
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:var(--sp-12) var(--sp-6)">
+          <div style="font-size:48px;margin-bottom:var(--sp-4)">📚</div>
+          <h3 style="font-size:var(--text-lg);font-weight:var(--fw-semibold);
+                     color:var(--text-primary);margin-bottom:var(--sp-2)">
+            Aún no tienes clases creadas
+          </h3>
+          <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--sp-5)">
+            Crea tu primera clase con el número de ficha, programa y materia.
+            Solo tendrás que hacerlo una vez.
+          </p>
+          <button class="btn btn-primary" onclick="sesiones.abrirModalNueva()">
+            + Nueva Clase
+          </button>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = clases.map(c => renderClaseCard(c)).join('');
+  }
+
+  function renderClaseCard(c) {
+    const idFicha    = c.id_ficha;
+    const tieneActiva = fichasConSesionActiva.has(String(idFicha));
+    const codigo     = esc(c.codigo_ficha ?? '—');
+    const programa   = esc(c.nombre_programa ?? '');
+    const materia    = c.nombre_materia ? esc(c.nombre_materia) : '';
+    const jornada    = c.nombre_jornada ? esc(c.nombre_jornada) : '';
+
+    const iconoSvg = tieneActiva
+      ? `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+         </svg>`
+      : `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                 d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+         </svg>`;
+
+    const statusHtml = tieneActiva
+      ? `<div class="clase-card__live">
+           <span class="clase-card__live-dot"></span>
+           Clase activa
+         </div>`
+      : '';
+
+    const accionPrincipal = tieneActiva
+      ? `<a href="#" onclick="return sesiones.irQrFicha(${idFicha})"
+            class="btn btn-sm clase-card__btn-iniciar"
+            style="background:var(--success-text);color:#fff;border:none;text-align:center">
+           Ver QR →
+         </a>`
+      : `<button class="btn btn-primary btn-sm clase-card__btn-iniciar"
+                  onclick="sesiones.abrirModalIniciar(${idFicha})">
+           Iniciar clase →
+         </button>`;
+
+    const jornadaHtml = jornada
+      ? `<span class="clase-card__jornada">
+           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                style="width:11px;height:11px">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+           </svg>
+           ${jornada}
+         </span>`
+      : '';
+
+    // Build data- attrs for edit (escape for HTML attrs)
+    const dataPrograma = (c.nombre_programa ?? '').replace(/"/g, '&quot;');
+    const dataMateria  = (c.nombre_materia  ?? '').replace(/"/g, '&quot;');
+
+    return `
+      <div class="clase-card ${tieneActiva ? 'clase-card--active' : ''}">
+        <div class="clase-card__top">
+          <div class="clase-card__icon">${iconoSvg}</div>
+          <div class="clase-card__info">
+            <div class="clase-card__ficha">Ficha ${codigo}</div>
+            <div class="clase-card__programa" title="${esc(c.nombre_programa ?? '')}">${programa || '—'}</div>
+            ${materia ? `<div class="clase-card__materia" title="${esc(c.nombre_materia ?? '')}">${materia}</div>` : ''}
+            ${jornadaHtml}
+          </div>
+          ${statusHtml ? `<div style="flex-shrink:0">${statusHtml}</div>` : ''}
+        </div>
+        <div class="clase-card__actions">
+          ${accionPrincipal}
+          <button class="clase-card__btn-icon" title="Editar clase"
+                  onclick="sesiones.abrirModalEditar(${idFicha}, '${codigo}', '${dataPrograma}', '${dataMateria}', ${c.id_jornada ?? 'null'})">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
+          <button class="clase-card__btn-icon clase-card__btn-icon--danger" title="Eliminar clase"
+                  onclick="sesiones.eliminarClase(${idFicha}, '${codigo}')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+        </div>
+      </div>`;
+  }
+
+  // ─── Modal: Nueva Clase ────────────────────────────────────────────────
+
+  function abrirModalNueva() {
+    document.getElementById('formNuevaClase')?.reset();
+    document.getElementById('modalNuevaClaseBackdrop').style.display = 'flex';
+    setTimeout(() => document.getElementById('nuevaFicha')?.focus(), 80);
+  }
+
+  function cerrarModalNueva() {
+    document.getElementById('modalNuevaClaseBackdrop').style.display = 'none';
+  }
+
+  async function crearClase(e) {
+    e.preventDefault();
+
+    const codigo   = document.getElementById('nuevaFicha')?.value.trim() ?? '';
+    const programa = document.getElementById('nuevaPrograma')?.value.trim() ?? '';
+    const materia  = document.getElementById('nuevaMateria')?.value.trim() ?? '';
+    const jornada  = document.getElementById('nuevaJornada')?.value;
+
+    if (!codigo || !programa || !jornada) {
+      AttendQR.toast.warning('Completa los campos obligatorios.');
+      return;
+    }
+
+    const btn  = document.getElementById('btnCrearClase');
+    const orig = btn?.innerHTML;
+    if (btn) { btn.disabled = true; btn.innerHTML = _spinnerHtml('Guardando...'); }
+
+    try {
+      const nueva = await Api.fichas.crear({
+        codigo_ficha:    codigo,
+        nombre_programa: programa,
+        nombre_materia:  materia || null,
+        id_jornada:      parseInt(jornada, 10),
+      });
+
+      clases.unshift(nueva); // agregar al inicio (más reciente primero)
+      renderClasesGrid();
+      cerrarModalNueva();
+      AttendQR.toast.success('Clase creada. Ya puedes iniciarla cuando quieras.');
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      AttendQR.toast.error(err.message ?? 'Error al crear la clase.');
+    }
+  }
+
+  // ─── Modal: Editar Clase ───────────────────────────────────────────────
+
+  function abrirModalEditar(idFicha, codigo, programa, materia, idJornada) {
+    document.getElementById('editIdFicha').value  = idFicha;
+    document.getElementById('editFicha').value    = codigo;
+    document.getElementById('editPrograma').value = programa;
+    document.getElementById('editMateria').value  = materia ?? '';
+
+    const sel = document.getElementById('editJornada');
+    if (sel && idJornada) sel.value = String(idJornada);
+
+    document.getElementById('modalEditarClaseBackdrop').style.display = 'flex';
+    setTimeout(() => document.getElementById('editFicha')?.focus(), 80);
+  }
+
+  function cerrarModalEditar() {
+    document.getElementById('modalEditarClaseBackdrop').style.display = 'none';
+  }
+
+  async function editarClase(e) {
+    e.preventDefault();
+
+    const idFicha  = parseInt(document.getElementById('editIdFicha')?.value ?? '0', 10);
+    const codigo   = document.getElementById('editFicha')?.value.trim() ?? '';
+    const programa = document.getElementById('editPrograma')?.value.trim() ?? '';
+    const materia  = document.getElementById('editMateria')?.value.trim() ?? '';
+    const jornada  = document.getElementById('editJornada')?.value;
+
+    if (!idFicha || !codigo || !programa || !jornada) {
+      AttendQR.toast.warning('Completa los campos obligatorios.');
+      return;
+    }
+
+    const btn  = document.getElementById('btnEditarClase');
+    const orig = btn?.innerHTML;
+    if (btn) { btn.disabled = true; btn.innerHTML = _spinnerHtml('Guardando...'); }
+
+    try {
+      const actualizada = await Api.fichas.actualizar(idFicha, {
+        codigo_ficha:    codigo,
+        nombre_programa: programa,
+        nombre_materia:  materia || null,
+        id_jornada:      parseInt(jornada, 10),
+      });
+
+      // Actualizar en cache
+      const idx = clases.findIndex(c => c.id_ficha === idFicha);
+      if (idx >= 0) clases[idx] = actualizada;
+      renderClasesGrid();
+      cerrarModalEditar();
+      AttendQR.toast.success('Clase actualizada correctamente.');
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      AttendQR.toast.error(err.message ?? 'Error al actualizar la clase.');
+    }
+  }
+
+  // ─── Eliminar Clase ────────────────────────────────────────────────────
+
+  async function eliminarClase(idFicha, codigo) {
+    if (!confirm(`¿Eliminar la clase Ficha ${codigo}?\n\nEsta acción no se puede deshacer. Los aprendices vinculados a esta ficha no podrán ser eliminados si están activos.`)) return;
+
+    try {
+      await Api.fichas.eliminar(idFicha);
+      clases = clases.filter(c => c.id_ficha !== idFicha);
+      renderClasesGrid();
+      AttendQR.toast.success(`Clase ${codigo} eliminada.`);
+    } catch (err) {
+      AttendQR.toast.error(err.message ?? 'Error al eliminar la clase.');
+    }
+  }
+
+  // ─── Modal: Iniciar Sesión ─────────────────────────────────────────────
+
+  function abrirModalIniciar(idFicha) {
+    const clase = clases.find(c => c.id_ficha === idFicha);
+    if (!clase) return;
+
+    document.getElementById('iniciarFichaId').value  = idFicha;
+    document.getElementById('iniciarMateria').value  = clase.nombre_materia ?? '';
+    document.getElementById('modalIniciarTitulo').textContent = `Ficha ${esc(clase.codigo_ficha)}`;
+
+    const sub = [clase.nombre_programa, clase.nombre_materia, clase.nombre_jornada]
+      .filter(Boolean).join(' · ');
+    document.getElementById('modalIniciarSub').textContent = sub;
+
+    const horaInput = document.getElementById('horaInicioClase');
+    if (horaInput) {
+      const now = new Date();
+      horaInput.value = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    }
+
+    document.getElementById('modalIniciarBackdrop').style.display = 'flex';
+    setTimeout(() => horaInput?.focus(), 100);
+  }
+
+  function cerrarModalIniciar() {
+    document.getElementById('modalIniciarBackdrop').style.display = 'none';
+    _resetGeo();
+  }
+
+  // ─── Geolocalización (docente) ────────────────────────────────────────
+
+  function _toggleGeoSection(visible) {
+    const section = document.getElementById('iniciarGeoSection');
+    if (section) section.style.display = visible ? 'block' : 'none';
+    if (!visible) { geoDocente = null; _setGeoStatus('', false); }
+  }
+
+  function _setGeoStatus(msg, isError = false) {
+    const el = document.getElementById('iniciarGeoStatus');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--danger)' : 'var(--text-muted)';
+  }
+
+  function _resetGeo() {
+    geoDocente = null;
+    _setGeoStatus('', false);
+    const checkbox = document.getElementById('iniciarValidarUbicacion');
+    if (checkbox) { checkbox.checked = false; _toggleGeoSection(false); }
+  }
+
+  async function obtenerUbicacion() {
+    const btn = document.getElementById('btnObtenerUbicacion');
+    if (btn) { btn.disabled = true; }
+    _setGeoStatus('Obteniendo ubicación…', false);
+
+    if (!navigator.geolocation) {
+      _setGeoStatus('Tu navegador no soporta geolocalización.', true);
+      if (btn) btn.disabled = false;
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        geoDocente = {
+          latitud:  pos.coords.latitude,
+          longitud: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        };
+        _setGeoStatus(`Ubicación obtenida ✓ — precisión: ${Math.round(pos.coords.accuracy)} m`, false);
+        if (btn) btn.disabled = false;
+      },
+      (err) => {
+        const msgs = {
+          1: 'Permiso de ubicación denegado. Habilítalo en la configuración del navegador.',
+          2: 'No se pudo obtener la ubicación. Verifica que el GPS esté activo.',
+          3: 'Tiempo de espera agotado. Intenta de nuevo.',
+        };
+        _setGeoStatus(msgs[err.code] ?? 'Error al obtener la ubicación.', true);
+        geoDocente = null;
+        if (btn) btn.disabled = false;
+      },
+      { timeout: 15000, maximumAge: 0, enableHighAccuracy: true }
+    );
+  }
+
+  async function iniciarSesion(e) {
+    e.preventDefault();
+
+    const idFicha         = parseInt(document.getElementById('iniciarFichaId')?.value ?? '0', 10);
+    const horaInicioClase = document.getElementById('horaInicioClase')?.value;
+    const nombreMateria   = document.getElementById('iniciarMateria')?.value ?? '';
+
+    if (!idFicha) {
+      AttendQR.toast.warning('Error: no se identificó la clase. Recarga la página.');
+      return;
+    }
+    if (!horaInicioClase) {
+      AttendQR.toast.warning('Ingresa la hora oficial de inicio de la clase.');
+      document.getElementById('horaInicioClase')?.focus();
+      return;
+    }
+
+    const validarUbicacion = document.getElementById('iniciarValidarUbicacion')?.checked ?? false;
+    if (validarUbicacion && !geoDocente) {
+      AttendQR.toast.warning('Usa "Obtener mi ubicación" antes de iniciar con validación de ubicación.');
+      return;
+    }
+
+    const btn  = document.getElementById('btnIniciarSesion');
+    const orig = btn?.innerHTML;
+    if (btn) { btn.disabled = true; btn.innerHTML = _spinnerHtml('Iniciando...'); }
+
+    const body = {
+      id_ficha:          idFicha,
+      hora_inicio_clase: horaInicioClase,
+      nombre_materia:    nombreMateria,
+    };
+
+    if (validarUbicacion && geoDocente) {
+      body.ubicacion_activa  = true;
+      body.lat_docente       = geoDocente.latitud;
+      body.lng_docente       = geoDocente.longitud;
+      body.accuracy_docente  = geoDocente.accuracy;
+    }
+
+    try {
+      const sesion = await Api.sesiones.crear(body);
+
+      try { await Api.qr.generar(sesion.id_sesion); } catch { /* continúa */ }
+
+      AttendQR.toast.success('Clase iniciada. Mostrando código QR...');
+      cerrarModalIniciar();
+
+      setTimeout(() => {
+        window.location.href = `index.php?view=qr&rol=docente&sesion=${sesion.id_sesion}`;
+      }, 500);
+
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      AttendQR.toast.error(err.message ?? 'Error al iniciar la sesión.');
+    }
+  }
+
+  // ─── Navegar al QR de ficha activa ────────────────────────────────────
+
+  async function irQrFicha(idFicha) {
+    const idSesion = sesionesActivas[String(idFicha)];
+    if (idSesion) {
+      window.location.href = `index.php?view=qr&rol=docente&sesion=${idSesion}`;
+    } else {
+      // Fallback: buscar en la API
+      try {
+        const data    = await Api.sesiones.listar({ estado: 'abierta' });
+        const activas = data.sesiones ?? [];
+        const sesion  = activas.find(s => String(s.id_ficha) === String(idFicha));
+        if (sesion) {
+          window.location.href = `index.php?view=qr&rol=docente&sesion=${sesion.id_sesion}`;
+        }
+      } catch { /* silencioso */ }
+    }
+    return false;
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────
+
+  function esc(str) {
+    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function _spinnerHtml(texto) {
+    return `<div class="spinner" style="width:14px;height:14px;border-color:rgba(255,255,255,.3);border-top-color:#fff;display:inline-block;vertical-align:middle"></div> ${texto}`;
+  }
+
+  // Cerrar modales con Escape
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    cerrarModalNueva();
+    cerrarModalEditar();
+    cerrarModalIniciar();
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.ATTENDQR_VIEW === 'crear-sesion') init();
+  });
+
+  return {
+    abrirModalNueva, cerrarModalNueva, crearClase,
+    abrirModalEditar, cerrarModalEditar, editarClase,
+    eliminarClase,
+    abrirModalIniciar, cerrarModalIniciar, iniciarSesion,
+    irQrFicha,
+    obtenerUbicacion, _toggleGeoSection,
+  };
+})();
+
+</script>

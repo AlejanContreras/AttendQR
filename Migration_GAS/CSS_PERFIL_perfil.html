@@ -1,0 +1,207 @@
+﻿<style>
+/* ============================================================
+   AttendQR — Perfil Page Styles
+   ============================================================ */
+
+/* ─── Layout ─────────────────────────────────────────────── */
+
+.perfil-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: var(--sp-6);
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .perfil-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Profile Card (left column) ─────────────────────────── */
+
+.profile-card {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  text-align: center;
+}
+
+.profile-card__banner {
+  height: 80px;
+  background: linear-gradient(135deg, #1B2A3B 0%, var(--green-dark) 100%);
+}
+
+.profile-card__body {
+  padding: 0 var(--sp-6) var(--sp-6);
+}
+
+.profile-card__avatar-wrap {
+  margin-top: -36px;
+  margin-bottom: var(--sp-4);
+  display: flex;
+  justify-content: center;
+}
+
+.profile-card__avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--r-full);
+  background: var(--green-primary);
+  border: 4px solid var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-2xl);
+  font-weight: var(--fw-bold);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+
+.profile-card__name {
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--sp-1);
+}
+
+.profile-card__role {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--sp-4);
+}
+
+.profile-card__divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--sp-4) 0;
+}
+
+.profile-card__meta {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.profile-meta-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  font-size: var(--text-sm);
+}
+
+.profile-meta-item__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-meta-item__icon svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+}
+
+.profile-meta-item__label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-bottom: 1px;
+}
+
+.profile-meta-item__value {
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+/* ─── Edit Sections (right column) ──────────────────────── */
+
+.perfil-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+/* Section header with line */
+.perfil-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+
+.perfil-section-header__title {
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.perfil-section-header::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Password strength */
+.password-strength {
+  margin-top: var(--sp-2);
+}
+
+.password-strength__bars {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--sp-1);
+}
+
+.strength-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--r-full);
+  background: var(--border);
+  transition: background var(--t-fast);
+}
+
+.strength-bar.active--weak   { background: var(--danger);  }
+.strength-bar.active--fair   { background: var(--warning); }
+.strength-bar.active--good   { background: var(--info);    }
+.strength-bar.active--strong { background: var(--success); }
+
+.password-strength__label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ─── Danger Zone ────────────────────────────────────────── */
+
+.danger-zone {
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5) var(--sp-6);
+}
+
+.danger-zone__title {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--danger-text);
+  margin-bottom: var(--sp-2);
+}
+
+.danger-zone__text {
+  font-size: var(--text-sm);
+  color: var(--danger-text);
+  opacity: .8;
+  margin-bottom: var(--sp-4);
+}
+
+</style>

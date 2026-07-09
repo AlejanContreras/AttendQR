@@ -1,0 +1,157 @@
+﻿<script>
+/**
+ * AttendQR — Registro de aprendiz (auto-servicio en dos pasos)
+ *
+ * Paso 1: verificarDocumento  → POST /api/auth/verificar-documento
+ * Paso 2: activarCuenta       → POST /api/auth/activar-cuenta
+ */
+const registro = (() => {
+
+  // ─── Estado ─────────────────────────────────────────────────────────────
+  let datosAprendiz = null; // datos del paso 1, usados en paso 2
+
+  // ─── Paso 1 ──────────────────────────────────────────────────────────────
+
+  async function verificarDocumento(e) {
+    e.preventDefault();
+    const documento = document.getElementById('regDocumento')?.value.trim();
+    if (!documento) return;
+
+    const btn = document.getElementById('btnPaso1');
+    setLoading(btn, true, 'Verificando...');
+    ocultarError('errorPaso1');
+
+    try {
+      const data = await Api.auth.verificarDocumento(documento);
+      datosAprendiz = data;
+      irPaso2(data);
+    } catch (err) {
+      mostrarError('errorPaso1', 'errorPaso1Msg', err.message ?? 'Error al verificar el documento.');
+    } finally {
+      setLoading(btn, false, 'Verificar documento');
+    }
+  }
+
+  function irPaso2(data) {
+    // Poblar campos del paso 2
+    document.getElementById('regNombreDisplay').textContent = data.nombres ?? '';
+    document.getElementById('regIdAprendiz').value = data.id_aprendiz ?? '';
+
+    // Mostrar info de ficha evitando "undefined — undefined"
+    const ficha = data.codigo_ficha ?? null;
+    const prog  = data.nombre_programa ?? null;
+    document.getElementById('regFichaInfo').textContent = ficha
+      ? `Ficha ${ficha} — ${prog ?? 'programa no registrado'}`
+      : 'Ficha no asignada';
+
+    // Transición
+    document.getElementById('paso1').classList.remove('is-active');
+    document.getElementById('paso2').classList.add('is-active');
+
+    // Enfocar campo password
+    setTimeout(() => document.getElementById('regPassword')?.focus(), 80);
+  }
+
+  function volverPaso1() {
+    document.getElementById('paso2').classList.remove('is-active');
+    document.getElementById('paso1').classList.add('is-active');
+    ocultarError('errorPaso2');
+  }
+
+  // ─── Paso 2 ──────────────────────────────────────────────────────────────
+
+  async function activarCuenta(e) {
+    e.preventDefault();
+    ocultarError('errorPaso2');
+
+    // Leer id_aprendiz desde el estado del módulo (más confiable que el DOM hidden input)
+    const idAprendiz = datosAprendiz?.id_aprendiz ?? null;
+    if (!idAprendiz) {
+      mostrarError('errorPaso2', 'errorPaso2Msg', 'Error interno: datos de aprendiz no disponibles. Vuelve al paso 1 e inténtalo de nuevo.');
+      return;
+    }
+
+    const password  = document.getElementById('regPassword')?.value ?? '';
+    const confirmar = document.getElementById('regPasswordConfirm')?.value ?? '';
+
+    if (password.length < 8) {
+      mostrarError('errorPaso2', 'errorPaso2Msg', 'La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+    if (password !== confirmar) {
+      mostrarError('errorPaso2', 'errorPaso2Msg', 'Las contraseñas no coinciden.');
+      return;
+    }
+
+    const btn = document.getElementById('btnPaso2');
+    setLoading(btn, true, 'Creando cuenta...');
+
+    try {
+      await Api.auth.activarCuenta({ id_aprendiz: idAprendiz, password, confirmar_password: confirmar });
+
+      // Redirigir al dashboard de aprendiz
+      const parts  = window.location.pathname.split('/');
+      const idx    = parts.findIndex(p => p.toLowerCase() === 'attendqr');
+      const prefix = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
+      window.location.href = prefix + '/Public/index.php?view=dashboard-aprendiz&rol=aprendiz&nueva_cuenta=1';
+
+    } catch (err) {
+      mostrarError('errorPaso2', 'errorPaso2Msg', err.message ?? 'Error al crear la cuenta.');
+      setLoading(btn, false, 'Crear mi cuenta');
+    }
+  }
+
+  // ─── Evaluador de fortaleza ───────────────────────────────────────────────
+
+  function evalPassword(val) {
+    const bars  = [1, 2, 3, 4].map(i => document.getElementById(`pbar${i}`));
+    const label = document.getElementById('passLabel');
+    if (!bars[0] || !label) return;
+
+    let score = 0;
+    if (val.length >= 8)           score++;
+    if (/[A-Z]/.test(val))        score++;
+    if (/[0-9]/.test(val))        score++;
+    if (/[^A-Za-z0-9]/.test(val)) score++;
+
+    const colors = ['#EF4444', '#F97316', '#F59E0B', '#22C55E'];
+    const labels = ['Muy débil', 'Débil', 'Regular', 'Fuerte'];
+
+    bars.forEach((bar, i) => {
+      bar.style.background = i < score ? colors[score - 1] : 'var(--border)';
+    });
+    label.textContent = score > 0 ? labels[score - 1] : '—';
+    label.style.color = score > 0 ? colors[score - 1] : 'var(--text-muted)';
+  }
+
+  function togglePwd(id, btn) {
+    const input = document.getElementById(id);
+    if (!input) return;
+    const isText = input.type === 'text';
+    input.type = isText ? 'password' : 'text';
+  }
+
+  // ─── Helpers UI ───────────────────────────────────────────────────────────
+
+  function setLoading(btn, loading, texto) {
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.textContent = texto;
+  }
+
+  function mostrarError(wrapperId, msgId, msg) {
+    const wrap = document.getElementById(wrapperId);
+    const span = document.getElementById(msgId);
+    if (wrap) wrap.style.display = 'block';
+    if (span) span.textContent = msg;
+  }
+
+  function ocultarError(wrapperId) {
+    const wrap = document.getElementById(wrapperId);
+    if (wrap) wrap.style.display = 'none';
+  }
+
+  return { verificarDocumento, activarCuenta, volverPaso1, evalPassword, togglePwd };
+})();
+
+</script>

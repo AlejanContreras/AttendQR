@@ -1,0 +1,55 @@
+﻿<div class="modal-backdrop" id="modalBackdrop"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(1px);
+            z-index:var(--z-overlay);align-items:center;justify-content:center;padding:var(--sp-4)"
+     onclick="if(event.target===this)AttendQR.modal.close('modal')"
+     role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+
+  <div class="modal-box"
+       style="background:var(--surface);border-radius:var(--r-xl);box-shadow:var(--shadow-xl);
+              width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;
+              animation:modalIn .25s ease">
+
+    <!-- Modal Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:var(--sp-5) var(--sp-6);border-bottom:1px solid var(--border);">
+      <h3 id="modalTitle"
+          style="font-size:var(--text-md);font-weight:var(--fw-semibold);color:var(--text-primary)">
+        Confirmaci&oacute;n
+      </h3>
+      <button class="topbar__btn"
+              onclick="AttendQR.modal.close('modal')"
+              aria-label="Cerrar">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div id="modalBody"
+         style="flex:1;overflow-y:auto;padding:var(--sp-6)">
+      <!-- Content injected by JS -->
+    </div>
+
+    <!-- Modal Footer -->
+    <div id="modalFooter"
+         style="display:flex;gap:var(--sp-3);justify-content:flex-end;
+                padding:var(--sp-4) var(--sp-6);border-top:1px solid var(--border);">
+      <button class="btn btn-secondary"
+              onclick="AttendQR.modal.close('modal')">
+        Cancelar
+      </button>
+      <button class="btn btn-primary" id="modalConfirm">
+        Confirmar
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<style>
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(-16px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+</style>

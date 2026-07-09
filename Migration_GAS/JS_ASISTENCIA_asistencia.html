@@ -1,0 +1,419 @@
+﻿<script>
+/**
+ * AttendQR — Registro de Asistencia + Escáner QR (P7)
+ *
+ * Flujo principal (scanner):
+ *   1. iniciarCamara()  → solicita permiso + inicia html5-qrcode
+ *   2. onScanSuccess()  → extrae token → envía a API → muestra resultado → libera recursos
+ *   3. onScanError()    → errores de detección ignorados (internos de la librería)
+ *
+ * Flujo manual:
+ *   registrarToken(event) → valida token → envía a API → muestra resultado
+ *
+ * Manejo de errores por código HTTP:
+ *   403 — no pertenece a la ficha de esa sesión
+ *   409 — ya registró asistencia
+ *   410 — token expirado o rotado
+ *   422 — sesión ya no está abierta
+ *   404 — token no encontrado
+ */
+const asistencia = (() => {
+
+  // ─── Estado del escáner ─────────────────────────────────────────────────
+  let scanner        = null;  // instancia de Html5Qrcode
+  let escaneando     = false; // true mientras la cámara está activa
+  let procesando     = false; // true durante la llamada API (evita dobles envíos)
+  let debounceTimer  = null;  // evita múltiples toasts en errores de detección
+  let pendingToken   = null;  // token en espera cuando la sesión exige geo (HTTP 428)
+
+  // ─── Iniciar cámara ─────────────────────────────────────────────────────
+
+  async function iniciarCamara() {
+    if (escaneando) return;
+
+    // Verificar soporte
+    if (!navigator.mediaDevices?.getUserMedia) {
+      AttendQR.toast.warning('Tu navegador no soporta acceso a la cámara. Usa el formulario manual.');
+      return;
+    }
+
+    mostrarSeccionScanner(true);
+    setStatusText('Solicitando permiso de cámara...');
+
+    try {
+      // Verificar que Html5Qrcode esté disponible (CDN)
+      if (typeof Html5Qrcode === 'undefined') {
+        throw new Error('Librería QR no disponible. Verifica tu conexión a internet.');
+      }
+
+      scanner = new Html5Qrcode('qrScannerContainer', { verbose: false });
+
+      const config = {
+        fps: 10,
+        qrbox: { width: 240, height: 240 },
+        aspectRatio: 1.0,
+        disableFlip: false,
+      };
+
+      await scanner.start(
+        { facingMode: 'environment' },  // cámara trasera en móviles
+        config,
+        onScanSuccess,
+        onScanError
+      );
+
+      escaneando = true;
+      setStatusVisual(false);  // ocultar overlay de estado
+      document.getElementById('scannerHint')?.style.setProperty('display', 'block');
+
+    } catch (err) {
+      manejarErrorCamara(err);
+    }
+  }
+
+  // ─── Detener cámara ──────────────────────────────────────────────────────
+
+  async function detenerCamara() {
+    if (scanner && escaneando) {
+      try {
+        await scanner.stop();
+        scanner.clear();
+      } catch { /* ya estaba detenida */ }
+    }
+    scanner    = null;
+    escaneando = false;
+    mostrarSeccionScanner(false);
+    clearTimeout(debounceTimer);
+  }
+
+  // ─── Callback: QR detectado correctamente ───────────────────────────────
+
+  async function onScanSuccess(decodedText) {
+    if (procesando) return;
+
+    // El QR puede contener solo el token (6 chars hex) o una URL con el token.
+    // Intentar extraer los 6 chars hex del contenido.
+    const token = extraerToken(decodedText);
+
+    if (!token) {
+      // QR detectado pero no corresponde al formato AttendQR
+      mostrarDebounceWarning('QR detectado, pero no es un token válido de AttendQR. Sigue apuntando...');
+      return;
+    }
+
+    procesando = true;
+
+    // Detener cámara inmediatamente tras lectura exitosa
+    await detenerCamara();
+
+    // Rellenar input para retroalimentación visual
+    const tokenInput = document.getElementById('tokenInput');
+    if (tokenInput) tokenInput.value = token;
+
+    await enviarToken(token);
+    procesando = false;
+  }
+
+  // ─── Callback: error de detección (normal durante escaneo) ──────────────
+
+  function onScanError(errorMessage) {
+    // Los errores de "no se encontró QR en el frame" son completamente normales.
+    // Solo reportamos errores reales de cámara (no los de detección vacía).
+    if (
+      errorMessage.includes('No MultiFormat Readers') ||
+      errorMessage.includes('No barcode or QR code detected') ||
+      errorMessage.includes('NotFoundException')
+    ) {
+      return; // silencioso — es solo que no hay QR en el encuadre todavía
+    }
+    // Error real de cámara — mostrar con debounce para no saturar
+    mostrarDebounceWarning('Error de cámara: ' + errorMessage);
+  }
+
+  // ─── Manejar error al solicitar permiso / iniciar cámara ─────────────────
+
+  function manejarErrorCamara(err) {
+    const msg = err?.name ?? err?.message ?? String(err);
+    let texto;
+
+    if (msg.includes('NotAllowedError') || msg.includes('PermissionDenied') || msg.includes('Permission denied')) {
+      texto = 'Permiso de cámara denegado. Habilítalo en la configuración del navegador o usa el formulario manual.';
+    } else if (msg.includes('NotFoundError') || msg.includes('DevicesNotFoundError')) {
+      texto = 'No se encontró ninguna cámara en este dispositivo. Usa el formulario manual.';
+    } else if (msg.includes('NotReadableError') || msg.includes('TrackStartError')) {
+      texto = 'La cámara está siendo usada por otra aplicación. Ciérrala e intenta de nuevo.';
+    } else if (msg.includes('no disponible') || msg.includes('not available')) {
+      texto = 'La librería QR no se pudo cargar. Verifica tu conexión e intenta de nuevo.';
+    } else {
+      texto = 'No se pudo iniciar la cámara: ' + (err?.message ?? msg);
+    }
+
+    setStatusText(texto);
+    setStatusVisual(true, true); // mostrar overlay con mensaje de error
+    AttendQR.toast.error(texto, 5000);
+
+    // Dejar el overlay visible pero mostrar el botón de cancelar
+    mostrarSeccionScanner(true);
+  }
+
+  // ─── Enviar token a la API ────────────────────────────────────────────────
+
+  async function enviarToken(token, geoData = null) {
+    const btn  = document.getElementById('btnRegistrar');
+    const orig = btn?.innerHTML;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-color:rgba(255,255,255,.3);border-top-color:#fff;display:inline-block"></div> Registrando...';
+    }
+
+    ocultarResultado();
+    _ocultarGeoSection(); // limpiar sección geo de intento anterior
+
+    const body = { token };
+    if (geoData) {
+      body.latitud  = geoData.latitud;
+      body.longitud = geoData.longitud;
+      body.accuracy = geoData.accuracy;
+    }
+
+    try {
+      const resultado = await Api.asistencias.registrar(body);
+
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      const tokenInput = document.getElementById('tokenInput');
+      if (tokenInput) tokenInput.value = '';
+
+      mostrarExito(resultado);
+
+      setTimeout(() => {
+        window.location.href = 'index.php?view=dashboard-aprendiz';
+      }, 3000);
+
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+
+      // 428 — la sesión exige geo y no se proporcionó
+      if (err.status === 428) {
+        pendingToken = token;
+        _mostrarGeoSection();
+        return;
+      }
+
+      const msg = mensajeError(err);
+      mostrarError(msg);
+
+      if (err.status === 410 || err.status === 422) {
+        mostrarSeccionScanner(false);
+      }
+    }
+  }
+
+  // ─── Solicitar ubicación GPS y reenviar el token ──────────────────────────
+
+  async function solicitarUbicacionYEnviar() {
+    if (!pendingToken) return;
+
+    const btn = document.getElementById('btnPermitirUbicacion');
+    if (btn) { btn.disabled = true; btn.textContent = 'Obteniendo ubicación…'; }
+    _setGeoStatus('');
+
+    if (!navigator.geolocation) {
+      _setGeoStatus('Tu navegador no soporta geolocalización.');
+      if (btn) { btn.disabled = false; btn.textContent = '📍 Compartir mi ubicación y registrar'; }
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        if (btn) { btn.disabled = false; btn.textContent = '📍 Compartir mi ubicación y registrar'; }
+        await enviarToken(pendingToken, {
+          latitud:  pos.coords.latitude,
+          longitud: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        });
+      },
+      (err) => {
+        const msgs = {
+          1: 'Permiso de ubicación denegado. Habilítalo en la configuración del navegador.',
+          2: 'No se pudo obtener la ubicación. Verifica que el GPS esté activo.',
+          3: 'Tiempo de espera agotado. Intenta de nuevo.',
+        };
+        _setGeoStatus(msgs[err.code] ?? 'Error al obtener la ubicación.');
+        if (btn) { btn.disabled = false; btn.textContent = '📍 Compartir mi ubicación y registrar'; }
+      },
+      { timeout: 15000, maximumAge: 0, enableHighAccuracy: true }
+    );
+  }
+
+  // ─── Registro manual (submit del form) ───────────────────────────────────
+
+  async function registrarToken(e) {
+    e.preventDefault();
+
+    const tokenInput = document.getElementById('tokenInput');
+    const raw        = tokenInput?.value.trim() ?? '';
+    const token      = extraerToken(raw) ?? raw.toUpperCase();
+
+    ocultarResultado();
+
+    if (!token || token.length !== 6) {
+      mostrarError('El token debe tener exactamente 6 caracteres hexadecimales (A–F, 0–9).');
+      tokenInput?.focus();
+      return;
+    }
+
+    await enviarToken(token);
+  }
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  function extraerToken(texto) {
+    if (!texto) return null;
+    // El token es exactamente 6 chars HEX uppercase
+    const match = texto.toUpperCase().match(/\b([A-F0-9]{6})\b/);
+    return match ? match[1] : null;
+  }
+
+  function mensajeError(err) {
+    switch (err.status) {
+      case 403: return 'No perteneces a la ficha de esta sesión. Verifica con tu docente.';
+      case 409: return 'Ya registraste tu asistencia en esta sesión.';
+      case 410: return 'El token ha expirado o fue rotado. Pide el token actualizado a tu docente.';
+      case 422: return err.message ?? 'La sesión ya no está abierta para registro de asistencia.';
+      case 404: return 'Token no encontrado. Verifica que lo hayas ingresado correctamente.';
+      case 451: return err.message ?? 'Estás fuera del rango del aula. Acércate al docente e intenta de nuevo.';
+      default:  return err.message ?? 'Error al registrar la asistencia. Intenta de nuevo.';
+    }
+  }
+
+  // ─── Helpers de geolocalización (aprendiz) ───────────────────────────────
+
+  function _mostrarGeoSection() {
+    const s = document.getElementById('geoSection');
+    if (s) s.style.display = 'block';
+  }
+
+  function _ocultarGeoSection() {
+    const s = document.getElementById('geoSection');
+    if (s) s.style.display = 'none';
+    pendingToken = null;
+    _setGeoStatus('');
+  }
+
+  function _setGeoStatus(msg) {
+    const el = document.getElementById('geoStatusAprendiz');
+    if (el) el.textContent = msg;
+  }
+
+  function mostrarSeccionScanner(mostrar) {
+    const scannerSection  = document.getElementById('scannerSection');
+    const scannerTrigger  = document.getElementById('scannerTrigger');
+    if (scannerSection) scannerSection.style.display = mostrar ? 'block' : 'none';
+    if (scannerTrigger) scannerTrigger.style.display  = mostrar ? 'none' : 'block';
+  }
+
+  function setStatusText(texto) {
+    const el = document.getElementById('scannerStatusText');
+    if (el) el.textContent = texto;
+  }
+
+  function setStatusVisual(visible, isError = false) {
+    const overlay = document.getElementById('scannerStatus');
+    if (!overlay) return;
+    overlay.style.display = visible ? 'flex' : 'none';
+    overlay.style.background = isError ? 'rgba(220,38,38,.85)' : 'rgba(0,0,0,.85)';
+  }
+
+  function mostrarDebounceWarning(msg) {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      AttendQR.toast.warning(msg, 2500);
+    }, 800);
+  }
+
+  function mostrarExito(resultado) {
+    const area = document.getElementById('resultadoArea');
+    if (!area) return;
+
+    const estado      = resultado.estado ?? 'presente';
+    const badgeClass  = estado === 'presente' ? 'badge-success' : estado === 'retardo' ? 'badge-warning' : 'badge-neutral';
+    const labelEstado = { presente: 'Presente', retardo: 'Tardanza', ausente: 'Ausente' }[estado] ?? estado;
+    const hora        = resultado.hora_registro
+      ? (resultado.hora_registro.slice(11, 16) || resultado.hora_registro.slice(0, 5))
+      : '—';
+
+    area.innerHTML = `
+      <div style="background:var(--green-light);border:1px solid var(--green-primary);border-radius:var(--r-md);padding:var(--sp-5)">
+        <div style="display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-3)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="var(--green-primary)" style="width:28px;height:28px;flex-shrink:0">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div>
+            <div style="font-weight:var(--fw-semibold);color:var(--green-primary);font-size:var(--text-md)">¡Asistencia registrada!</div>
+            <div style="font-size:var(--text-sm);color:var(--text-secondary)">Hora: ${hora} · Redirigiendo en 3 s…</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--sp-2)">
+          <span>Estado:</span>
+          <span class="badge ${badgeClass}">${labelEstado}</span>
+          ${resultado.minutos_retardo > 0 ? `<span style="font-size:var(--text-xs);color:var(--text-muted)">(${resultado.minutos_retardo} min de tardanza)</span>` : ''}
+        </div>
+      </div>`;
+    area.style.display = 'block';
+  }
+
+  function mostrarError(mensaje) {
+    const area = document.getElementById('resultadoArea');
+    if (!area) return;
+    area.innerHTML = `
+      <div class="alert alert-danger" style="border-radius:var(--r-md)">
+        <div style="display:flex;align-items:center;gap:var(--sp-2)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:20px;height:20px;flex-shrink:0;color:var(--danger)">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>${esc(mensaje)}</span>
+        </div>
+      </div>`;
+    area.style.display = 'block';
+  }
+
+  function ocultarResultado() {
+    const area = document.getElementById('resultadoArea');
+    if (area) { area.innerHTML = ''; area.style.display = 'none'; }
+  }
+
+  function esc(str) {
+    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // ─── Limpieza al abandonar la página ─────────────────────────────────────
+
+  window.addEventListener('beforeunload', () => {
+    if (scanner && escaneando) {
+      try { scanner.stop(); } catch { /* ignorar */ }
+    }
+  });
+
+  // ─── Init ────────────────────────────────────────────────────────────────
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.ATTENDQR_VIEW !== 'registrar-asistencia') return;
+
+    ocultarResultado();
+
+    // Auto-uppercase + filtrar a hex + limitar 6 chars
+    const tokenEl = document.getElementById('tokenInput');
+    if (tokenEl) {
+      tokenEl.addEventListener('input', function () {
+        const pos   = this.selectionStart;
+        this.value  = this.value.toUpperCase().replace(/[^A-F0-9]/g, '').slice(0, 6);
+        this.setSelectionRange(pos, pos);
+      });
+      tokenEl.focus();
+    }
+  });
+
+  return { iniciarCamara, detenerCamara, registrarToken, solicitarUbicacionYEnviar };
+})();
+
+</script>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar sesión — AttendQR</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2339A900'/><text y='24' x='5' font-size='22' font-family='Arial' fill='white' font-weight='bold'>A</text></svg>">
+  <?!= include('CSS_LAYOUT_variables') ?>
+  <?!= include('CSS_LAYOUT_reset') ?>
+  <?!= include('CSS_LAYOUT_style') ?>
+  <?!= include('CSS_LAYOUT_components') ?>
+  <?!= include('CSS_LOGIN_login') ?>
+</head>
+<body>
+
+<div class="login-page">
+<div class="login-panel">
+
+  <!-- Left branding -->
+  <div class="login-brand">
+    <div class="login-brand__logo">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+      </svg>
+    </div>
+    <h1 class="login-brand__title">Attend<span>QR</span></h1>
+    <p class="login-brand__sub">
+      Sistema de control de asistencia mediante código QR dinámico para instructores y aprendices del SENA.
+    </p>
+    <div class="login-brand__features">
+      <div class="login-brand__feature">
+        <div class="login-brand__feature-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+        </div>
+        Acceso seguro con roles diferenciados
+      </div>
+      <div class="login-brand__feature">
+        <div class="login-brand__feature-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+        QR dinámico que rota cada 30 segundos
+      </div>
+      <div class="login-brand__feature">
+        <div class="login-brand__feature-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+        </div>
+        Reportes y estadísticas en tiempo real
+      </div>
+    </div>
+    <div class="login-brand__footer">SENA · Sistema de Control de Asistencia</div>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="login-form-panel">
+    <div class="login-form-container">
+
+      <!-- Mobile logo -->
+      <div class="login-mobile-logo">
+        <div class="login-mobile-logo__icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#fff">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+          </svg>
+        </div>
+        <span class="login-mobile-logo__name">AttendQR</span>
+      </div>
+
+      <!-- Role tabs -->
+      <div class="login-tabs">
+        <button type="button" class="login-tab is-active" id="tabDocente"
+                onclick="switchRole(this, 'docente')">
+          Instructor
+        </button>
+        <button type="button" class="login-tab" id="tabAprendiz"
+                onclick="switchRole(this, 'aprendiz')">
+          Aprendiz
+        </button>
+      </div>
+
+      <!-- Form Docente -->
+      <div id="formPanelDocente">
+        <div class="login-form-header">
+          <h2 class="login-form-title">Bienvenido</h2>
+          <p class="login-form-subtitle">Inicia sesión con tu correo institucional</p>
+        </div>
+        <form id="formDocente" onsubmit="handleLogin(event, 'docente')">
+          <div class="form-group">
+            <label class="form-label" for="emailDocente">
+              Correo electrónico <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
+                </svg>
+              </span>
+              <input type="email" id="emailDocente" class="form-control"
+                     placeholder="correo@sena.edu.co"
+                     autocomplete="email" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="passwordDocente">
+              Contraseña <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+              </span>
+              <input type="password" id="passwordDocente" class="form-control"
+                     placeholder="••••••••"
+                     autocomplete="current-password" required>
+              <span class="input-group__append"
+                    onclick="togglePassword('passwordDocente', this)" style="cursor:pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+              </span>
+            </div>
+          </div>
+          <div id="errorDocente" class="form-error" style="display:none"></div>
+          <div class="login-submit">
+            <button type="submit" class="btn btn-primary btn-full btn-lg" id="btnLoginDocente">
+              Iniciar sesión
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Form Aprendiz -->
+      <div id="formPanelAprendiz" style="display:none">
+        <div class="login-form-header">
+          <h2 class="login-form-title">Hola, aprendiz</h2>
+          <p class="login-form-subtitle">Usa tu número de documento para ingresar</p>
+        </div>
+        <form id="formAprendiz" onsubmit="handleLogin(event, 'aprendiz')">
+          <div class="form-group">
+            <label class="form-label" for="documentoAprendiz">
+              Número de documento <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2"/>
+                </svg>
+              </span>
+              <input type="text" id="documentoAprendiz" class="form-control"
+                     placeholder="Ej. 1098765432"
+                     inputmode="numeric" pattern="[0-9]{5,20}"
+                     autocomplete="username" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="passwordAprendiz">
+              Contraseña <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+              </span>
+              <input type="password" id="passwordAprendiz" class="form-control"
+                     placeholder="••••••••"
+                     autocomplete="current-password" required>
+              <span class="input-group__append"
+                    onclick="togglePassword('passwordAprendiz', this)" style="cursor:pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+              </span>
+            </div>
+          </div>
+          <div id="errorAprendiz" class="form-error" style="display:none"></div>
+          <div class="login-submit">
+            <button type="submit" class="btn btn-primary btn-full btn-lg" id="btnLoginAprendiz">
+              Iniciar sesión
+            </button>
+          </div>
+          <p style="text-align:center;font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--sp-5)">
+            ¿Primera vez?
+            <a href="?page=registro" style="color:var(--green-primary);text-decoration:none;font-weight:var(--fw-semibold)">
+              Crea tu cuenta
+            </a>
+          </p>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</div>
+
+<?!= include('JS_API_api') ?>
+<?!= include('JS_UTIL_utils') ?>
+<?!= include('JS_AUTH_auth') ?>
+<?!= include('JS_AUTH_login') ?>
+
+</body>
+</html>

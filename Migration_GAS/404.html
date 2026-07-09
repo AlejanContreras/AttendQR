@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Página no encontrada — AttendQR</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2339A900'/><text y='24' x='5' font-size='22' font-family='Arial' fill='white' font-weight='bold'>A</text></svg>">
+  <?!= include('CSS_LAYOUT_variables') ?>
+  <?!= include('CSS_LAYOUT_reset') ?>
+  <?!= include('CSS_LAYOUT_style') ?>
+  <?!= include('CSS_LAYOUT_layout') ?>
+  <?!= include('CSS_LAYOUT_components') ?>
+</head>
+<body>
+
+<?!= include('COMP_loader') ?>
+<?!= include('COMP_sidebar') ?>
+
+<div class="layout__content">
+  <?!= include('COMP_navbar') ?>
+
+  <main class="main-content">
+
+    <div class="empty-state" style="padding:var(--sp-16) var(--sp-8)">
+      <div style="font-size:80px;font-weight:var(--fw-bold);color:var(--green-primary);line-height:1;margin-bottom:var(--sp-4)">
+        404
+      </div>
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+           class="empty-state__icon" style="color:var(--text-muted)">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <h2 class="empty-state__title">Página no encontrada</h2>
+      <p class="empty-state__text">
+        La vista que solicitaste no existe o no está disponible en esta versión del sistema.
+      </p>
+      <a href="?page=dashboard-docente" class="btn btn-primary" id="btnVolver">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        Volver al inicio
+      </a>
+    </div>
+
+  </main>
+
+  <?!= include('COMP_footer') ?>
+</div>
+
+<?!= include('JS_API_api') ?>
+<?!= include('JS_UTIL_utils') ?>
+<?!= include('JS_AUTH_auth') ?>
+
+</body>
+</html>

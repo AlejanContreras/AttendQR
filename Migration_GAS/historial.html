@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Historial de Asistencia — AttendQR</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2339A900'/><text y='24' x='5' font-size='22' font-family='Arial' fill='white' font-weight='bold'>A</text></svg>">
+  <?!= include('CSS_LAYOUT_variables') ?>
+  <?!= include('CSS_LAYOUT_reset') ?>
+  <?!= include('CSS_LAYOUT_style') ?>
+  <?!= include('CSS_LAYOUT_layout') ?>
+  <?!= include('CSS_LAYOUT_components') ?>
+  <?!= include('CSS_HISTORIAL_historial') ?>
+</head>
+<body>
+
+<?!= include('COMP_loader') ?>
+<?!= include('COMP_sidebar') ?>
+
+<div class="layout__content">
+  <?!= include('COMP_navbar') ?>
+
+  <main class="main-content">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-header__title">Historial de Asistencia</h1>
+        <p class="page-header__sub">Registro completo de sesiones y asistencia por ficha</p>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="historial.exportar()" id="btnExportar">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Exportar
+      </button>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="filter-bar__row">
+        <div class="filter-bar__group">
+          <label class="filter-bar__label">Ficha</label>
+          <select class="form-control" id="filterFicha">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div class="filter-bar__group">
+          <label class="filter-bar__label">Estado</label>
+          <select class="form-control" id="filterEstado">
+            <option value="">Todos</option>
+            <option value="abierta">Abierta</option>
+            <option value="cerrada">Cerrada</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+        </div>
+        <div class="filter-bar__group">
+          <label class="filter-bar__label">Desde</label>
+          <input type="date" class="form-control" id="filterDesde">
+        </div>
+        <div class="filter-bar__group">
+          <label class="filter-bar__label">Hasta</label>
+          <input type="date" class="form-control" id="filterHasta">
+        </div>
+        <div class="filter-bar__actions">
+          <button class="btn btn-primary btn-sm" onclick="historial.filtrar()">Filtrar</button>
+          <button class="btn btn-ghost btn-sm"   onclick="historial.limpiar()">Limpiar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="historial-summary">
+      <div class="summary-card summary-card--sessions">
+        <div class="summary-card__num" id="sumTotal">—</div>
+        <div class="summary-card__label">Total sesiones</div>
+      </div>
+      <div class="summary-card summary-card--sessions">
+        <div class="summary-card__num" id="sumCerradas" style="color:var(--text-secondary)">—</div>
+        <div class="summary-card__label">Cerradas</div>
+      </div>
+      <div class="summary-card summary-card--present">
+        <div class="summary-card__num" id="sumAbiertas">—</div>
+        <div class="summary-card__label">Abiertas</div>
+      </div>
+      <div class="summary-card summary-card--absent">
+        <div class="summary-card__num" id="sumCanceladas">—</div>
+        <div class="summary-card__label">Canceladas</div>
+      </div>
+      <div class="summary-card summary-card--pct">
+        <div class="summary-card__num" id="sumPct">—</div>
+        <div class="summary-card__label">Asistencia media</div>
+      </div>
+    </div>
+
+    <!-- Sessions Table -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">Sesiones</h3>
+          <p class="card-subtitle" id="historialSubtitle">Cargando...</p>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="table-wrapper">
+          <table class="table table--hover">
+            <thead>
+              <tr>
+                <th style="width:40px"></th>
+                <th>Ficha / Programa</th>
+                <th>Fecha</th>
+                <th>Apertura</th>
+                <th>Cierre</th>
+                <th>Estado</th>
+                <th>Pres.</th>
+                <th>Tard.</th>
+                <th>Aus.</th>
+                <th title="Excusas">Exc.</th>
+                <th>Asistencia</th>
+              </tr>
+            </thead>
+            <tbody id="historialBody">
+              <tr>
+                <td colspan="11" style="text-align:center;padding:var(--sp-10)">
+                  <div class="spinner" style="margin:0 auto"></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span style="font-size:var(--text-sm);color:var(--text-muted)" id="historialPaginaInfo"></span>
+        <div style="display:flex;gap:var(--sp-2)" id="historialPaginacion"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <?!= include('COMP_footer') ?>
+</div>
+
+<?!= include('COMP_modal') ?>
+
+<?!= include('JS_API_api') ?>
+<?!= include('JS_UTIL_utils') ?>
+<?!= include('JS_AUTH_auth') ?>
+<?!= include('JS_HISTORIAL_historial') ?>
+
+<script>window.ATTENDQR_VIEW = 'historial';</script>
+
+</body>
+</html>

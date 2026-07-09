@@ -1,0 +1,349 @@
+﻿<script>
+/**
+ * AttendQR — QR Dinámico (Fase 2: tokens reales desde backend)
+ *
+ * Flujo:
+ * 1. Lee ?sesion=ID de la URL
+ * 2. Carga detalle de la sesión + token activo
+ * 3. Renderiza el QR (librería qrcode.js del CDN o SVG simple)
+ * 4. Hace polling al backend cada 30s para obtener el token rotado
+ * 5. Actualiza contadores via /api/sesiones/estadisticas/{id}
+ */
+const qr = (() => {
+
+  let idSesion         = null;
+  let countdownTimer   = null;
+  let pollTimer        = null;
+  let statsTimer       = null;
+  let autoCloseTimer   = null;
+  let remaining        = 30;
+  let ROTATION_SEC     = 30;
+  let elapsedSeconds   = 0;
+  let elapsedTimer     = null;
+  let rotating         = false;
+  let horaCierreDate   = null; // Date usada para auto-cierre (M8)
+
+  async function init() {
+    const params = new URLSearchParams(window.location.search);
+    idSesion = parseInt(params.get('sesion') ?? '0', 10);
+
+    if (!idSesion) {
+      // Sin sesión explícita: buscar la primera sesión activa del docente
+      try {
+        const fichaData = await Api.fichas.listar({
+          id_docente: window.ATTENDQR_USER?.id,
+          estado: 'activa',
+        });
+        const fichas = fichaData.fichas ?? [];
+        if (fichas.length) {
+          const activa = await Api.sesiones.activa(fichas[0].id_ficha);
+          idSesion = activa.id_sesion;
+        }
+      } catch {
+        mostrarError('No hay sesiones activas. Crea una sesión primero.');
+        return;
+      }
+    }
+
+    if (!idSesion) {
+      mostrarError('No se encontró una sesión activa.');
+      return;
+    }
+
+    await Promise.all([
+      cargarSesion(),
+      cargarTokenYActualizar(),
+      cargarEstadisticas(),
+    ]);
+
+    iniciarElapsed();
+    iniciarCountdown();
+    iniciarPollEstadisticas();
+    iniciarAutoClose();
+  }
+
+  async function cargarSesion() {
+    try {
+      const sesion = await Api.sesiones.detalle(idSesion);
+      renderInfoSesion(sesion);
+    } catch (err) {
+      AttendQR.toast.error('No se pudo cargar la sesión. Verifica la URL e intenta de nuevo.');
+    }
+  }
+
+  async function cargarTokenYActualizar() {
+    const overlay  = document.getElementById('qrRefreshOverlay');
+    const tokenEl  = document.getElementById('qrToken');
+    const wrap     = document.getElementById('qrCodeWrap');
+
+    if (overlay) overlay.style.display = 'flex';
+    if (wrap) wrap.classList.add('is-refreshing');
+
+    try {
+      const resultado = await Api.qr.tokenActivo(idSesion);
+      // tokenActivo devuelve: { token_valor, segundos_restantes, expira_en, id_sesion }
+      const token = resultado.token_valor ?? '';
+
+      if (tokenEl) tokenEl.textContent = token || '—';
+      renderQrSvg(token);
+
+      if (resultado.segundos_restantes != null) {
+        remaining = Math.max(1, parseInt(resultado.segundos_restantes, 10));
+        ROTATION_SEC = remaining;
+      }
+
+    } catch (err) {
+      if (tokenEl) tokenEl.textContent = 'Sin token';
+      AttendQR.toast.warning('El token expiró. Generando uno nuevo...');
+      try {
+        const generado = await Api.qr.generar(idSesion);
+        const t = generado?.token_valor ?? '';
+        if (tokenEl && t) tokenEl.textContent = t;
+        if (t) renderQrSvg(t);
+      } catch { /* fallo silencioso */ }
+    } finally {
+      if (overlay) overlay.style.display = 'none';
+      if (wrap) {
+        wrap.classList.remove('is-refreshing');
+      }
+    }
+  }
+
+  async function cargarEstadisticas() {
+    try {
+      const stats = await Api.sesiones.estadisticas(idSesion);
+      renderContadores(stats);
+    } catch { /* silencioso */ }
+  }
+
+  function iniciarCountdown() {
+    clearInterval(countdownTimer);
+    remaining = ROTATION_SEC;
+
+    const timerEl = document.getElementById('qrCountdown');
+    const barEl   = document.getElementById('qrProgress');
+    if (timerEl) timerEl.classList.remove('is-warning');
+
+    countdownTimer = setInterval(async () => {
+      remaining--;
+
+      if (timerEl) timerEl.textContent = remaining;
+      if (barEl)   barEl.style.width = `${(remaining / ROTATION_SEC) * 100}%`;
+
+      if (remaining <= 10 && timerEl) timerEl.classList.add('is-warning');
+      else if (remaining > 10 && timerEl) timerEl.classList.remove('is-warning');
+
+      if (remaining <= 0) {
+        if (rotating) return;
+        rotating = true;
+        clearInterval(countdownTimer);
+        try {
+          await Api.qr.generar(idSesion);
+        } catch { /* el backend ya puede haber rotado automáticamente */ }
+        await cargarTokenYActualizar();
+        rotating = false;
+        iniciarCountdown();
+      }
+    }, 1000);
+  }
+
+  function iniciarPollEstadisticas() {
+    clearInterval(statsTimer);
+    statsTimer = setInterval(cargarEstadisticas, 15_000); // cada 15s
+  }
+
+  function iniciarAutoClose() {
+    clearInterval(autoCloseTimer);
+    autoCloseTimer = setInterval(async () => {
+      if (!horaCierreDate || !idSesion) return;
+      if (new Date() < horaCierreDate) return;
+
+      // Ventana de asistencia expirada — cerrar automáticamente
+      clearInterval(countdownTimer);
+      clearInterval(statsTimer);
+      clearInterval(elapsedTimer);
+      clearInterval(autoCloseTimer);
+
+      try {
+        await Api.sesiones.cerrar(idSesion);
+      } catch { /* ignorar si ya estaba cerrada */ }
+
+      AttendQR.toast.info('Sesión finalizada automáticamente. La ventana de asistencia ha expirado.', 6000);
+      setTimeout(() => window.location.href = 'index.php?view=historial&rol=docente', 3000);
+    }, 30_000); // verificar cada 30s
+  }
+
+  function iniciarElapsed() {
+    clearInterval(elapsedTimer);
+    elapsedTimer = setInterval(() => {
+      elapsedSeconds++;
+      const h = Math.floor(elapsedSeconds / 3600).toString().padStart(2, '0');
+      const m = Math.floor((elapsedSeconds % 3600) / 60).toString().padStart(2, '0');
+      const s = (elapsedSeconds % 60).toString().padStart(2, '0');
+      const el = document.getElementById('sessionElapsed');
+      if (el) el.textContent = `${h}:${m}:${s}`;
+    }, 1000);
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────
+
+  function renderInfoSesion(sesion) {
+    const ficha    = sesion.codigo_ficha ?? sesion.id_ficha ?? '—';
+    // Mostrar nombre de la materia si existe; si no, el nombre del programa
+    const prog     = sesion.nombre_materia ?? sesion.nombre_programa ?? '—';
+    const hora     = sesion.hora_apertura?.slice(11,16) ?? '—';
+    const horaH    = sesion.hora_inicio_clase ? sesion.hora_inicio_clase.slice(0,5) : '—';
+    const durMax   = parseInt(sesion.duracion_maxima_minutos ?? sesion.duracion_maxima ?? 20, 10);
+
+    // Calcular hora de cierre: H + duracion_maxima_minutos
+    let horaCierre = '—';
+    if (sesion.hora_inicio_clase && sesion.fecha_sesion) {
+      const base = new Date(sesion.fecha_sesion + 'T' + sesion.hora_inicio_clase);
+      if (!isNaN(base)) {
+        base.setMinutes(base.getMinutes() + durMax);
+        horaCierre = base.toTimeString().slice(0, 5);
+      }
+    }
+
+    // M7: calcular hora límite de retardo (hora_inicio + limite_retardo_minutos)
+    const limMin = parseInt(sesion.limite_retardo_minutos ?? sesion.limite_retardo ?? 5, 10);
+    let limiteHoraStr = '—';
+    if (sesion.hora_inicio_clase) {
+      const [lh, lm] = sesion.hora_inicio_clase.slice(0, 5).split(':').map(Number);
+      const totalMin = lh * 60 + lm + limMin;
+      limiteHoraStr  = String(Math.floor(totalMin / 60) % 24).padStart(2, '0')
+                     + ':' + String(totalMin % 60).padStart(2, '0');
+    }
+
+    // M8: guardar Date de cierre para auto-close
+    if (sesion.hora_inicio_clase && sesion.fecha_sesion) {
+      const base = new Date(sesion.fecha_sesion + 'T' + sesion.hora_inicio_clase);
+      if (!isNaN(base.getTime())) {
+        base.setMinutes(base.getMinutes() + durMax);
+        horaCierreDate = base;
+      }
+    }
+
+    setTxt('#qrFichaCodigo',   ficha);
+    setTxt('#qrFichaCodigo2',  ficha);
+    setTxt('#qrFichaProgram',  prog);
+    setTxt('#qrFichaProgram2', prog);
+    setTxt('#qrHoraApertura',  hora);
+    setTxt('#qrHoraApertura2', hora);
+    setTxt('#qrHoraInicioClase', horaH);
+    setTxt('#qrHoraCierre',    horaCierre);
+    setTxt('#qrLimiteRetardo', limiteHoraStr);
+
+    // Actualizar link "Cerrar sesión" en el botón
+    const btnCerrar = document.getElementById('btnCerrarSesion');
+    if (btnCerrar) {
+      btnCerrar.onclick = () => confirmarCierre(sesion.id_sesion);
+    }
+  }
+
+  function renderContadores(stats) {
+    // estadisticas devuelve: { estadisticas: { presentes, retardos, ausentes_marcados, sin_registro, total_aprendices, ... } }
+    const e = stats.estadisticas ?? {};
+    setTxt('#countPresente',  e.presentes         ?? 0);
+    setTxt('#countTardanza',  e.retardos          ?? 0);
+    setTxt('#countAusente',   e.ausentes_marcados ?? 0);
+    setTxt('#countPendiente', e.sin_registro      ?? 0);
+
+    const total = (e.presentes ?? 0) + (e.retardos ?? 0) + (e.ausentes_marcados ?? 0);
+    const cap   = e.total_aprendices ?? total;
+    const pct   = cap > 0 ? Math.round(((e.presentes ?? 0) / cap) * 100) : 0;
+
+    setTxt('#countTotal', `${total} / ${cap}`);
+    const bar = document.getElementById('attendanceBar');
+    if (bar) bar.style.width = pct + '%';
+  }
+
+  // QR SVG simple basado en el token (visual representativo)
+  // Instancia única de QRCode para reusar el div (evita apilar QRs)
+  let _qrInstance = null;
+
+  function renderQrSvg(token) {
+    // Actualizar texto del chip
+    const tokenEl = document.getElementById('qrToken');
+    if (tokenEl && token) tokenEl.textContent = token;
+
+    // Generar QR real que codifica exactamente el mismo token
+    const canvas = document.getElementById('qrCanvas');
+    if (!canvas || !token) return;
+
+    if (typeof QRCode === 'undefined') {
+      // Fallback: si la librería no cargó (sin internet), mostrar token en grande
+      canvas.innerHTML = `<div style="font-size:28px;font-weight:900;font-family:monospace;
+                           color:#1B2A3B;letter-spacing:.1em;text-align:center;padding:8px">
+                           ${token}</div>`;
+      return;
+    }
+
+    canvas.innerHTML = ''; // limpiar QR anterior
+    _qrInstance = new QRCode(canvas, {
+      text:        token,
+      width:       240,
+      height:      240,
+      colorDark:   '#1B2A3B',
+      colorLight:  '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  }
+
+  async function confirmarCierre(id) {
+    AttendQR.modal.setTitle('modal', 'Cerrar clase');
+    AttendQR.modal.setBody('modal', `
+      <p style="color:var(--text-secondary);margin-bottom:var(--sp-4)">
+        ¿Deseas cerrar la clase ahora? Los registros de asistencia quedarán guardados y no se podrán agregar más.
+      </p>
+      <div style="background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--r-md);
+                  padding:var(--sp-3) var(--sp-4);font-size:var(--text-xs);color:var(--warning-text)">
+        Esta acción es irreversible.
+      </div>`);
+    const confirmBtn = document.getElementById('modalConfirm');
+    if (confirmBtn) {
+      confirmBtn.textContent = 'Cerrar clase';
+      confirmBtn.onclick = async () => {
+        AttendQR.modal.close('modal');
+        AttendQR.loader.show('Cerrando clase...');
+        try {
+          await Api.sesiones.cerrar(id);
+          clearInterval(countdownTimer);
+          clearInterval(statsTimer);
+          clearInterval(elapsedTimer);
+          clearInterval(autoCloseTimer);
+          AttendQR.loader.hide();
+          AttendQR.toast.success('Clase cerrada. Los registros están guardados.');
+          setTimeout(() => window.location.href = 'index.php?view=historial&rol=docente', 1000);
+        } catch (err) {
+          AttendQR.loader.hide();
+          AttendQR.toast.error('No se pudo cerrar la clase: ' + err.message);
+        }
+      };
+    }
+    AttendQR.modal.open('modal');
+  }
+
+  function mostrarError(msg) {
+    const area = document.querySelector('.qr-display-card') ?? document.getElementById('contentArea');
+    if (area) {
+      area.innerHTML = `<div class="empty-state" style="padding:var(--sp-12)">
+        <p class="empty-state__text">${msg}</p>
+        <a href="index.php?view=crear-sesion&rol=docente" class="btn btn-primary">Crear sesión</a>
+      </div>`;
+    }
+  }
+
+  function setTxt(sel, val) {
+    const el = document.querySelector(sel);
+    if (el) el.textContent = val;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.ATTENDQR_VIEW === 'qr') init();
+  });
+
+  return { confirmarCierre };
+})();
+
+</script>

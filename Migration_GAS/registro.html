@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crear cuenta — AttendQR</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2339A900'/><text y='24' x='5' font-size='22' font-family='Arial' fill='white' font-weight='bold'>A</text></svg>">
+  <?!= include('CSS_LAYOUT_variables') ?>
+  <?!= include('CSS_LAYOUT_reset') ?>
+  <?!= include('CSS_LAYOUT_style') ?>
+  <?!= include('CSS_LAYOUT_components') ?>
+  <?!= include('CSS_LOGIN_login') ?>
+  <?!= include('CSS_LOGIN_registro') ?>
+  <style>
+    .reg-step { display: none; }
+    .reg-step.is-active { display: block; }
+    .reg-ficha-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--green-light); border: 1px solid var(--green-primary);
+      border-radius: var(--r-lg); padding: 10px 16px;
+      font-size: var(--text-sm); font-weight: var(--fw-semibold);
+      color: var(--green-dark); margin-bottom: var(--sp-5); width: 100%;
+    }
+    .reg-ficha-badge svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .strength-bars { display: flex; gap: 4px; margin-top: 6px; }
+    .strength-bar { height: 4px; flex: 1; border-radius: 2px; background: var(--border); transition: background var(--t-fast); }
+    .strength-label { font-size: var(--text-xs); color: var(--text-muted); margin-top: 4px; }
+    .reg-back-link {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: var(--text-sm); color: var(--text-muted); cursor: pointer;
+      margin-bottom: var(--sp-5); background: none; border: none; padding: 0;
+    }
+    .reg-back-link:hover { color: var(--green-primary); }
+  </style>
+</head>
+<body>
+
+<div class="login-page">
+<div class="login-panel">
+
+  <!-- Left branding -->
+  <div class="login-brand">
+    <div class="login-brand__logo">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+      </svg>
+    </div>
+    <h1 class="login-brand__title">Attend<span>QR</span></h1>
+    <p class="login-brand__sub">
+      Crea tu cuenta de aprendiz para registrar tu asistencia con QR dinámico.
+    </p>
+    <div class="login-brand__features">
+      <div class="login-brand__feature">
+        <div class="login-brand__feature-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/>
+          </svg>
+        </div>
+        Solo necesitas tu número de documento
+      </div>
+      <div class="login-brand__feature">
+        <div class="login-brand__feature-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+        Tu instructor ya registró tus datos
+      </div>
+      <div class="login-brand__feature">
+        <div class="login-brand__feature-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+        </div>
+        Proceso de un solo uso — rápido y seguro
+      </div>
+    </div>
+    <div class="login-brand__footer">SENA · Sistema de Control de Asistencia</div>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="login-form-panel">
+    <div class="login-form-container">
+
+      <!-- Mobile logo -->
+      <div class="login-mobile-logo">
+        <div class="login-mobile-logo__icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#fff">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+          </svg>
+        </div>
+        <span class="login-mobile-logo__name">AttendQR</span>
+      </div>
+
+      <!-- Paso 1: Verificar documento -->
+      <div class="reg-step is-active" id="paso1">
+
+        <div class="login-form-header">
+          <h2 class="login-form-title">Crear cuenta</h2>
+          <p class="login-form-subtitle">Ingresa tu número de documento para verificar que tu instructor ya te registró en el sistema.</p>
+        </div>
+
+        <form id="formPaso1" onsubmit="registro.verificarDocumento(event)">
+          <div class="form-group">
+            <label class="form-label" for="regDocumento">
+              Número de documento <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2"/>
+                </svg>
+              </span>
+              <input type="text" id="regDocumento" class="form-control"
+                     placeholder="Ej. 1098765432"
+                     inputmode="numeric" pattern="[0-9]{5,20}"
+                     autocomplete="username" required>
+            </div>
+          </div>
+
+          <div id="errorPaso1" style="display:none" class="form-group">
+            <div style="background:var(--danger-light,#FEF2F2);border:1px solid var(--danger);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);font-size:var(--text-sm);color:var(--danger)">
+              <span id="errorPaso1Msg"></span>
+            </div>
+          </div>
+
+          <div class="login-submit">
+            <button type="submit" class="btn btn-primary btn-full btn-lg" id="btnPaso1">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:18px;height:18px">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+              Verificar documento
+            </button>
+          </div>
+        </form>
+
+        <p style="text-align:center;font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--sp-5)">
+          ¿Ya tienes cuenta?
+          <a href="?page=login" style="color:var(--green-primary);text-decoration:none;font-weight:var(--fw-semibold)">Inicia sesión</a>
+        </p>
+
+      </div>
+
+      <!-- Paso 2: Crear contraseña -->
+      <div class="reg-step" id="paso2">
+
+        <button class="reg-back-link" onclick="registro.volverPaso1()" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:14px;height:14px">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+          Volver
+        </button>
+
+        <div class="login-form-header" style="margin-bottom:var(--sp-4)">
+          <h2 class="login-form-title">Hola,&nbsp;<span id="regNombreDisplay"></span></h2>
+          <p class="login-form-subtitle">Tu documento fue verificado. Ahora crea una contraseña para tu cuenta.</p>
+        </div>
+
+        <div class="reg-ficha-badge" id="regFichaBadge">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+          <span id="regFichaInfo"></span>
+        </div>
+
+        <form id="formPaso2" onsubmit="registro.activarCuenta(event)">
+          <input type="hidden" id="regIdAprendiz" value="">
+
+          <div class="form-group">
+            <label class="form-label" for="regPassword">
+              Contraseña <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+              </span>
+              <input type="password" id="regPassword" class="form-control"
+                     placeholder="Mínimo 8 caracteres"
+                     autocomplete="new-password" required
+                     oninput="registro.evalPassword(this.value)">
+              <span class="input-group__append" onclick="registro.togglePwd('regPassword', this)">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+              </span>
+            </div>
+            <div class="strength-bars">
+              <div class="strength-bar" id="pbar1"></div>
+              <div class="strength-bar" id="pbar2"></div>
+              <div class="strength-bar" id="pbar3"></div>
+              <div class="strength-bar" id="pbar4"></div>
+            </div>
+            <div class="strength-label" id="passLabel">—</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regPasswordConfirm">
+              Confirmar contraseña <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+              </span>
+              <input type="password" id="regPasswordConfirm" class="form-control"
+                     placeholder="Repite tu contraseña"
+                     autocomplete="new-password" required>
+            </div>
+          </div>
+
+          <div id="errorPaso2" style="display:none" class="form-group">
+            <div style="background:var(--danger-light,#FEF2F2);border:1px solid var(--danger);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);font-size:var(--text-sm);color:var(--danger)">
+              <span id="errorPaso2Msg"></span>
+            </div>
+          </div>
+
+          <div class="login-submit">
+            <button type="submit" class="btn btn-primary btn-full btn-lg" id="btnPaso2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:18px;height:18px">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              Crear mi cuenta
+            </button>
+          </div>
+        </form>
+
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</div>
+
+<?!= include('JS_API_api') ?>
+<?!= include('JS_AUTH_registro') ?>
+
+</body>
+</html>
