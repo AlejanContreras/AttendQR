@@ -59,7 +59,7 @@ Estados válidos: `Pendiente` · `En progreso` · `Completado` · `Omitido`
 | Src/Repositories/SesionRepository.php       | SESION_SesionRepository.gs         | Completado |
 | Src/Repositories/TokenRepository.php        | TOKEN_TokenRepository.gs           | Completado |
 | Src/Repositories/TrimestreRepository.php    | TRIMESTRE_TrimestreRepository.gs   | Completado |
-| Src/Repositories/BaseRepository.php         | UTIL_Utils.gs (base común)         | Pendiente |
+| Src/Repositories/BaseRepository.php         | UTIL_Utils.gs (base común)         | Omitido   |
 
 ---
 
@@ -67,9 +67,9 @@ Estados válidos: `Pendiente` · `En progreso` · `Completado` · `Omitido`
 
 | PHP (Actual)                        | GAS (Destino)          | Estado    |
 | ----------------------------------- | ---------------------- | --------- |
-| Src/Config/database.php             | CONFIG_Constants.gs    | Pendiente |
-| Src/Middleware/AuthMiddleware.php    | CONFIG_Middleware.gs   | Pendiente |
-| Src/Middleware/RoleMiddleware.php    | CONFIG_Middleware.gs   | Pendiente |
+| Src/Config/database.php             | CONFIG_Constants.gs    | Completado |
+| Src/Middleware/AuthMiddleware.php    | CONFIG_Middleware.gs   | Completado |
+| Src/Middleware/RoleMiddleware.php    | CONFIG_Middleware.gs   | Completado |
 | Src/Utils/XlsxWriter.php            | UTIL_XlsxExport.gs     | Completado |
 | Public/api.php (router)             | 00_doGet.gs            | Completado |
 | Public/index.php (entry point)      | 00_doGet.gs            | Completado |
