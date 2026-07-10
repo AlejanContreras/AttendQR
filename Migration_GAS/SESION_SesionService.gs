@@ -6,9 +6,7 @@
 //
 // Dependencias:
 //   SesionRepository — acceso a datos de sesiones y tablas relacionadas
-//   _qrCrear / _qrInvalidarPorSesion — stubs inline de QrRepository
-//     (reemplazar por QrRepository.crear / QrRepository.invalidarPorSesion
-//     cuando se migre Fase 12 — QR)
+//   QrRepository     — crear / invalidarPorSesion tokens QR
 //
 // Reglas de negocio:
 //   PRESENTE  → H a H+5 min
@@ -138,7 +136,7 @@ var SesionService = (function () {
       throw new Error('La sesión ya no está abierta.');
     }
 
-    _qrInvalidarPorSesion(idSesion);
+    QrRepository.invalidarPorSesion(idSesion);
 
     var horaCierre = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
     SesionRepository.cerrar(idSesion, horaCierre);
@@ -257,51 +255,7 @@ var SesionService = (function () {
       Session.getScriptTimeZone(),
       'yyyy-MM-dd HH:mm:ss'
     );
-    _qrCrear(idSesion, token, expiraEn);
-  }
-
-  // ── Stubs QR (reemplazar cuando se migre Fase 12 — QR) ───
-  //
-  // Cuando QR_QrRepository esté migrado, cambiar:
-  //   _qrCrear(idSesion, token, expiraEn)
-  //     → QrRepository.crear(idSesion, token, expiraEn)
-  //
-  //   _qrInvalidarPorSesion(idSesion)
-  //     → QrRepository.invalidarPorSesion(idSesion)
-  //
-  // Estructura hoja tokens_qr:
-  //   A:id_token  B:id_sesion  C:token  D:expira_en  E:activo
-
-  function _qrCrear(idSesion, token, expiraEn) {
-    try {
-      var ss    = SpreadsheetApp.openById(AUTH_SPREADSHEET_ID);
-      var sheet = ss.getSheetByName('tokens_qr');
-      if (!sheet) return; // hoja aún no creada — silencioso
-      var rows  = sheet.getDataRange().getValues();
-      var maxId = 0;
-      for (var i = 1; i < rows.length; i++) {
-        var id = parseInt(rows[i][0], 10);
-        if (!isNaN(id) && id > maxId) maxId = id;
-      }
-      sheet.appendRow([maxId + 1, idSesion, token, expiraEn, 1]);
-    } catch (e) { /* silencioso — QR aún no configurado */ }
-  }
-
-  function _qrInvalidarPorSesion(idSesion) {
-    try {
-      var ss    = SpreadsheetApp.openById(AUTH_SPREADSHEET_ID);
-      var sheet = ss.getSheetByName('tokens_qr');
-      if (!sheet) return 0;
-      var rows  = sheet.getDataRange().getValues();
-      var count = 0;
-      for (var i = 1; i < rows.length; i++) {
-        if (rows[i][1] == idSesion && rows[i][4] == 1) {
-          sheet.getRange(i + 1, 5).setValue(0);
-          count++;
-        }
-      }
-      return count;
-    } catch (e) { return 0; }
+    QrRepository.crear(idSesion, token, expiraEn);
   }
 
   return {

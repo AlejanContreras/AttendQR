@@ -281,8 +281,8 @@ var AsistenciaService = (function () {
     var tsRegistro = rH[0] * 3600 + rH[1] * 60 + (rH[2] || 0);
 
     var minutosDesdeH  = Math.floor((tsRegistro - tsInicio) / 60);
-    var limitePresente = 5;
-    var limiteRetardo  = parseInt(sesion.limite_retardo_minutos, 10) || 20;
+    var limitePresente = parseInt(sesion.limite_retardo_minutos,  10) || 5;
+    var limiteRetardo  = parseInt(sesion.duracion_maxima_minutos, 10) || 20;
 
     if (minutosDesdeH > limiteRetardo) {
       throw new Error(

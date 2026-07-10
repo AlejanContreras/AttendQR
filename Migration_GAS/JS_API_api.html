@@ -64,10 +64,10 @@ const Api = (() => {
       return _call('authVerificar', getToken());
     },
     verificarDocumento: function(doc) {
-      return _call('authVerificarDocumento', { documento: doc });
+      return _call('aprendizVerificarDocumento', { documento: doc });
     },
     activarCuenta: function(payload) {
-      return _call('authActivarCuenta', payload);
+      return _call('aprendizActivarCuenta', payload);
     },
   };
 
@@ -131,7 +131,7 @@ const Api = (() => {
   // ── Asistencias ────────────────────────────────────────────────
   var asistencias = {
     historial:    function(idAprendiz) { return _call('asistenciaHistorial',     idAprendiz, getToken()); },
-    registrar:    function(payload)    { return _call('asistenciaRegistrarQr',   payload, getToken()); },
+    registrar:    function(payload)    { return _call('asistenciaRegistrar',     payload, getToken()); },
     cambiarEstado:function(id, datos)  { return _call('asistenciaCambiarEstado', id, datos, getToken()); },
     exportar:     function(filtros)    { return _call('asistenciaExportar',      filtros || {}, getToken()); },
   };

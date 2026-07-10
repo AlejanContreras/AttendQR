@@ -24,8 +24,8 @@
 //   "fichas"      — A:id_ficha B:codigo_ficha C:nombre_programa D:activa
 //     E:nombre_materia F:id_jornada G:id_docente H:id_trimestre
 //   "jornadas"    — A:id_jornada B:nombre C:hora_inicio D:hora_fin E:minutos_gracia
-//   "docentes"    — A:id_docente B:numero_documento C:nombres D:apellidos
-//     E:correo F:password_hash G:activo H:registrado_en
+//   "docentes"    — A:id_docente B:nombres C:apellidos D:correo
+//     E:password_hash F:activo G:creado_en
 // =============================================================
 
 var AsistenciaRepository = (function () {
@@ -196,8 +196,8 @@ var AsistenciaRepository = (function () {
       var id = rows[i][0];
       map[id] = {
         id_docente : id,
-        nombres    : String(rows[i][2] || ''),
-        apellidos  : String(rows[i][3] || '')
+        nombres    : String(rows[i][1] || ''),
+        apellidos  : String(rows[i][2] || '')
       };
     }
     return map;

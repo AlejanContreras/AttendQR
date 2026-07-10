@@ -115,4 +115,9 @@ const auth = (() => {
   };
 
 })();
+
+// Poblar window.ATTENDQR_USER síncronamente al evaluar el módulo,
+// antes de cualquier DOMContentLoaded, para evitar condición de carrera
+// en módulos de página que leen este global al momento de su evaluación.
+window.ATTENDQR_USER = auth.getUsuario();
 </script>

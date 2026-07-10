@@ -169,7 +169,7 @@ const asistencia = (() => {
     ocultarResultado();
     _ocultarGeoSection(); // limpiar sección geo de intento anterior
 
-    const body = { token };
+    const body = { token_valor: token };
     if (geoData) {
       body.latitud  = geoData.latitud;
       body.longitud = geoData.longitud;
