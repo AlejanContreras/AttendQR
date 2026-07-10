@@ -1,117 +1,118 @@
-﻿<script>
+<script>
 /**
- * AttendQR — Módulo de autenticación
+ * AttendQR — Módulo de autenticación (GAS)
  *
  * Responsabilidades:
- *   - Cache del usuario autenticado en sessionStorage (acceso rápido en UI)
- *   - Verificación de sesión activa con el backend
- *   - Logout con limpieza de estado local
- *   - Guard de ruta: redirige a login si no hay sesión al cargar el shell
+ *   - Cache del usuario autenticado en sessionStorage
+ *   - Verificación de sesión activa con el backend (vía token)
+ *   - Logout con limpieza de estado local y token
+ *   - Navegación entre páginas del Web App (?page=...)
+ *   - Guard requerirAuth(): redirige a login si no hay sesión válida
  *
- * No contiene lógica de negocio. Solo coordina entre la API y el estado local.
+ * En GAS no existe sesión PHP ni window.location.pathname con rutas.
+ * La navegación usa parámetros ?page= del Web App.
+ * El token se obtiene de Api.getToken() y se pasa al backend en cada llamada.
  */
 const auth = (() => {
 
   const STORAGE_KEY = 'attendqr_usuario';
 
-  // ─── Estado local ──────────────────────────────────────────────────
+  // ─── Estado local ──────────────────────────────────────────────
 
   function setUsuario(u) {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(u));
   }
 
   function getUsuario() {
-    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? 'null'); }
-    catch { return null; }
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null'); }
+    catch(e) { return null; }
   }
 
   function clearUsuario() {
     sessionStorage.removeItem(STORAGE_KEY);
+    Api.setToken(null);
   }
 
-  function getRol() { return getUsuario()?.rol ?? null; }
-  function getId()  { return getUsuario()?.id  ?? null; }
+  function getRol() {
+    var u = getUsuario();
+    return u ? (u.rol || null) : null;
+  }
 
-  // ─── Redirección ───────────────────────────────────────────────────
+  function getId() {
+    var u = getUsuario();
+    return u ? (u.id || null) : null;
+  }
+
+  // ─── Navegación (GAS Web App usa ?page=) ───────────────────────
+
+  function _gasUrl(page) {
+    return window.location.href.split('?')[0] + '?page=' + page;
+  }
 
   function irALogin() {
-    // Construir URL absoluta de login desde la posición actual
-    const parts = window.location.pathname.split('/');
-    const idx   = parts.findIndex(p => p.toLowerCase() === 'attendqr');
-    const base  = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
-    window.location.href = base + '/Public/Views/login.php';
+    window.location.href = _gasUrl('login');
   }
 
   function irADashboard(rol) {
-    const parts = window.location.pathname.split('/');
-    const idx   = parts.findIndex(p => p.toLowerCase() === 'attendqr');
-    const base  = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
-    const view  = rol === 'aprendiz' ? 'dashboard-aprendiz' : 'dashboard-docente';
-    window.location.href = `${base}/Public/index.php?view=${view}`;
+    var page = rol === 'aprendiz' ? 'dashboard-aprendiz' : 'dashboard-docente';
+    window.location.href = _gasUrl(page);
   }
 
-  // ─── Verificar sesión ──────────────────────────────────────────────
+  // ─── Verificar sesión con el backend ──────────────────────────
 
   /**
-   * Llama al backend para comprobar si hay sesión PHP activa.
-   * - Si la hay: actualiza cache y retorna el usuario.
-   * - Si no:     limpia cache, redirige a login y retorna null.
+   * Llama a authVerificar(token) en el backend.
+   * - Si el token es válido: actualiza cache y retorna el usuario.
+   * - Si no:                 limpia cache y lanza error.
    */
-  async function verificar() {
-    try {
-      const usuario = await Api.auth.verificar();
-      setUsuario(usuario);
-      return usuario;
-    } catch {
-      clearUsuario();
+  function verificar() {
+    return Api.auth.verificar()
+      .then(function(usuario) {
+        if (usuario && usuario.id) {
+          setUsuario(usuario);
+          return usuario;
+        }
+        throw new Error('Sesión inválida');
+      })
+      .catch(function(e) {
+        clearUsuario();
+        throw e;
+      });
+  }
+
+  /**
+   * Guard de ruta para páginas protegidas.
+   * Llama desde DOMContentLoaded de cada página que requiera auth.
+   * Redirige a login si no hay token o si el token ya expiró.
+   * Retorna Promise<usuario> si la sesión es válida.
+   */
+  function requerirAuth() {
+    var token = Api.getToken();
+    if (!token) {
+      irALogin();
+      return Promise.reject(new Error('Sin sesión'));
+    }
+    return verificar().catch(function() {
       irALogin();
       return null;
-    }
+    });
   }
 
-  // ─── Logout ────────────────────────────────────────────────────────
+  // ─── Logout ────────────────────────────────────────────────────
 
-  async function logout() {
-    try { await Api.auth.logout(); } catch { /* continúa aunque falle el API */ }
-    clearUsuario();
-    irALogin();
+  function logout() {
+    return Api.auth.logout()
+      .catch(function() { /* continúa aunque falle el backend */ })
+      .then(function() {
+        clearUsuario();
+        irALogin();
+      });
   }
 
-  // ─── Guard de ruta ─────────────────────────────────────────────────
+  return {
+    setUsuario, getUsuario, clearUsuario, getRol, getId,
+    verificar, requerirAuth, logout, irALogin, irADashboard,
+  };
 
-  /**
-   * Detecta si la página actual es el shell principal (index.php).
-   * Funciona con rutas explícitas (/index.php) y con DirectoryIndex (/Public/).
-   */
-  function esShellPrincipal() {
-    const path = window.location.pathname;
-    return (
-      path.includes('index.php') ||
-      path.endsWith('/Public/') ||
-      path.endsWith('/Public')
-    );
-  }
-
-  document.addEventListener('DOMContentLoaded', async () => {
-    if (!esShellPrincipal()) return;
-
-    const usuario = await verificar();
-    if (!usuario) return;
-
-    // Poblar elementos de UI que dependen del usuario autenticado
-    const nombre    = usuario.nombre ?? '';
-    const iniciales = nombre
-      .split(' ')
-      .slice(0, 2)
-      .map(p => (p[0] ?? '').toUpperCase())
-      .join('');
-
-    document.querySelectorAll('[data-usuario-nombre]').forEach(el    => { el.textContent = nombre; });
-    document.querySelectorAll('[data-usuario-iniciales]').forEach(el => { el.textContent = iniciales; });
-    document.querySelectorAll('[data-usuario-rol]').forEach(el       => { el.textContent = usuario.rol ?? ''; });
-  });
-
-  return { setUsuario, getUsuario, clearUsuario, getRol, getId, verificar, logout, irALogin, irADashboard };
 })();
-
 </script>

@@ -90,10 +90,7 @@ const registro = (() => {
       await Api.auth.activarCuenta({ id_aprendiz: idAprendiz, password, confirmar_password: confirmar });
 
       // Redirigir al dashboard de aprendiz
-      const parts  = window.location.pathname.split('/');
-      const idx    = parts.findIndex(p => p.toLowerCase() === 'attendqr');
-      const prefix = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
-      window.location.href = prefix + '/Public/index.php?view=dashboard-aprendiz&rol=aprendiz&nueva_cuenta=1';
+      auth.irADashboard('aprendiz');
 
     } catch (err) {
       mostrarError('errorPaso2', 'errorPaso2Msg', err.message ?? 'Error al crear la cuenta.');

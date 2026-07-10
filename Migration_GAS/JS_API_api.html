@@ -1,141 +1,154 @@
-﻿<script>
+<script>
 /**
- * AttendQR — Capa de comunicación con la API REST
- * Todas las peticiones al backend pasan por aquí.
- * Respuesta estándar: { success, message, data }
+ * AttendQR — Capa de comunicación con el backend GAS
+ *
+ * Todas las llamadas al servidor pasan por _call(), que envuelve
+ * google.script.run en una Promise con el contrato { success, message, data }.
+ *
+ * El token de sesión se almacena en sessionStorage y se inyecta
+ * automáticamente como último argumento en cada función autenticada.
  */
 const Api = (() => {
 
-  // Detectar base path dinámicamente desde la URL actual
-  const BASE = (() => {
-    const parts = window.location.pathname.split('/');
-    // Busca el segmento 'AttendQR' o usa la raíz
-    const idx = parts.findIndex(p => p.toLowerCase() === 'attendqr');
-    const prefix = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
-    return prefix + '/Public/api';
-  })();
+  const TOKEN_KEY = 'attendqr_token';
 
-  async function request(endpoint, options = {}) {
-    const url = `${BASE}${endpoint}`;
-
-    // Si el body es FormData, no sobreescribir Content-Type
-    // (el navegador lo establece automáticamente con el boundary correcto)
-    const isFormData = options.body instanceof FormData;
-    const defaultHeaders = isFormData
-      ? { 'Accept': 'application/json' }
-      : { 'Content-Type': 'application/json', 'Accept': 'application/json' };
-
-    const res = await fetch(url, {
-      credentials: 'same-origin',
-      ...options,
-      headers: {
-        ...defaultHeaders,
-        ...(options.headers ?? {}),
-      },
-    });
-
-    let json;
-    try { json = await res.json(); } catch { json = {}; }
-
-    // Sesión expirada: redirigir a login automáticamente.
-    // Excluir /auth/* para no entrar en bucle cuando el login mismo falla.
-    if (res.status === 401 && !endpoint.startsWith('/auth/')) {
-      sessionStorage.removeItem('attendqr_usuario');
-      const parts  = window.location.pathname.split('/');
-      const idx    = parts.findIndex(p => p.toLowerCase() === 'attendqr');
-      const prefix = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
-      window.location.href = prefix + '/Public/Views/login.php';
-      return; // detener ejecución
-    }
-
-    if (!res.ok || json.success === false) {
-      const err = new Error(json.message ?? `Error ${res.status}`);
-      err.status = res.status;
-      err.data   = json.data ?? null;
-      throw err;
-    }
-
-    return json.data ?? json;
+  function getToken() {
+    return sessionStorage.getItem(TOKEN_KEY) || null;
   }
 
-  const get  = (ep, params) => {
-    const qs = params && Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : '';
-    return request(`${ep}${qs}`);
-  };
-  const post = (ep, body)   => request(ep, { method: 'POST',   body: JSON.stringify(body ?? {}) });
-  const put  = (ep, body)   => request(ep, { method: 'PUT',    body: JSON.stringify(body ?? {}) });
+  function setToken(t) {
+    if (t) sessionStorage.setItem(TOKEN_KEY, t);
+    else   sessionStorage.removeItem(TOKEN_KEY);
+  }
 
-  const auth = {
-    login:              (body)  => post('/auth/login', body),
-    logout:             ()      => post('/auth/logout'),
-    verificar:          ()      => get('/auth/verificar'),
-    verificarDocumento: (doc)   => post('/auth/verificar-documento', { documento: doc }),
-    activarCuenta:      (body)  => post('/auth/activar-cuenta', body),
-  };
+  /**
+   * Wrapper Promise sobre google.script.run.
+   * fnName: nombre exacto de la función global en el proyecto GAS.
+   * args:   argumentos posicionales que recibe esa función.
+   */
+  function _call(fnName) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function(resolve, reject) {
+      var runner = google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || res.success === false) {
+            var e = new Error(res ? (res.message || 'Error desconocido') : 'Sin respuesta del servidor');
+            e.status = 400;
+            e.data   = res ? (res.data || null) : null;
+            reject(e);
+          } else {
+            resolve(res.data !== undefined ? res.data : null);
+          }
+        })
+        .withFailureHandler(function(err) {
+          var e = new Error(err && err.message ? err.message : 'Error interno del servidor');
+          e.status = 500;
+          reject(e);
+        });
 
-  const docentes = {
-    consultar:  (id)       => get(`/docentes/consultar/${id}`),
-    actualizar: (id, body) => put(`/docentes/actualizar/${id}`, body),
-  };
+      runner[fnName].apply(runner, args);
+    });
+  }
 
-  const aprendices = {
-    consultar:  (id)       => get(`/aprendices/consultar/${id}`),
-    actualizar: (id, body) => put(`/aprendices/actualizar/${id}`, body),
-    listar:     (params)   => get('/aprendices/listar', params),
-    activar:    (id)       => put(`/aprendices/actualizar/${id}`, { activo: 1 }),
-    desactivar: (id)       => put(`/aprendices/actualizar/${id}`, { activo: 0 }),
-    importar:   (formData) => request('/aprendices/importar', { method: 'POST', body: formData }),
-  };
-
-  const del = (ep) => request(ep, { method: 'DELETE' });
-
-  const fichas = {
-    listar:     (params)     => get('/fichas/listar', params),
-    consultar:  (id)         => get(`/fichas/consultar/${id}`),
-    historial:  (id)         => get(`/fichas/historial/${id}`),
-    crear:      (body)       => post('/fichas/crear', body),
-    actualizar: (id, body)   => put(`/fichas/actualizar/${id}`, body),
-    eliminar:   (id)         => del(`/fichas/eliminar/${id}`),
-  };
-
-  const jornadas = {
-    listar: () => get('/jornadas/listar'),
-  };
-
-  const trimestres = {
-    listar: (params) => get('/trimestres/listar', params),
-  };
-
-  const sesiones = {
-    crear:        (body)    => post('/sesiones/crear', body),
-    listar:       (params)  => get('/sesiones/listar', params),
-    detalle:      (id)      => get(`/sesiones/detalle/${id}`),
-    activa:       (idFicha) => get(`/sesiones/activa/${idFicha}`),
-    cerrar:       (id)      => post(`/sesiones/cerrar/${id}`),
-    asistencias:  (id)      => get(`/sesiones/asistencias/${id}`),
-    estadisticas: (id)      => get(`/sesiones/estadisticas/${id}`),
+  // ── Auth ───────────────────────────────────────────────────────
+  var auth = {
+    // payload: { correo?, documento?, password }
+    // Devuelve: { usuario, token }
+    login: function(payload) {
+      return _call('authLogin', payload);
+    },
+    logout: function() {
+      return _call('authLogout', getToken());
+    },
+    verificar: function() {
+      return _call('authVerificar', getToken());
+    },
+    verificarDocumento: function(doc) {
+      return _call('authVerificarDocumento', { documento: doc });
+    },
+    activarCuenta: function(payload) {
+      return _call('authActivarCuenta', payload);
+    },
   };
 
-  const qr = {
-    generar:     (idSesion) => post(`/qr/generar/${idSesion}`),
-    tokenActivo: (idSesion) => get(`/qr/token-activo/${idSesion}`),
-    validar:     (token)    => post('/qr/validar', { token }),
+  // ── Docentes ───────────────────────────────────────────────────
+  var docentes = {
+    listar:     function(filtros)    { return _call('docenteListar',     filtros || {}, getToken()); },
+    consultar:  function(id)         { return _call('docenteConsultar',  id, getToken()); },
+    registrar:  function(payload)    { return _call('docenteRegistrar',  payload, getToken()); },
+    actualizar: function(id, datos)  { return _call('docenteActualizar', id, datos, getToken()); },
+    eliminar:   function(id)         { return _call('docenteEliminar',   id, getToken()); },
   };
 
-  const asistencias = {
-    historial:    (idAprendiz) => get(`/asistencias/historial/${idAprendiz}`),
-    registrar:    (body)       => post('/asistencias/registrar', body),
-    cambiarEstado:(id, body)   => request(`/asistencias/estado/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  // ── Aprendices ─────────────────────────────────────────────────
+  var aprendices = {
+    listar:     function(filtros)    { return _call('aprendizListar',     filtros || {}, getToken()); },
+    consultar:  function(id)         { return _call('aprendizConsultar',  id, getToken()); },
+    actualizar: function(id, datos)  { return _call('aprendizActualizar', id, datos, getToken()); },
+    activar:    function(id)         { return _call('aprendizActualizar', id, { activo: 1 }, getToken()); },
+    desactivar: function(id)         { return _call('aprendizActualizar', id, { activo: 0 }, getToken()); },
+    importar:   function(datos)      { return _call('aprendizImportar',   datos, getToken()); },
   };
 
-  const estadisticas = {
-    dashboard:  (params) => get('/estadisticas/dashboard', params),
-    resumen:    ()       => get('/estadisticas/resumen'),
-    asistencia: (params) => get('/estadisticas/asistencia', params),
+  // ── Fichas ─────────────────────────────────────────────────────
+  var fichas = {
+    listar:     function(filtros)        { return _call('fichaListar',     filtros || {}, getToken()); },
+    consultar:  function(id)             { return _call('fichaConsultar',  id, getToken()); },
+    historial:  function(id)             { return _call('fichaHistorial',  id, getToken()); },
+    crear:      function(payload)        { return _call('fichaCrear',      payload, getToken()); },
+    actualizar: function(id, datos)      { return _call('fichaActualizar', id, datos, getToken()); },
+    eliminar:   function(id)             { return _call('fichaEliminar',   id, getToken()); },
   };
 
-  return { auth, docentes, aprendices, fichas, jornadas, trimestres,
-           sesiones, qr, asistencias, estadisticas };
+  // ── Jornadas ───────────────────────────────────────────────────
+  var jornadas = {
+    listar: function() { return _call('jornadaListar', getToken()); },
+  };
+
+  // ── Trimestres ─────────────────────────────────────────────────
+  var trimestres = {
+    listar: function(filtros) { return _call('trimestreListar', filtros || {}, getToken()); },
+  };
+
+  // ── Sesiones ───────────────────────────────────────────────────
+  var sesiones = {
+    crear:        function(payload)    { return _call('sesionCrear',        payload, getToken()); },
+    listar:       function(filtros)    { return _call('sesionListar',       filtros || {}, getToken()); },
+    detalle:      function(id)         { return _call('sesionDetalle',      id, getToken()); },
+    activa:       function(idFicha)    { return _call('sesionActiva',       idFicha, getToken()); },
+    cerrar:       function(id)         { return _call('sesionCerrar',       id, getToken()); },
+    asistencias:  function(id)         { return _call('sesionAsistencias',  id, getToken()); },
+    estadisticas: function(id)         { return _call('sesionEstadisticas', id, getToken()); },
+  };
+
+  // ── QR ─────────────────────────────────────────────────────────
+  var qr = {
+    generar:     function(idSesion) { return _call('qrGenerar',     idSesion, getToken()); },
+    tokenActivo: function(idSesion) { return _call('qrTokenActivo', idSesion, getToken()); },
+    validar:     function(token)    { return _call('qrValidar',     { token: token }, getToken()); },
+  };
+
+  // ── Asistencias ────────────────────────────────────────────────
+  var asistencias = {
+    historial:    function(idAprendiz) { return _call('asistenciaHistorial',     idAprendiz, getToken()); },
+    registrar:    function(payload)    { return _call('asistenciaRegistrarQr',   payload, getToken()); },
+    cambiarEstado:function(id, datos)  { return _call('asistenciaCambiarEstado', id, datos, getToken()); },
+    exportar:     function(filtros)    { return _call('asistenciaExportar',      filtros || {}, getToken()); },
+  };
+
+  // ── Estadísticas ───────────────────────────────────────────────
+  var estadisticas = {
+    resumen:    function()         { return _call('estadisticaResumen',    getToken()); },
+    dashboard:  function(filtros)  { return _call('estadisticaDashboard',  filtros || {}, getToken()); },
+    asistencia: function(filtros)  { return _call('estadisticaAsistencia', filtros || {}, getToken()); },
+    consultar:  function(id, tipo) { return _call('estadisticaConsultar',  id, tipo, getToken()); },
+  };
+
+  return {
+    auth, docentes, aprendices, fichas, jornadas, trimestres,
+    sesiones, qr, asistencias, estadisticas,
+    getToken, setToken,
+  };
+
 })();
-
 </script>

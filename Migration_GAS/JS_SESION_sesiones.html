@@ -73,7 +73,7 @@ const sesiones = (() => {
       const links = activas.map(s => {
         const hora   = s.hora_apertura ? s.hora_apertura.slice(11, 16) : '—';
         const codigo = esc(s.codigo_ficha ?? `Sesión ${s.id_sesion}`);
-        return `<a href="index.php?view=qr&rol=docente&sesion=${s.id_sesion}"
+        return `<a href="?page=qr&sesion=${s.id_sesion}"
                    class="btn btn-sm"
                    style="background:var(--success-text);color:#fff;border:none">
                   Ver QR · ${codigo} (${hora})
@@ -475,7 +475,7 @@ const sesiones = (() => {
       cerrarModalIniciar();
 
       setTimeout(() => {
-        window.location.href = `index.php?view=qr&rol=docente&sesion=${sesion.id_sesion}`;
+        window.location.href = `?page=qr&sesion=${sesion.id_sesion}`;
       }, 500);
 
     } catch (err) {
@@ -489,7 +489,7 @@ const sesiones = (() => {
   async function irQrFicha(idFicha) {
     const idSesion = sesionesActivas[String(idFicha)];
     if (idSesion) {
-      window.location.href = `index.php?view=qr&rol=docente&sesion=${idSesion}`;
+      window.location.href = `?page=qr&sesion=${idSesion}`;
     } else {
       // Fallback: buscar en la API
       try {
@@ -497,7 +497,7 @@ const sesiones = (() => {
         const activas = data.sesiones ?? [];
         const sesion  = activas.find(s => String(s.id_ficha) === String(idFicha));
         if (sesion) {
-          window.location.href = `index.php?view=qr&rol=docente&sesion=${sesion.id_sesion}`;
+          window.location.href = `?page=qr&sesion=${sesion.id_sesion}`;
         }
       } catch { /* silencioso */ }
     }

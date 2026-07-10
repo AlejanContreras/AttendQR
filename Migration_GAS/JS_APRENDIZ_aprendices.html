@@ -216,28 +216,36 @@ const aprendicesGestion = (() => {
 
   // ─── Importación CSV ─────────────────────────────────────────────────────
 
-  async function importar(input) {
+  function importar(input) {
     const file = input?.files?.[0];
     if (!file) return;
 
     const label = document.getElementById('btnImportarLabel');
-    const textoOrig = label?.querySelector('svg') ? null : label?.textContent;
     if (label) label.style.opacity = '0.6';
 
-    const fd = new FormData();
-    fd.append('archivo', file);
-
-    try {
-      const resultado = await Api.aprendices.importar(fd);
-      mostrarResultadoImportacion(resultado);
-      await cargarAprendices();
-    } catch (err) {
-      toast(err.message ?? 'Error durante la importación.', 'error');
-    } finally {
+    // google.script.run no acepta FormData — leer el CSV como texto plano
+    const reader = new FileReader();
+    reader.onload = async function(ev) {
+      try {
+        const resultado = await Api.aprendices.importar({
+          contenido: ev.target.result,
+          nombre:    file.name,
+        });
+        mostrarResultadoImportacion(resultado);
+        await cargarAprendices();
+      } catch (err) {
+        toast(err.message ?? 'Error durante la importación.', 'error');
+      } finally {
+        if (label) label.style.opacity = '1';
+        input.value = '';
+      }
+    };
+    reader.onerror = function() {
+      toast('No se pudo leer el archivo.', 'error');
       if (label) label.style.opacity = '1';
-      // Limpiar input para permitir re-importar el mismo archivo
       input.value = '';
-    }
+    };
+    reader.readAsText(file, 'UTF-8');
   }
 
   function mostrarResultadoImportacion(resultado) {
@@ -267,7 +275,7 @@ const aprendicesGestion = (() => {
 
     if (exitosos > 0) {
       html += `<p style="font-size:var(--text-sm);color:var(--green-dark);margin-bottom:var(--sp-3)">
-        ✅ Los aprendices importados recibirán un enlace para completar su registro con su número de documento en <strong>registro.php</strong>.
+        ✅ Los aprendices importados podrán activar su cuenta con su número de documento en la página de <strong>Registro</strong>.
       </p>`;
     }
 

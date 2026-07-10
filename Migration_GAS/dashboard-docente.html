@@ -213,7 +213,25 @@
 <?!= include('JS_AUTH_auth') ?>
 <?!= include('JS_DASHBOARD_dashboard') ?>
 
-<script>window.ATTENDQR_VIEW = 'dashboard-docente'; window.ATTENDQR_ROL = 'docente';</script>
+<script>
+window.ATTENDQR_VIEW = 'dashboard-docente';
+window.ATTENDQR_ROL  = 'docente';
+(function () {
+  var u = auth.getUsuario();
+  if (!u) { auth.irALogin(); return; }
+  window.ATTENDQR_USER = u;
+  var nombre    = u.nombre || u.nombres || '';
+  var iniciales = nombre.split(' ').slice(0, 2).map(function (p) { return (p[0] || '').toUpperCase(); }).join('');
+  document.querySelectorAll('[data-usuario-nombre]').forEach(function (el) { el.textContent = nombre; });
+  document.querySelectorAll('[data-usuario-iniciales]').forEach(function (el) { el.textContent = iniciales; });
+  document.querySelectorAll('[data-usuario-rol]').forEach(function (el) { el.textContent = u.rol || ''; });
+  var navDoc = document.getElementById('navDocente');
+  var navApr = document.getElementById('navAprendiz');
+  if (navDoc) navDoc.style.display = u.rol === 'docente'  ? '' : 'none';
+  if (navApr) navApr.style.display = u.rol === 'aprendiz' ? '' : 'none';
+  auth.requerirAuth().then(function (usuario) { if (usuario) window.ATTENDQR_USER = usuario; });
+})();
+</script>
 
 </body>
 </html>

@@ -169,7 +169,7 @@ const qr = (() => {
       } catch { /* ignorar si ya estaba cerrada */ }
 
       AttendQR.toast.info('Sesión finalizada automáticamente. La ventana de asistencia ha expirado.', 6000);
-      setTimeout(() => window.location.href = 'index.php?view=historial&rol=docente', 3000);
+      setTimeout(() => window.location.href = '?page=historial', 3000);
     }, 30_000); // verificar cada 30s
   }
 
@@ -314,7 +314,7 @@ const qr = (() => {
           clearInterval(autoCloseTimer);
           AttendQR.loader.hide();
           AttendQR.toast.success('Clase cerrada. Los registros están guardados.');
-          setTimeout(() => window.location.href = 'index.php?view=historial&rol=docente', 1000);
+          setTimeout(() => window.location.href = '?page=historial', 1000);
         } catch (err) {
           AttendQR.loader.hide();
           AttendQR.toast.error('No se pudo cerrar la clase: ' + err.message);
@@ -329,7 +329,7 @@ const qr = (() => {
     if (area) {
       area.innerHTML = `<div class="empty-state" style="padding:var(--sp-12)">
         <p class="empty-state__text">${msg}</p>
-        <a href="index.php?view=crear-sesion&rol=docente" class="btn btn-primary">Crear sesión</a>
+        <a href="?page=crear-sesion" class="btn btn-primary">Crear sesión</a>
       </div>`;
     }
   }

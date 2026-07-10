@@ -223,7 +223,7 @@ const historial = (() => {
     if (!registros.length) {
       tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:var(--sp-10)">
         <div style="color:var(--text-muted);font-size:var(--text-sm)">Aún no tienes registros de asistencia</div>
-        <a href="index.php?view=registrar-asistencia&rol=aprendiz" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Registrar ahora</a>
+        <a href="?page=registrar-asistencia" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Registrar ahora</a>
       </td></tr>`;
       return;
     }
@@ -493,29 +493,33 @@ const historial = (() => {
     }
   }
 
-  // ─── Exportar (servidor → CSV con BOM, Excel-compatible) ─────────
+  // ─── Exportar (GAS: backend devuelve base64 → descarga en cliente) ──
 
-  function exportar() {
-    // Construir URL del endpoint con los mismos filtros activos
-    const params = new URLSearchParams();
+  async function exportar() {
+    const filtros = {};
     const ficha  = document.getElementById('filterFicha')?.value;
     const desde  = document.getElementById('filterDesde')?.value;
     const hasta  = document.getElementById('filterHasta')?.value;
+    if (ficha) filtros.id_ficha     = ficha;
+    if (desde) filtros.fecha_inicio = desde;
+    if (hasta) filtros.fecha_fin    = hasta;
 
-    if (ficha) params.set('id_ficha', ficha);
-    if (desde) params.set('fecha_inicio', desde);
-    if (hasta) params.set('fecha_fin', hasta);
-
-    // Reutilizar la detección del BASE path que usa api.js
-    const parts  = window.location.pathname.split('/');
-    const idx    = parts.findIndex(p => p.toLowerCase() === 'attendqr');
-    const prefix = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
-    const url    = prefix + '/Public/api/asistencias/exportar'
-      + (params.toString() ? '?' + params.toString() : '');
-
-    // Navegar a la URL para descargar el archivo
-    window.location.href = url;
     AttendQR.toast.info('Generando archivo de exportación...');
+    try {
+      const res = await Api.asistencias.exportar(filtros);
+      // res = { base64, mime, filename }
+      const bytes  = Uint8Array.from(atob(res.base64), c => c.charCodeAt(0));
+      const blob   = new Blob([bytes], { type: res.mime });
+      const url    = URL.createObjectURL(blob);
+      const a      = document.createElement('a');
+      a.href       = url;
+      a.download   = res.filename || 'historial.csv';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    } catch (err) {
+      AttendQR.toast.error('Error al exportar: ' + (err.message || 'Error desconocido'));
+    }
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────
