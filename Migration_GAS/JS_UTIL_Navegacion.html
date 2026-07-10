@@ -1,0 +1,71 @@
+<script>
+/**
+ * AttendQR — Navegación centralizada
+ *
+ * Punto único para la navegación entre páginas del sistema (todas
+ * viven bajo el mismo doGet(e) → e.parameter.page).
+ *
+ * Consolida en un solo lugar el patrón disperso en varios archivos:
+ * JS_AUTH_auth.html, JS_QR_qr.html, JS_SESION_sesiones.html,
+ * JS_DASHBOARD_dashboard.html, JS_ASISTENCIA_asistencia.html,
+ * JS_AUTH_registro.html, login.html.
+ *
+ * ESTADO DE INTEGRACIÓN: este módulo está listo pero aún no integrado
+ * en ninguna vista. Las llamadas window.location.href existentes siguen
+ * funcionando igual y no fueron modificadas. La integración queda para
+ * una fase posterior.
+ *
+ * Para usarlo en una vista nueva, incluir junto al resto de scripts:
+ *   <?!= include('JS_API_api') ?>
+ *   <?!= include('JS_UTIL_utils') ?>
+ *   <?!= include('JS_UTIL_Navegacion') ?>
+ *   <?!= include('JS_AUTH_auth') ?>
+ */
+window.Navegacion = (() => {
+
+  // ── Núcleo ───────────────────────────────────────────────────
+  function ir(page, params) {
+    let url = '?page=' + page;
+    if (params) {
+      for (const clave in params) {
+        const valor = params[clave];
+        if (valor === undefined || valor === null || valor === '') continue;
+        url += '&' + encodeURIComponent(clave) + '=' + encodeURIComponent(valor);
+      }
+    }
+    window.location.href = url;
+  }
+
+  // ── Páginas públicas ─────────────────────────────────────────
+  function irALogin()    { ir('login'); }
+  function irARegistro() { ir('registro'); }
+  function ir404()       { ir('404'); }
+
+  // ── Páginas autenticadas ─────────────────────────────────────
+  function irADashboard(rol) {
+    ir(rol === 'aprendiz' ? 'dashboard-aprendiz' : 'dashboard-docente');
+  }
+  function irADashboardDocente()    { ir('dashboard-docente'); }
+  function irADashboardAprendiz()   { ir('dashboard-aprendiz'); }
+  function irAPerfil()              { ir('perfil'); }
+  function irAHistorial()           { ir('historial'); }
+  function irACrearSesion()         { ir('crear-sesion'); }
+  function irAAprendices()          { ir('aprendices'); }
+  function irARegistrarAsistencia() { ir('registrar-asistencia'); }
+  function irAQR(idSesion) {
+    ir('qr', idSesion ? { sesion: idSesion } : null);
+  }
+
+  // ── Plantilla para vistas futuras ────────────────────────────
+  // Si se agrega una página nueva al router (00_doGet.gs), agregar
+  // aquí su función y exportarla:
+  //   function irANombreDeLaVista() { ir('nombre-de-la-vista'); }
+
+  return {
+    irALogin, irARegistro, ir404,
+    irADashboard, irADashboardDocente, irADashboardAprendiz,
+    irAPerfil, irAHistorial, irACrearSesion, irAAprendices,
+    irARegistrarAsistencia, irAQR,
+  };
+})();
+</script>

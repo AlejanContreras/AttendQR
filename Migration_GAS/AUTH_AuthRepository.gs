@@ -14,7 +14,7 @@
 //   El ID se obtiene de la URL: .../spreadsheets/d/<ID>/edit
 // =============================================================
 
-var AUTH_SPREADSHEET_ID = 'TU_SPREADSHEET_ID_AQUI';
+// AUTH_SPREADSHEET_ID se declara en CONFIG_Constants.gs — no redeclarar aquí.
 
 var AuthRepository = (function () {
 
