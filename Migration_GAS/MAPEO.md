@@ -11,18 +11,18 @@ Estados válidos: `Pendiente` · `En progreso` · `Completado` · `Omitido`
 
 | PHP (Actual)                              | GAS (Destino)                      | Estado    |
 | ----------------------------------------- | ---------------------------------- | --------- |
-| Src/Controllers/AuthController.php        | AUTH_AuthController.gs             | Pendiente |
-| Src/Controllers/AprendizController.php    | APRENDIZ_AprendizController.gs     | Pendiente |
-| Src/Controllers/AsistenciaController.php  | ASISTENCIA_AsistenciaController.gs | Pendiente |
-| Src/Controllers/DocenteController.php     | DOCENTE_DocenteController.gs       | Pendiente |
-| Src/Controllers/EstadisticaController.php | ESTADISTICA_EstadisticaController.gs | Pendiente |
-| Src/Controllers/FichaController.php       | FICHA_FichaController.gs           | Pendiente |
-| Src/Controllers/HealthController.php      | HEALTH_HealthController.gs         | Pendiente |
-| Src/Controllers/JornadaController.php     | JORNADA_JornadaController.gs       | Pendiente |
-| Src/Controllers/QrController.php          | QR_QrController.gs                 | Pendiente |
-| Src/Controllers/SesionController.php      | SESION_SesionController.gs         | Pendiente |
-| Src/Controllers/TokenController.php       | TOKEN_TokenController.gs           | Pendiente |
-| Src/Controllers/TrimestreController.php   | TRIMESTRE_TrimestreController.gs   | Pendiente |
+| Src/Controllers/AuthController.php        | AUTH_AuthController.gs             | Completado |
+| Src/Controllers/AprendizController.php    | APRENDIZ_AprendizController.gs     | Completado |
+| Src/Controllers/AsistenciaController.php  | ASISTENCIA_AsistenciaController.gs | Completado |
+| Src/Controllers/DocenteController.php     | DOCENTE_DocenteController.gs       | Completado |
+| Src/Controllers/EstadisticaController.php | ESTADISTICA_EstadisticaController.gs | Completado |
+| Src/Controllers/FichaController.php       | FICHA_FichaController.gs           | Completado |
+| Src/Controllers/HealthController.php      | HEALTH_HealthController.gs         | Completado |
+| Src/Controllers/JornadaController.php     | JORNADA_JornadaController.gs       | Completado |
+| Src/Controllers/QrController.php          | QR_QrController.gs                 | Completado |
+| Src/Controllers/SesionController.php      | SESION_SesionController.gs         | Completado |
+| Src/Controllers/TokenController.php       | TOKEN_TokenController.gs           | Completado |
+| Src/Controllers/TrimestreController.php   | TRIMESTRE_TrimestreController.gs   | Completado |
 
 ---
 
@@ -30,18 +30,18 @@ Estados válidos: `Pendiente` · `En progreso` · `Completado` · `Omitido`
 
 | PHP (Actual)                            | GAS (Destino)                    | Estado    |
 | --------------------------------------- | -------------------------------- | --------- |
-| Src/Services/AuthService.php            | AUTH_AuthService.gs              | Pendiente |
-| Src/Services/AprendizService.php        | APRENDIZ_AprendizService.gs      | Pendiente |
-| Src/Services/AsistenciaService.php      | ASISTENCIA_AsistenciaService.gs  | Pendiente |
-| Src/Services/DocenteService.php         | DOCENTE_DocenteService.gs        | Pendiente |
-| Src/Services/EstadisticaService.php     | ESTADISTICA_EstadisticaService.gs | Pendiente |
-| Src/Services/FichaService.php           | FICHA_FichaService.gs            | Pendiente |
-| Src/Services/HealthService.php          | HEALTH_HealthService.gs          | Pendiente |
-| Src/Services/JornadaService.php         | JORNADA_JornadaService.gs        | Pendiente |
-| Src/Services/QrService.php              | QR_QrService.gs                  | Pendiente |
-| Src/Services/SesionService.php          | SESION_SesionService.gs          | Pendiente |
-| Src/Services/TokenService.php           | TOKEN_TokenService.gs            | Pendiente |
-| Src/Services/TrimestreService.php       | TRIMESTRE_TrimestreService.gs    | Pendiente |
+| Src/Services/AuthService.php            | AUTH_AuthService.gs              | Completado |
+| Src/Services/AprendizService.php        | APRENDIZ_AprendizService.gs      | Completado |
+| Src/Services/AsistenciaService.php      | ASISTENCIA_AsistenciaService.gs  | Completado |
+| Src/Services/DocenteService.php         | DOCENTE_DocenteService.gs        | Completado |
+| Src/Services/EstadisticaService.php     | ESTADISTICA_EstadisticaService.gs | Completado |
+| Src/Services/FichaService.php           | FICHA_FichaService.gs            | Completado |
+| Src/Services/HealthService.php          | HEALTH_HealthService.gs          | Completado |
+| Src/Services/JornadaService.php         | JORNADA_JornadaService.gs        | Completado |
+| Src/Services/QrService.php              | QR_QrService.gs                  | Completado |
+| Src/Services/SesionService.gs          | SESION_SesionService.gs          | Completado |
+| Src/Services/TokenService.php           | TOKEN_TokenService.gs            | Completado |
+| Src/Services/TrimestreService.php       | TRIMESTRE_TrimestreService.gs    | Completado |
 
 ---
 
@@ -49,16 +49,16 @@ Estados válidos: `Pendiente` · `En progreso` · `Completado` · `Omitido`
 
 | PHP (Actual)                                | GAS (Destino)                      | Estado    |
 | ------------------------------------------- | ---------------------------------- | --------- |
-| Src/Repositories/AuthRepository.php         | AUTH_AuthRepository.gs             | Pendiente |
-| Src/Repositories/AprendizRepository.php     | APRENDIZ_AprendizRepository.gs     | Pendiente |
-| Src/Repositories/AsistenciaRepository.php   | ASISTENCIA_AsistenciaRepository.gs | Pendiente |
-| Src/Repositories/DocenteRepository.php      | DOCENTE_DocenteRepository.gs       | Pendiente |
-| Src/Repositories/FichaRepository.php        | FICHA_FichaRepository.gs           | Pendiente |
-| Src/Repositories/JornadaRepository.php      | JORNADA_JornadaRepository.gs       | Pendiente |
-| Src/Repositories/QrRepository.php           | QR_QrRepository.gs                 | Pendiente |
-| Src/Repositories/SesionRepository.php       | SESION_SesionRepository.gs         | Pendiente |
-| Src/Repositories/TokenRepository.php        | TOKEN_TokenRepository.gs           | Pendiente |
-| Src/Repositories/TrimestreRepository.php    | TRIMESTRE_TrimestreRepository.gs   | Pendiente |
+| Src/Repositories/AuthRepository.php         | AUTH_AuthRepository.gs             | Completado |
+| Src/Repositories/AprendizRepository.php     | APRENDIZ_AprendizRepository.gs     | Completado |
+| Src/Repositories/AsistenciaRepository.php   | ASISTENCIA_AsistenciaRepository.gs | Completado |
+| Src/Repositories/DocenteRepository.php      | DOCENTE_DocenteRepository.gs       | Completado |
+| Src/Repositories/FichaRepository.php        | FICHA_FichaRepository.gs           | Completado |
+| Src/Repositories/JornadaRepository.php      | JORNADA_JornadaRepository.gs       | Completado |
+| Src/Repositories/QrRepository.php           | QR_QrRepository.gs                 | Completado |
+| Src/Repositories/SesionRepository.php       | SESION_SesionRepository.gs         | Completado |
+| Src/Repositories/TokenRepository.php        | TOKEN_TokenRepository.gs           | Completado |
+| Src/Repositories/TrimestreRepository.php    | TRIMESTRE_TrimestreRepository.gs   | Completado |
 | Src/Repositories/BaseRepository.php         | UTIL_Utils.gs (base común)         | Pendiente |
 
 ---
@@ -70,7 +70,7 @@ Estados válidos: `Pendiente` · `En progreso` · `Completado` · `Omitido`
 | Src/Config/database.php             | CONFIG_Constants.gs    | Pendiente |
 | Src/Middleware/AuthMiddleware.php    | CONFIG_Middleware.gs   | Pendiente |
 | Src/Middleware/RoleMiddleware.php    | CONFIG_Middleware.gs   | Pendiente |
-| Src/Utils/XlsxWriter.php            | UTIL_XlsxExport.gs     | Pendiente |
+| Src/Utils/XlsxWriter.php            | UTIL_XlsxExport.gs     | Completado |
 | Public/api.php (router)             | 00_doGet.gs            | Completado |
 | Public/index.php (entry point)      | 00_doGet.gs            | Completado |
 | —                                   | 01_Include.gs          | Completado |
