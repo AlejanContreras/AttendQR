@@ -19,13 +19,14 @@ const sesiones = (() => {
   let fichasConSesionActiva = new Set();
   let clases       = [];    // cache de fichas del docente
   let jornadas     = [];    // cache de jornadas disponibles
+  let trimestres   = [];    // cache de trimestres activos
   let sesionesActivas = {}; // { id_ficha: id_sesion }
   let geoDocente   = null;  // { latitud, longitud, accuracy } — geo del docente para la sesión
 
   // ─── Init ─────────────────────────────────────────────────────────────
 
   async function init() {
-    await Promise.all([cargarJornadas(), cargarSesionesActivas()]);
+    await Promise.all([cargarJornadas(), cargarTrimestres(), cargarSesionesActivas()]);
     await cargarClases();
   }
 
@@ -47,6 +48,28 @@ const sesiones = (() => {
       const opt = document.createElement('option');
       opt.value = j.id_jornada;
       opt.textContent = j.nombre ?? `Jornada ${j.id_jornada}`;
+      sel.appendChild(opt);
+    });
+  }
+
+  // ─── Trimestres ───────────────────────────────────────────────────────
+
+  async function cargarTrimestres() {
+    try {
+      const data = await Api.trimestres.listar({ activo: 1 });
+      trimestres = Array.isArray(data) ? data : (data.trimestres ?? []);
+      _poblarSelectTrimestres('nuevaTrimestre');
+      _poblarSelectTrimestres('editTrimestre');
+    } catch { /* no bloquear si falla */ }
+  }
+
+  function _poblarSelectTrimestres(selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    trimestres.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id_trimestre;
+      opt.textContent = t.nombre ?? `Trimestre ${t.id_trimestre}`;
       sel.appendChild(opt);
     });
   }
@@ -204,7 +227,7 @@ const sesiones = (() => {
         <div class="clase-card__actions">
           ${accionPrincipal}
           <button class="clase-card__btn-icon" title="Editar clase"
-                  onclick="sesiones.abrirModalEditar(${idFicha}, '${codigo}', '${dataPrograma}', '${dataMateria}', ${c.id_jornada ?? 'null'})">
+                  onclick="sesiones.abrirModalEditar(${idFicha}, '${codigo}', '${dataPrograma}', '${dataMateria}', ${c.id_jornada ?? 'null'}, ${c.id_trimestre ?? 'null'})">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
@@ -236,12 +259,13 @@ const sesiones = (() => {
   async function crearClase(e) {
     e.preventDefault();
 
-    const codigo   = document.getElementById('nuevaFicha')?.value.trim() ?? '';
-    const programa = document.getElementById('nuevaPrograma')?.value.trim() ?? '';
-    const materia  = document.getElementById('nuevaMateria')?.value.trim() ?? '';
-    const jornada  = document.getElementById('nuevaJornada')?.value;
+    const codigo     = document.getElementById('nuevaFicha')?.value.trim() ?? '';
+    const programa   = document.getElementById('nuevaPrograma')?.value.trim() ?? '';
+    const materia    = document.getElementById('nuevaMateria')?.value.trim() ?? '';
+    const jornada    = document.getElementById('nuevaJornada')?.value;
+    const trimestre  = document.getElementById('nuevaTrimestre')?.value;
 
-    if (!codigo || !programa || !jornada) {
+    if (!codigo || !programa || !jornada || !trimestre) {
       AttendQR.toast.warning('Completa los campos obligatorios.');
       return;
     }
@@ -256,6 +280,7 @@ const sesiones = (() => {
         nombre_programa: programa,
         nombre_materia:  materia || null,
         id_jornada:      parseInt(jornada, 10),
+        id_trimestre:    parseInt(trimestre, 10),
       });
 
       clases.unshift(nueva); // agregar al inicio (más reciente primero)
@@ -270,7 +295,7 @@ const sesiones = (() => {
 
   // ─── Modal: Editar Clase ───────────────────────────────────────────────
 
-  function abrirModalEditar(idFicha, codigo, programa, materia, idJornada) {
+  function abrirModalEditar(idFicha, codigo, programa, materia, idJornada, idTrimestre) {
     document.getElementById('editIdFicha').value  = idFicha;
     document.getElementById('editFicha').value    = codigo;
     document.getElementById('editPrograma').value = programa;
@@ -278,6 +303,9 @@ const sesiones = (() => {
 
     const sel = document.getElementById('editJornada');
     if (sel && idJornada) sel.value = String(idJornada);
+
+    const selT = document.getElementById('editTrimestre');
+    if (selT && idTrimestre) selT.value = String(idTrimestre);
 
     document.getElementById('modalEditarClaseBackdrop').style.display = 'flex';
     setTimeout(() => document.getElementById('editFicha')?.focus(), 80);
@@ -290,13 +318,14 @@ const sesiones = (() => {
   async function editarClase(e) {
     e.preventDefault();
 
-    const idFicha  = parseInt(document.getElementById('editIdFicha')?.value ?? '0', 10);
-    const codigo   = document.getElementById('editFicha')?.value.trim() ?? '';
-    const programa = document.getElementById('editPrograma')?.value.trim() ?? '';
-    const materia  = document.getElementById('editMateria')?.value.trim() ?? '';
-    const jornada  = document.getElementById('editJornada')?.value;
+    const idFicha   = parseInt(document.getElementById('editIdFicha')?.value ?? '0', 10);
+    const codigo    = document.getElementById('editFicha')?.value.trim() ?? '';
+    const programa  = document.getElementById('editPrograma')?.value.trim() ?? '';
+    const materia   = document.getElementById('editMateria')?.value.trim() ?? '';
+    const jornada   = document.getElementById('editJornada')?.value;
+    const trimestre = document.getElementById('editTrimestre')?.value;
 
-    if (!idFicha || !codigo || !programa || !jornada) {
+    if (!idFicha || !codigo || !programa || !jornada || !trimestre) {
       AttendQR.toast.warning('Completa los campos obligatorios.');
       return;
     }
@@ -311,6 +340,7 @@ const sesiones = (() => {
         nombre_programa: programa,
         nombre_materia:  materia || null,
         id_jornada:      parseInt(jornada, 10),
+        id_trimestre:    parseInt(trimestre, 10),
       });
 
       // Actualizar en cache

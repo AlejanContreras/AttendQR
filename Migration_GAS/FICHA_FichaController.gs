@@ -103,13 +103,15 @@ function fichaCrear(payload, token) {
                         ? String(payload.nombre_materia)
                         : null;
 
+    var idTrimestre = payload.id_trimestre ? parseInt(payload.id_trimestre, 10) : null;
+
     var ficha = FichaService.crear(
       String(payload.codigo_ficha),
       String(payload.nombre_programa),
       parseInt(payload.id_jornada, 10),
       idDocente,
       nombreMateria,
-      null // id_trimestre — campo opcional, pendiente módulo TRIMESTRE
+      idTrimestre
     );
     return { success: true, message: 'Clase creada correctamente.', data: ficha };
   } catch (e) {

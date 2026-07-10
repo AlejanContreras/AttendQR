@@ -136,14 +136,19 @@ var TokenService = (function () {
 
   // ── Helpers privados ──────────────────────────────────────
 
-  // Genera 32 bytes aleatorios seguros y los devuelve como hex de 64 chars.
+  // Genera un token único de 64 chars hex (equivale a 32 bytes aleatorios).
   // Replica: bin2hex(random_bytes(32))
+  // GAS no tiene Utilities.getSecureRandomBytes → usamos computeDigest (SHA_256)
+  // mezclado con dos valores aleatorios distintos para mayor entropía.
   function _generarTokenUnico() {
-    var bytes = Utilities.getSecureRandomBytes(32);
+    var seed  = new Date().getTime().toString()
+              + Math.random().toString()
+              + Math.random().toString();
+    var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed);
     var hex   = '';
     for (var i = 0; i < bytes.length; i++) {
-      var b = (bytes[i] < 0 ? bytes[i] + 256 : bytes[i]).toString(16);
-      hex  += (b.length === 1 ? '0' : '') + b;
+      var b = bytes[i] < 0 ? bytes[i] + 256 : bytes[i];
+      hex  += (b < 16 ? '0' : '') + b.toString(16);
     }
     return hex; // 64 chars hex, minúsculas
   }

@@ -147,16 +147,19 @@ var QrService = (function () {
     return { token_valor: tokenValor, expira_en: expiraEn };
   }
 
-  // Genera 3 bytes aleatorios seguros → 6 chars hex mayúsculas.
+  // Genera un token de 6 chars hex mayúsculas.
   // Replica: strtoupper(bin2hex(random_bytes(3)))
+  // GAS no tiene Utilities.getSecureRandomBytes → usamos computeDigest (SHA_256)
+  // como fuente de entropía mezclada con timestamp + Math.random().
   function _generarToken() {
-    var bytes = Utilities.getSecureRandomBytes(3);
+    var seed  = new Date().getTime().toString() + Math.random().toString();
+    var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed);
     var hex   = '';
-    for (var i = 0; i < bytes.length; i++) {
-      var b = (bytes[i] < 0 ? bytes[i] + 256 : bytes[i]).toString(16);
-      hex  += (b.length === 1 ? '0' : '') + b;
+    for (var i = 0; i < 3; i++) {
+      var b = bytes[i] < 0 ? bytes[i] + 256 : bytes[i];
+      hex  += (b < 16 ? '0' : '') + b.toString(16);
     }
-    return hex.toUpperCase(); // 6 chars hex MAYÚSCULAS
+    return hex.toUpperCase();
   }
 
   // Calcula fecha de expiración sumando `segundos` al momento actual.

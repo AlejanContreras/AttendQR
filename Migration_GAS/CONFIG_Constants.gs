@@ -257,17 +257,24 @@ function crearDatosDePrueba() {
   var ahora = new Date();
   var informe = { insertados: [], omitidos: [], reparados: [] };
 
-  // Jornada de prueba
-  var idJornada = _buscarOCrear(ss, 'jornadas', 'nombre', 'mañana', {
-    id_jornada: 'jornada-001',
-    nombre: 'mañana',
-    hora_inicio: '07:00',
-    hora_fin: '12:00',
-    minutos_gracia: 10
+  // Jornadas (Mañana, Tarde, Noche)
+  var idJornada = _buscarOCrear(ss, 'jornadas', 'nombre', 'Mañana', {
+    id_jornada: 1, nombre: 'Mañana', hora_inicio: '06:00', hora_fin: '12:00', minutos_gracia: 10
   });
-  _existeValor(ss, 'jornadas', 'nombre', 'mañana')
-    ? informe.omitidos.push('jornada mañana')
-    : informe.insertados.push('jornada mañana');
+  _existeValor(ss, 'jornadas', 'nombre', 'Mañana')
+    ? informe.omitidos.push('jornada Mañana') : informe.insertados.push('jornada Mañana');
+
+  _buscarOCrear(ss, 'jornadas', 'nombre', 'Tarde', {
+    id_jornada: 2, nombre: 'Tarde', hora_inicio: '12:00', hora_fin: '18:00', minutos_gracia: 10
+  });
+  _existeValor(ss, 'jornadas', 'nombre', 'Tarde')
+    ? informe.omitidos.push('jornada Tarde') : informe.insertados.push('jornada Tarde');
+
+  _buscarOCrear(ss, 'jornadas', 'nombre', 'Noche', {
+    id_jornada: 3, nombre: 'Noche', hora_inicio: '18:00', hora_fin: '22:00', minutos_gracia: 10
+  });
+  _existeValor(ss, 'jornadas', 'nombre', 'Noche')
+    ? informe.omitidos.push('jornada Noche') : informe.insertados.push('jornada Noche');
 
   // Trimestre de prueba
   var idTrimestre = _buscarOCrear(ss, 'trimestres', 'nombre', 'Trimestre de prueba activo', {

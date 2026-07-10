@@ -242,12 +242,14 @@ var SesionService = (function () {
 
   // Genera el primer token QR al crear una sesión.
   // PHP: $token = strtoupper(bin2hex(random_bytes(3))); // 6 hex chars
+  // GAS no tiene Utilities.getSecureRandomBytes → usamos computeDigest (SHA_256).
   function _generarPrimerToken(idSesion, rotacionSegundos) {
-    var bytes = Utilities.getSecureRandomBytes(3);
+    var seed  = new Date().getTime().toString() + Math.random().toString();
+    var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed);
     var hex   = '';
-    for (var i = 0; i < bytes.length; i++) {
-      var b = (bytes[i] < 0 ? bytes[i] + 256 : bytes[i]).toString(16);
-      hex  += (b.length === 1 ? '0' : '') + b;
+    for (var i = 0; i < 3; i++) {
+      var b = bytes[i] < 0 ? bytes[i] + 256 : bytes[i];
+      hex  += (b < 16 ? '0' : '') + b.toString(16);
     }
     var token    = hex.toUpperCase();
     var expiraEn = Utilities.formatDate(
