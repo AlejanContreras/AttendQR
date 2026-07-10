@@ -164,7 +164,7 @@
                 </svg>
                 Registrar asistencia
               </button>
-              <a href="?page=dashboard-aprendiz" class="btn btn-secondary">Volver</a>
+              <a href="#" onclick="event.preventDefault();Navegacion.irADashboardAprendiz()" class="btn btn-secondary">Volver</a>
             </div>
 
           </form>
@@ -216,6 +216,7 @@
 
 <?!= include('JS_API_api') ?>
 <?!= include('JS_UTIL_utils') ?>
+<?!= include('JS_UTIL_Navegacion') ?>
 <?!= include('JS_AUTH_auth') ?>
 <?!= include('JS_ASISTENCIA_asistencia') ?>
 
@@ -234,7 +235,7 @@ window.ATTENDQR_VIEW = 'registrar-asistencia';
   var navApr = document.getElementById('navAprendiz');
   if (navDoc) navDoc.style.display = u.rol === 'docente'  ? '' : 'none';
   if (navApr) navApr.style.display = u.rol === 'aprendiz' ? '' : 'none';
-  auth.requerirAuth().then(function (usuario) { if (usuario) window.ATTENDQR_USER = usuario; });
+  auth.requerirRol('aprendiz').then(function (usuario) { if (usuario) window.ATTENDQR_USER = usuario; });
 })();
 </script>
 

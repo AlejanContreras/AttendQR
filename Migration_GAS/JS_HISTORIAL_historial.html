@@ -223,7 +223,7 @@ const historial = (() => {
     if (!registros.length) {
       tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:var(--sp-10)">
         <div style="color:var(--text-muted);font-size:var(--text-sm)">Aún no tienes registros de asistencia</div>
-        <a href="?page=registrar-asistencia" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Registrar ahora</a>
+        <a href="#" onclick="event.preventDefault();Navegacion.irARegistrarAsistencia()" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Registrar ahora</a>
       </td></tr>`;
       return;
     }

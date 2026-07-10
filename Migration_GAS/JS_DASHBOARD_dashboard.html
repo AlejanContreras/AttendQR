@@ -83,7 +83,7 @@ function renderSesionesRecientes(sesiones) {
   if (!sesiones.length) {
     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:var(--sp-8)">
       <div style="color:var(--text-muted);font-size:var(--text-sm)">No tienes ninguna clase abierta en este momento</div>
-      <a href="?page=crear-sesion" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Iniciar una clase</a>
+      <a href="#" onclick="event.preventDefault();Navegacion.irACrearSesion()" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Iniciar una clase</a>
     </td></tr>`;
     return;
   }
@@ -100,7 +100,7 @@ function renderSesionesRecientes(sesiones) {
       <td>${fecha}, ${hora}</td>
       <td>${badge}</td>
       <td>
-        <a href="?page=qr&sesion=${s.id_sesion}" class="btn btn-ghost btn-sm">Ver QR</a>
+        <a href="#" onclick="event.preventDefault();Navegacion.irAQR(${s.id_sesion})" class="btn btn-ghost btn-sm">Ver QR</a>
       </td>
     </tr>`;
   }).join('');
@@ -131,7 +131,7 @@ function renderHistorialAprendiz(registros) {
   if (!registros.length) {
     tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:var(--sp-8)">
       <div style="color:var(--text-muted);font-size:var(--text-sm)">Aún no tienes registros de asistencia</div>
-      <a href="?page=registrar-asistencia" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Registrar ahora</a>
+      <a href="#" onclick="event.preventDefault();Navegacion.irARegistrarAsistencia()" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)">Registrar ahora</a>
     </td></tr>`;
     return;
   }

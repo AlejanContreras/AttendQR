@@ -44,7 +44,7 @@
             </svg>
             Cargando fichas...
           </span>
-          <a href="?page=crear-sesion" class="btn btn-primary btn-sm" style="margin-left:var(--sp-2)">
+          <a href="#" onclick="event.preventDefault();Navegacion.irACrearSesion()" class="btn btn-primary btn-sm" style="margin-left:var(--sp-2)">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:14px;height:14px;vertical-align:middle;margin-right:4px">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
@@ -131,7 +131,7 @@
         </div>
         <div class="card-body">
           <div class="quick-actions">
-            <a href="?page=crear-sesion" class="quick-action-card">
+            <a href="#" onclick="event.preventDefault();Navegacion.irACrearSesion()" class="quick-action-card">
               <div class="quick-action-card__icon" style="background:var(--green-light)">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:var(--green-primary)">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -140,7 +140,7 @@
               </div>
               <div><span class="quick-action-card__label">Iniciar clase</span><span class="quick-action-card__sub">Selecciona ficha y abre sesión</span></div>
             </a>
-            <a href="?page=qr" class="quick-action-card">
+            <a href="#" onclick="event.preventDefault();Navegacion.irAQR()" class="quick-action-card">
               <div class="quick-action-card__icon" style="background:#EEF2FF">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#6366F1">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -149,7 +149,7 @@
               </div>
               <div><span class="quick-action-card__label">QR Dinámico</span><span class="quick-action-card__sub">Código que rota cada 30 s</span></div>
             </a>
-            <a href="?page=historial" class="quick-action-card">
+            <a href="#" onclick="event.preventDefault();Navegacion.irAHistorial()" class="quick-action-card">
               <div class="quick-action-card__icon" style="background:#FFF7ED">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#F97316">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -158,7 +158,7 @@
               </div>
               <div><span class="quick-action-card__label">Historial</span><span class="quick-action-card__sub">Asistencia por sesión y ficha</span></div>
             </a>
-            <a href="?page=perfil" class="quick-action-card">
+            <a href="#" onclick="event.preventDefault();Navegacion.irAPerfil()" class="quick-action-card">
               <div class="quick-action-card__icon" style="background:#F0FDF4">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#22C55E">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -178,7 +178,7 @@
             <h3 class="card-title">Sesiones activas</h3>
             <p class="card-subtitle">Sesiones abiertas en este momento</p>
           </div>
-          <a href="?page=historial" class="btn btn-ghost btn-sm">Ver todas</a>
+          <a href="#" onclick="event.preventDefault();Navegacion.irAHistorial()" class="btn btn-ghost btn-sm">Ver todas</a>
         </div>
         <div class="card-body" style="padding:0">
           <table class="table">
@@ -212,6 +212,7 @@
 
 <?!= include('JS_API_api') ?>
 <?!= include('JS_UTIL_utils') ?>
+<?!= include('JS_UTIL_Navegacion') ?>
 <?!= include('JS_AUTH_auth') ?>
 <?!= include('JS_DASHBOARD_dashboard') ?>
 
@@ -231,7 +232,7 @@ window.ATTENDQR_ROL  = 'docente';
   var navApr = document.getElementById('navAprendiz');
   if (navDoc) navDoc.style.display = u.rol === 'docente'  ? '' : 'none';
   if (navApr) navApr.style.display = u.rol === 'aprendiz' ? '' : 'none';
-  auth.requerirAuth().then(function (usuario) { if (usuario) window.ATTENDQR_USER = usuario; });
+  auth.requerirRol('docente').then(function (usuario) { if (usuario) window.ATTENDQR_USER = usuario; });
 })();
 </script>
 

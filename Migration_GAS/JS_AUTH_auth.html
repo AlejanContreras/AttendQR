@@ -80,8 +80,7 @@ const auth = (() => {
 
   /**
    * Guard de ruta para páginas protegidas.
-   * Llama desde DOMContentLoaded de cada página que requiera auth.
-   * Redirige a login si no hay token o si el token ya expiró.
+   * Redirige a login si no hay token o si el token expiró.
    * Retorna Promise<usuario> si la sesión es válida.
    */
   function requerirAuth() {
@@ -93,6 +92,24 @@ const auth = (() => {
     return verificar().catch(function() {
       irALogin();
       return null;
+    });
+  }
+
+  /**
+   * Guard con validación de rol.
+   * Si el usuario autenticado no tiene el rol requerido, lo redirige
+   * a su propio dashboard (no a login).
+   * Uso: auth.requerirRol('docente') o auth.requerirRol('aprendiz')
+   */
+  function requerirRol(rolRequerido) {
+    return requerirAuth().then(function(usuario) {
+      if (!usuario) return null; // requerirAuth ya redirigió a login
+      if (usuario.rol !== rolRequerido) {
+        // Redirigir al dashboard correcto según su rol real
+        irADashboard(usuario.rol);
+        return null;
+      }
+      return usuario;
     });
   }
 
@@ -109,7 +126,7 @@ const auth = (() => {
 
   return {
     setUsuario, getUsuario, clearUsuario, getRol, getId,
-    verificar, requerirAuth, logout, irALogin, irADashboard,
+    verificar, requerirAuth, requerirRol, logout, irALogin, irADashboard,
   };
 
 })();

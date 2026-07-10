@@ -182,6 +182,7 @@
 
 <?!= include('JS_API_api') ?>
 <?!= include('JS_UTIL_utils') ?>
+<?!= include('JS_UTIL_Navegacion') ?>
 <?!= include('JS_AUTH_auth') ?>
 <?!= include('JS_APRENDIZ_aprendices') ?>
 
@@ -200,7 +201,7 @@ window.ATTENDQR_VIEW = 'aprendices';
   var navApr = document.getElementById('navAprendiz');
   if (navDoc) navDoc.style.display = u.rol === 'docente'  ? '' : 'none';
   if (navApr) navApr.style.display = u.rol === 'aprendiz' ? '' : 'none';
-  auth.requerirAuth().then(function (usuario) { if (usuario) window.ATTENDQR_USER = usuario; });
+  auth.requerirRol('docente').then(function (usuario) { if (usuario) window.ATTENDQR_USER = usuario; });
 })();
 </script>
 
