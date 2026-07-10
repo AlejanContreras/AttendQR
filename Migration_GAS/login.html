@@ -203,7 +203,8 @@
           </div>
           <p style="text-align:center;font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--sp-5)">
             ¿Primera vez?
-            <a href="?page=registro" style="color:var(--green-primary);text-decoration:none;font-weight:var(--fw-semibold)">
+            <a href="#" onclick="event.preventDefault();window.top.location.href=GAS_BASE_URL+'?page=registro'"
+               style="color:var(--green-primary);text-decoration:none;font-weight:var(--fw-semibold)">
               Crea tu cuenta
             </a>
           </p>
@@ -216,8 +217,10 @@
 </div>
 </div>
 
+<?!= include('ValidezVersion') ?>
 <?!= include('JS_API_api') ?>
 <?!= include('JS_UTIL_utils') ?>
+<?!= include('JS_UTIL_Navegacion') ?>
 <?!= include('JS_AUTH_auth') ?>
 <?!= include('JS_AUTH_login') ?>
 

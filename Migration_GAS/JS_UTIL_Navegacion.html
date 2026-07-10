@@ -21,11 +21,15 @@
  *   <?!= include('JS_UTIL_Navegacion') ?>
  *   <?!= include('JS_AUTH_auth') ?>
  */
+// URL fija del deploy. Cambiar acá cada vez que se publique una versión nueva.
+// (igual que AUTH_SPREADSHEET_ID en CONFIG_Constants.gs)
+const GAS_BASE_URL = 'https://script.google.com/macros/s/AKfycbwfNhjnw82ZqwUL0WPWX5vzzHCMtdau3bLfRFlvKC_RuaVMPOX5GzPO_0ZffhJxUWrz/exec';
+
 window.Navegacion = (() => {
 
   // ── Núcleo ───────────────────────────────────────────────────
   function ir(page, params) {
-    let url = '?page=' + page;
+    let url = GAS_BASE_URL + '?page=' + page;
     if (params) {
       for (const clave in params) {
         const valor = params[clave];
@@ -33,7 +37,7 @@ window.Navegacion = (() => {
         url += '&' + encodeURIComponent(clave) + '=' + encodeURIComponent(valor);
       }
     }
-    window.location.href = url;
+    window.top.location.href = url;
   }
 
   // ── Páginas públicas ─────────────────────────────────────────

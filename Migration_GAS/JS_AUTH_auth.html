@@ -44,18 +44,16 @@ const auth = (() => {
   }
 
   // ─── Navegación (GAS Web App usa ?page=) ───────────────────────
+  // GAS_BASE_URL definida en JS_UTIL_Navegacion.html (URL fija del deploy).
 
-  function _gasUrl(page) {
-    return window.location.href.split('?')[0] + '?page=' + page;
+  function _ir(page) {
+    window.top.location.href = GAS_BASE_URL + '?page=' + page;
   }
 
-  function irALogin() {
-    window.location.href = _gasUrl('login');
-  }
+  function irALogin() { _ir('login'); }
 
   function irADashboard(rol) {
-    var page = rol === 'aprendiz' ? 'dashboard-aprendiz' : 'dashboard-docente';
-    window.location.href = _gasUrl(page);
+    _ir(rol === 'aprendiz' ? 'dashboard-aprendiz' : 'dashboard-docente');
   }
 
   // ─── Verificar sesión con el backend ──────────────────────────
