@@ -31,8 +31,10 @@ function doGet(e) {
   var archivo = PAGINAS.hasOwnProperty(pagina) ? pagina : '404';
   var titulo  = PAGINAS[archivo];
 
-  return HtmlService
-    .createTemplateFromFile(archivo)
+  var template = HtmlService.createTemplateFromFile(archivo);
+  template.urlParams = JSON.stringify(e && e.parameter ? e.parameter : {});
+
+  return template
     .evaluate()
     .setTitle(titulo + ' — AttendQR')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')

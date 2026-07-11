@@ -276,13 +276,27 @@ function crearDatosDePrueba() {
   _existeValor(ss, 'jornadas', 'nombre', 'Noche')
     ? informe.omitidos.push('jornada Noche') : informe.insertados.push('jornada Noche');
 
-  // Trimestre de prueba
-  var idTrimestre = _buscarOCrear(ss, 'trimestres', 'nombre', 'Trimestre de prueba activo', {
-    id_trimestre: 'trimestre-001',
-    nombre: 'Trimestre de prueba activo',
-    fecha_inicio: ahora,
-    fecha_fin: new Date(ahora.getFullYear(), ahora.getMonth() + 3, ahora.getDate()),
-    activo: true
+  // Trimestres (1, 2, 3)
+  _buscarOCrear(ss, 'trimestres', 'id_trimestre', 1, {
+    id_trimestre: 1,
+    nombre: 'Trimestre 1',
+    fecha_inicio: new Date(ahora.getFullYear(), 0, 15),
+    fecha_fin:    new Date(ahora.getFullYear(), 3, 14),
+    activo: 0
+  });
+  _buscarOCrear(ss, 'trimestres', 'id_trimestre', 2, {
+    id_trimestre: 2,
+    nombre: 'Trimestre 2',
+    fecha_inicio: new Date(ahora.getFullYear(), 3, 15),
+    fecha_fin:    new Date(ahora.getFullYear(), 7, 14),
+    activo: 0
+  });
+  var idTrimestre = _buscarOCrear(ss, 'trimestres', 'id_trimestre', 3, {
+    id_trimestre: 3,
+    nombre: 'Trimestre 3',
+    fecha_inicio: new Date(ahora.getFullYear(), 7, 15),
+    fecha_fin:    new Date(ahora.getFullYear(), 11, 14),
+    activo: 1
   });
 
   // Docente de prueba (password_hash = hash de '123456')
@@ -347,8 +361,8 @@ function verificarSistema() {
   }
 
   // Verificar registros mínimos de prueba
-  resultado.registros.jornada    = _existeValor(ss, 'jornadas',   'nombre',           'mañana');
-  resultado.registros.trimestre  = _existeValor(ss, 'trimestres', 'nombre',           'Trimestre de prueba activo');
+  resultado.registros.jornada    = _existeValor(ss, 'jornadas',   'nombre',           'Mañana');
+  resultado.registros.trimestre  = _existeValor(ss, 'trimestres', 'nombre',           'Trimestre 3');
   resultado.registros.docente    = _existeValor(ss, 'docentes',   'correo',           'docente@sena.edu.co');
   resultado.registros.ficha      = _existeValor(ss, 'fichas',     'codigo_ficha',     '0000000');
   resultado.registros.aprendiz   = _existeValor(ss, 'aprendices', 'numero_documento', '12345678');

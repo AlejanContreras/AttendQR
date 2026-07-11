@@ -24,8 +24,8 @@ const qr = (() => {
   let horaCierreDate   = null; // Date usada para auto-cierre (M8)
 
   async function init() {
-    const params = new URLSearchParams(window.location.search);
-    idSesion = parseInt(params.get('sesion') ?? '0', 10);
+    const params = window.PAGE_PARAMS || {};
+    idSesion = parseInt(params.sesion ?? '0', 10);
 
     if (!idSesion) {
       // Sin sesión explícita: buscar la primera sesión activa del docente
