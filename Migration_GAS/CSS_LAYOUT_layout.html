@@ -232,7 +232,8 @@
 
 /* ─── Main Wrapper ───────────────────────────────────────── */
 
-.main-wrapper {
+.main-wrapper,
+.layout__content {
   flex: 1;
   min-width: 0; /* evita que el contenido ancho expanda el flex item más allá del viewport */
   margin-left: var(--sidebar-width);
@@ -242,7 +243,8 @@
   transition: margin-left var(--t);
 }
 
-.main-wrapper.sidebar-collapsed {
+.main-wrapper.sidebar-collapsed,
+.layout__content.sidebar-collapsed {
   margin-left: var(--sidebar-collapsed);
 }
 
@@ -381,7 +383,8 @@
 
 /* ─── Content Area ───────────────────────────────────────── */
 
-.content-area {
+.content-area,
+.main-content {
   flex: 1;
   padding: var(--sp-6) var(--sp-8);
   overflow-x: hidden;
@@ -493,11 +496,13 @@
 
   .sidebar__collapse-btn { display: none !important; }
 
-  .main-wrapper {
+  .main-wrapper,
+  .layout__content {
     margin-left: 0 !important;
   }
 
-  .content-area {
+  .content-area,
+  .main-content {
     padding: var(--sp-4) var(--sp-4);
   }
 
@@ -511,7 +516,8 @@
 }
 
 @media (max-width: 480px) {
-  .content-area {
+  .content-area,
+  .main-content {
     padding: var(--sp-3) var(--sp-3);
   }
 
