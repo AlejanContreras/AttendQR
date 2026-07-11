@@ -46,7 +46,7 @@
 // ── Identificador del Spreadsheet de base de datos ───────────
 // REEMPLAZAR con el ID real del Spreadsheet antes de desplegar.
 // Ejemplo: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms'
-var AUTH_SPREADSHEET_ID = 'REEMPLAZAR_CON_ID_DEL_SPREADSHEET';
+var AUTH_SPREADSHEET_ID = '1KdOnOkxXS8OlGJV1EbNru8N3268_fwwjQD5BTvCXb2w' /*'REEMPLAZAR_CON_ID_DEL_SPREADSHEET'*/;
 
 // ── Versión del sistema ───────────────────────────────────────
 // Debe coincidir con HealthService.VERSION y actualizarse en cada despliegue.
@@ -276,22 +276,22 @@ function crearDatosDePrueba() {
   _existeValor(ss, 'jornadas', 'nombre', 'Noche')
     ? informe.omitidos.push('jornada Noche') : informe.insertados.push('jornada Noche');
 
-  // Trimestres (1, 2, 3)
-  _buscarOCrear(ss, 'trimestres', 'id_trimestre', 1, {
+  // Trimestres reales (busca por nombre para no colisionar con datos viejos)
+  _buscarOCrear(ss, 'trimestres', 'nombre', 'Trimestre 1', {
     id_trimestre: 1,
     nombre: 'Trimestre 1',
     fecha_inicio: new Date(ahora.getFullYear(), 0, 15),
     fecha_fin:    new Date(ahora.getFullYear(), 3, 14),
-    activo: 0
+    activo: 1
   });
-  _buscarOCrear(ss, 'trimestres', 'id_trimestre', 2, {
+  _buscarOCrear(ss, 'trimestres', 'nombre', 'Trimestre 2', {
     id_trimestre: 2,
     nombre: 'Trimestre 2',
     fecha_inicio: new Date(ahora.getFullYear(), 3, 15),
     fecha_fin:    new Date(ahora.getFullYear(), 7, 14),
-    activo: 0
+    activo: 1
   });
-  var idTrimestre = _buscarOCrear(ss, 'trimestres', 'id_trimestre', 3, {
+  var idTrimestre = _buscarOCrear(ss, 'trimestres', 'nombre', 'Trimestre 3', {
     id_trimestre: 3,
     nombre: 'Trimestre 3',
     fecha_inicio: new Date(ahora.getFullYear(), 7, 15),
