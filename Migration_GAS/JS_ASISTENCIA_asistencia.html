@@ -46,6 +46,12 @@ const asistencia = (() => {
         throw new Error('Librería QR no disponible. Verifica tu conexión a internet.');
       }
 
+      // Enumerar cámaras disponibles para elegir la correcta según el dispositivo.
+      // { facingMode: 'environment' } con exact falla en desktop porque solo hay
+      // cámara frontal (user). getCameras() permite elegir por ID sin esa restricción.
+      let cameras = [];
+      try { cameras = await Html5Qrcode.getCameras(); } catch { /* continúa */ }
+
       scanner = new Html5Qrcode('qrScannerContainer', { verbose: false });
 
       const config = {
@@ -55,12 +61,19 @@ const asistencia = (() => {
         disableFlip: false,
       };
 
-      await scanner.start(
-        { facingMode: 'environment' },  // cámara trasera en móviles
-        config,
-        onScanSuccess,
-        onScanError
-      );
+      if (cameras.length > 0) {
+        // Preferir cámara trasera en móvil; en desktop usar la primera disponible
+        const rear     = cameras.find(c => /back|rear|environment/i.test(c.label));
+        const cameraId = (rear ?? cameras[0]).id;
+        await scanner.start(cameraId, config, onScanSuccess, onScanError);
+      } else {
+        // Sin enumeración: intentar trasera, luego frontal como fallback
+        try {
+          await scanner.start({ facingMode: 'environment' }, config, onScanSuccess, onScanError);
+        } catch {
+          await scanner.start({ facingMode: 'user' }, config, onScanSuccess, onScanError);
+        }
+      }
 
       escaneando = true;
       setStatusVisual(false);  // ocultar overlay de estado
