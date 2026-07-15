@@ -19,164 +19,95 @@
  */
 const asistencia = (() => {
 
-  // ─── Estado del escáner ─────────────────────────────────────────────────
-  let scanner        = null;  // instancia de Html5Qrcode
-  let escaneando     = false; // true mientras la cámara está activa
-  let procesando     = false; // true durante la llamada API (evita dobles envíos)
-  let debounceTimer  = null;  // evita múltiples toasts en errores de detección
-  let pendingToken   = null;  // token en espera cuando la sesión exige geo (HTTP 428)
+  // ─── Estado ─────────────────────────────────────────────────────────────
+  let procesando   = false;  // evita dobles envíos API
+  let pendingToken = null;   // token en espera cuando la sesión exige geo (HTTP 428)
 
   // ─── Iniciar cámara ─────────────────────────────────────────────────────
 
-  async function iniciarCamara() {
-    if (escaneando) return;
+  // ─── Iniciar escáner (abre cámara nativa sin getUserMedia) ─────────────
+  // getUserMedia está bloqueado por Permissions-Policy en script.google.com.
+  // Se usa <input type="file" capture> que abre la cámara del SO directamente
+  // (en móvil) o el selector de archivos (en desktop), sin restricciones.
 
-    // Verificar soporte
-    if (!navigator.mediaDevices?.getUserMedia) {
-      AttendQR.toast.warning('Tu navegador no soporta acceso a la cámara. Usa el formulario manual.');
-      return;
-    }
+  function iniciarCamara() {
+    document.getElementById('qrFileInput')?.click();
+  }
+
+  function detenerCamara() {
+    const input = document.getElementById('qrFileInput');
+    if (input) input.value = '';
+    const preview = document.getElementById('qrPreview');
+    if (preview) { preview.src = ''; preview.style.display = 'none'; }
+    mostrarSeccionScanner(false);
+  }
+
+  // ─── Procesar imagen capturada → decodificar QR ──────────────────────────
+
+  async function procesarImagenQR(event) {
+    if (procesando) return;
+    const file = event?.target?.files?.[0];
+    if (!file) return;
 
     mostrarSeccionScanner(true);
-    setStatusText('Solicitando permiso de cámara...');
+    setStatusText('Procesando imagen...');
+    setStatusVisual(true);
+
+    // Mostrar preview de la foto capturada
+    const imgUrl = URL.createObjectURL(file);
+    const preview = document.getElementById('qrPreview');
+    if (preview) { preview.src = imgUrl; preview.style.display = 'block'; }
 
     try {
-      // Verificar que Html5Qrcode esté disponible (CDN)
-      if (typeof Html5Qrcode === 'undefined') {
-        throw new Error('Librería QR no disponible. Verifica tu conexión a internet.');
+      const bitmap = await createImageBitmap(file);
+      let rawValue = null;
+
+      // BarcodeDetector — API nativa de Chrome/Edge, sin getUserMedia
+      if (typeof BarcodeDetector !== 'undefined') {
+        try {
+          const detector = new BarcodeDetector({ formats: ['qr_code'] });
+          const codes = await detector.detect(bitmap);
+          if (codes.length > 0) rawValue = codes[0].rawValue;
+        } catch { /* continúa */ }
       }
 
-      // Obtener el deviceId real antes de iniciar html5-qrcode.
-      //
-      // Problema: html5-qrcode usa { facingMode: { exact: '...' } } que falla en
-      // desktop porque las webcams no reportan facingMode en sus capabilities.
-      // Además getCameras() abre un stream interno que no cierra, dejando la cámara
-      // ocupada cuando scanner.start() intenta abrirla → NotAllowedError.
-      //
-      // Solución: abrir un stream propio (sin exact), leer el deviceId del track
-      // activo, cerrar el stream, y pasar el ID a scanner.start(id, ...).
-      // Con deviceId no se aplica ningún constraint de facingMode.
-      let cameraId = null;
-      try {
-        // Preferir cámara trasera en móvil; en desktop usa cualquier cámara disponible
-        const tmpStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },  // ideal (sin exact), no falla en desktop
-        }).catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
+      bitmap.close?.();
 
-        const track = tmpStream.getVideoTracks()[0];
-        cameraId = track?.getSettings()?.deviceId ?? null;
-        tmpStream.getTracks().forEach(t => t.stop()); // liberar antes de que html5-qrcode abra
-      } catch { /* continúa sin deviceId */ }
-
-      scanner = new Html5Qrcode('qrScannerContainer', { verbose: false });
-
-      const config = {
-        fps: 10,
-        qrbox: { width: 240, height: 240 },
-        aspectRatio: 1.0,
-        disableFlip: false,
-      };
-
-      if (cameraId) {
-        await scanner.start(cameraId, config, onScanSuccess, onScanError);
-      } else {
-        // Último recurso: dejar que html5-qrcode elija
-        await scanner.start({ facingMode: 'user' }, config, onScanSuccess, onScanError);
+      if (!rawValue) {
+        setStatusText('No se encontró ningún código QR en la imagen. Intenta de nuevo.');
+        setStatusVisual(true, true);
+        if (event?.target) event.target.value = '';
+        URL.revokeObjectURL(imgUrl);
+        return;
       }
 
-      escaneando = true;
-      setStatusVisual(false);  // ocultar overlay de estado
-      document.getElementById('scannerHint')?.style.setProperty('display', 'block');
+      URL.revokeObjectURL(imgUrl);
+
+      const token = extraerToken(rawValue);
+      if (!token) {
+        setStatusText('QR detectado pero no es un token válido de AttendQR.');
+        setStatusVisual(true, true);
+        if (event?.target) event.target.value = '';
+        return;
+      }
+
+      // Token válido — rellenar input y enviar
+      const tokenInput = document.getElementById('tokenInput');
+      if (tokenInput) tokenInput.value = token;
+      detenerCamara();
+
+      procesando = true;
+      await enviarToken(token);
+      procesando = false;
 
     } catch (err) {
-      console.error('[AttendQR] Camera error:', err.name, err.message, err);
-      manejarErrorCamara(err);
-    }
-  }
-
-  // ─── Detener cámara ──────────────────────────────────────────────────────
-
-  async function detenerCamara() {
-    if (scanner && escaneando) {
-      try {
-        await scanner.stop();
-        scanner.clear();
-      } catch { /* ya estaba detenida */ }
-    }
-    scanner    = null;
-    escaneando = false;
-    mostrarSeccionScanner(false);
-    clearTimeout(debounceTimer);
-  }
-
-  // ─── Callback: QR detectado correctamente ───────────────────────────────
-
-  async function onScanSuccess(decodedText) {
-    if (procesando) return;
-
-    // El QR puede contener solo el token (6 chars hex) o una URL con el token.
-    // Intentar extraer los 6 chars hex del contenido.
-    const token = extraerToken(decodedText);
-
-    if (!token) {
-      // QR detectado pero no corresponde al formato AttendQR
-      mostrarDebounceWarning('QR detectado, pero no es un token válido de AttendQR. Sigue apuntando...');
-      return;
+      URL.revokeObjectURL(imgUrl);
+      setStatusText('Error al procesar la imagen: ' + (err.message || String(err)));
+      setStatusVisual(true, true);
+      AttendQR.toast.error('No se pudo leer la imagen. Intenta de nuevo.');
     }
 
-    procesando = true;
-
-    // Detener cámara inmediatamente tras lectura exitosa
-    await detenerCamara();
-
-    // Rellenar input para retroalimentación visual
-    const tokenInput = document.getElementById('tokenInput');
-    if (tokenInput) tokenInput.value = token;
-
-    await enviarToken(token);
-    procesando = false;
-  }
-
-  // ─── Callback: error de detección (normal durante escaneo) ──────────────
-
-  function onScanError(errorMessage) {
-    // Los errores de "no se encontró QR en el frame" son completamente normales.
-    // Solo reportamos errores reales de cámara (no los de detección vacía).
-    if (
-      errorMessage.includes('No MultiFormat Readers') ||
-      errorMessage.includes('No barcode or QR code detected') ||
-      errorMessage.includes('NotFoundException')
-    ) {
-      return; // silencioso — es solo que no hay QR en el encuadre todavía
-    }
-    // Error real de cámara — mostrar con debounce para no saturar
-    mostrarDebounceWarning('Error de cámara: ' + errorMessage);
-  }
-
-  // ─── Manejar error al solicitar permiso / iniciar cámara ─────────────────
-
-  function manejarErrorCamara(err) {
-    const msg = err?.name ?? err?.message ?? String(err);
-    let texto;
-
-    if (msg.includes('NotAllowedError') || msg.includes('PermissionDenied') || msg.includes('Permission denied')) {
-      texto = 'Permiso de cámara denegado. Habilítalo en la configuración del navegador o usa el formulario manual.';
-    } else if (msg.includes('NotFoundError') || msg.includes('DevicesNotFoundError')) {
-      texto = 'No se encontró ninguna cámara en este dispositivo. Usa el formulario manual.';
-    } else if (msg.includes('NotReadableError') || msg.includes('TrackStartError')) {
-      texto = 'La cámara está siendo usada por otra aplicación. Ciérrala e intenta de nuevo.';
-    } else if (msg.includes('no disponible') || msg.includes('not available')) {
-      texto = 'La librería QR no se pudo cargar. Verifica tu conexión e intenta de nuevo.';
-    } else {
-      texto = 'No se pudo iniciar la cámara: ' + (err?.message ?? msg);
-    }
-
-    setStatusText(texto);
-    setStatusVisual(true, true); // mostrar overlay con mensaje de error
-    AttendQR.toast.error(texto, 5000);
-
-    // Dejar el overlay visible pero mostrar el botón de cancelar
-    mostrarSeccionScanner(true);
+    if (event?.target) event.target.value = '';
   }
 
   // ─── Enviar token a la API ────────────────────────────────────────────────
@@ -347,13 +278,6 @@ const asistencia = (() => {
     overlay.style.background = isError ? 'rgba(220,38,38,.85)' : 'rgba(0,0,0,.85)';
   }
 
-  function mostrarDebounceWarning(msg) {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      AttendQR.toast.warning(msg, 2500);
-    }, 800);
-  }
-
   function mostrarExito(resultado) {
     const area = document.getElementById('resultadoArea');
     if (!area) return;
@@ -409,14 +333,6 @@ const asistencia = (() => {
     return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  // ─── Limpieza al abandonar la página ─────────────────────────────────────
-
-  window.addEventListener('beforeunload', () => {
-    if (scanner && escaneando) {
-      try { scanner.stop(); } catch { /* ignorar */ }
-    }
-  });
-
   // ─── Init ────────────────────────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -436,7 +352,7 @@ const asistencia = (() => {
     }
   });
 
-  return { iniciarCamara, detenerCamara, registrarToken, solicitarUbicacionYEnviar };
+  return { iniciarCamara, detenerCamara, procesarImagenQR, registrarToken, solicitarUbicacionYEnviar };
 })();
 
 </script>
