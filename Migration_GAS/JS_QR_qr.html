@@ -27,6 +27,33 @@ const qr = (() => {
     const params = window.PAGE_PARAMS || {};
     idSesion = parseInt(params.sesion ?? '0', 10);
 
+    // Modo creación: viene desde Mis Clases con ficha+hora (sin sesion aún).
+    // La creación ocurre acá porque iniciarSesion() navega de forma síncrona
+    // para preservar el contexto de activación de usuario del sandbox GAS.
+    if (!idSesion && params.ficha) {
+      try {
+        AttendQR.loader.show('Iniciando sesión...');
+        const body = {
+          id_ficha:          parseInt(params.ficha, 10),
+          hora_inicio_clase: params.hora || new Date().toTimeString().slice(0, 5),
+          nombre_materia:    params.materia || '',
+        };
+        if (params.geo === '1') {
+          body.ubicacion_activa = true;
+          body.lat_docente      = parseFloat(params.lat);
+          body.lng_docente      = parseFloat(params.lng);
+          body.accuracy_docente = parseFloat(params.acc);
+        }
+        const sesion = await Api.sesiones.crear(body);
+        idSesion = sesion.id_sesion;
+        AttendQR.loader.hide();
+      } catch (err) {
+        AttendQR.loader.hide();
+        mostrarError('No se pudo crear la sesión: ' + (err.message || 'Error desconocido'));
+        return;
+      }
+    }
+
     if (!idSesion) {
       // Sin sesión explícita: buscar la primera sesión activa del docente
       try {

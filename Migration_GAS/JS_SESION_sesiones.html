@@ -479,39 +479,22 @@ const sesiones = (() => {
       return;
     }
 
-    const btn  = document.getElementById('btnIniciarSesion');
-    const orig = btn?.innerHTML;
-    if (btn) { btn.disabled = true; btn.innerHTML = _spinnerHtml('Iniciando...'); }
+    // Navegar sincrónicamente dentro del contexto de activación de usuario.
+    // Si se hace await primero (crear sesión) y luego setTimeout, el sandbox
+    // GAS "allow-top-navigation-by-user-activation" bloquea la navegación en
+    // desktop Chrome. La sesión se crea en la página QR para evitar este problema.
+    cerrarModalIniciar();
 
-    const body = {
-      id_ficha:          idFicha,
-      hora_inicio_clase: horaInicioClase,
-      nombre_materia:    nombreMateria,
-    };
-
+    const params = { ficha: idFicha, hora: horaInicioClase };
+    if (nombreMateria)                    params.materia = nombreMateria;
     if (validarUbicacion && geoDocente) {
-      body.ubicacion_activa  = true;
-      body.lat_docente       = geoDocente.latitud;
-      body.lng_docente       = geoDocente.longitud;
-      body.accuracy_docente  = geoDocente.accuracy;
+      params.geo = '1';
+      params.lat = geoDocente.latitud;
+      params.lng = geoDocente.longitud;
+      params.acc = geoDocente.accuracy;
     }
 
-    try {
-      const sesion = await Api.sesiones.crear(body);
-
-      try { await Api.qr.generar(sesion.id_sesion); } catch { /* continúa */ }
-
-      AttendQR.toast.success('Clase iniciada. Mostrando código QR...');
-      cerrarModalIniciar();
-
-      setTimeout(() => {
-        Navegacion.irAQR(sesion.id_sesion);
-      }, 500);
-
-    } catch (err) {
-      if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-      AttendQR.toast.error(err.message ?? 'Error al iniciar la sesión.');
-    }
+    Navegacion.ir('qr', params);
   }
 
   // ─── Navegar al QR de ficha activa ────────────────────────────────────
