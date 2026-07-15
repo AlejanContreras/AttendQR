@@ -46,11 +46,27 @@ const asistencia = (() => {
         throw new Error('Librería QR no disponible. Verifica tu conexión a internet.');
       }
 
-      // Enumerar cámaras disponibles para elegir la correcta según el dispositivo.
-      // { facingMode: 'environment' } con exact falla en desktop porque solo hay
-      // cámara frontal (user). getCameras() permite elegir por ID sin esa restricción.
-      let cameras = [];
-      try { cameras = await Html5Qrcode.getCameras(); } catch { /* continúa */ }
+      // Obtener el deviceId real antes de iniciar html5-qrcode.
+      //
+      // Problema: html5-qrcode usa { facingMode: { exact: '...' } } que falla en
+      // desktop porque las webcams no reportan facingMode en sus capabilities.
+      // Además getCameras() abre un stream interno que no cierra, dejando la cámara
+      // ocupada cuando scanner.start() intenta abrirla → NotAllowedError.
+      //
+      // Solución: abrir un stream propio (sin exact), leer el deviceId del track
+      // activo, cerrar el stream, y pasar el ID a scanner.start(id, ...).
+      // Con deviceId no se aplica ningún constraint de facingMode.
+      let cameraId = null;
+      try {
+        // Preferir cámara trasera en móvil; en desktop usa cualquier cámara disponible
+        const tmpStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },  // ideal (sin exact), no falla en desktop
+        }).catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
+
+        const track = tmpStream.getVideoTracks()[0];
+        cameraId = track?.getSettings()?.deviceId ?? null;
+        tmpStream.getTracks().forEach(t => t.stop()); // liberar antes de que html5-qrcode abra
+      } catch { /* continúa sin deviceId */ }
 
       scanner = new Html5Qrcode('qrScannerContainer', { verbose: false });
 
@@ -61,18 +77,11 @@ const asistencia = (() => {
         disableFlip: false,
       };
 
-      if (cameras.length > 0) {
-        // Preferir cámara trasera en móvil; en desktop usar la primera disponible
-        const rear     = cameras.find(c => /back|rear|environment/i.test(c.label));
-        const cameraId = (rear ?? cameras[0]).id;
+      if (cameraId) {
         await scanner.start(cameraId, config, onScanSuccess, onScanError);
       } else {
-        // Sin enumeración: intentar trasera, luego frontal como fallback
-        try {
-          await scanner.start({ facingMode: 'environment' }, config, onScanSuccess, onScanError);
-        } catch {
-          await scanner.start({ facingMode: 'user' }, config, onScanSuccess, onScanError);
-        }
+        // Último recurso: dejar que html5-qrcode elija
+        await scanner.start({ facingMode: 'user' }, config, onScanSuccess, onScanError);
       }
 
       escaneando = true;
