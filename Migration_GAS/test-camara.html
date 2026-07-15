@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Cámara — AttendQR</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 16px; }
+    video { width: 100%; max-width: 400px; background: #000; display: block; margin: 16px 0; border-radius: 8px; min-height: 200px; }
+    button { padding: 12px 24px; font-size: 16px; cursor: pointer; border: none; border-radius: 6px; background: #1a73e8; color: #fff; }
+    button:disabled { opacity: .5; cursor: default; }
+    #log { margin-top: 16px; font-family: monospace; font-size: 13px; white-space: pre-wrap; background: #f5f5f5; padding: 12px; border-radius: 6px; min-height: 60px; }
+    .ok  { color: #1e7e34; font-weight: bold; }
+    .err { color: #c0392b; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<h2>Test mínimo de cámara (sin AttendQR)</h2>
+<p>Prueba aislada: <strong>solo</strong> <code>navigator.mediaDevices.getUserMedia()</code>.<br>
+Sin Html5Qrcode, sin sidebar, sin login, sin ningún otro módulo.</p>
+
+<button id="btnActivar" onclick="activarCamara()">Activar cámara</button>
+<button id="btnDetener" onclick="detenerCamara()" disabled style="margin-left:8px;background:#666">Detener</button>
+
+<video id="video" autoplay playsinline muted></video>
+
+<div id="log">Esperando acción del usuario...</div>
+
+<script>
+  var stream = null;
+
+  function log(msg, tipo) {
+    var el = document.getElementById('log');
+    var linea = document.createElement('div');
+    linea.className = tipo || '';
+    linea.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
+    el.appendChild(linea);
+    console.log('[test-camara]', msg);
+  }
+
+  function limpiarLog() {
+    document.getElementById('log').innerHTML = '';
+  }
+
+  async function activarCamara() {
+    limpiarLog();
+    document.getElementById('btnActivar').disabled = true;
+
+    log('Verificando navigator.mediaDevices...');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      log('FALLO: navigator.mediaDevices.getUserMedia no disponible en este contexto.', 'err');
+      document.getElementById('btnActivar').disabled = false;
+      return;
+    }
+    log('navigator.mediaDevices.getUserMedia disponible.');
+
+    log('Consultando permiso actual de cámara...');
+    try {
+      var perm = await navigator.permissions.query({ name: 'camera' });
+      log('Estado permiso: ' + perm.state);
+    } catch (e) {
+      log('No se pudo consultar permiso: ' + e.message);
+    }
+
+    log('Llamando getUserMedia({ video: true })...');
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      var track = stream.getVideoTracks()[0];
+      var settings = track ? track.getSettings() : {};
+      log('ÉXITO — cámara obtenida.', 'ok');
+      log('  deviceId : ' + (settings.deviceId || '(no disponible)'));
+      log('  label    : ' + (track ? track.label : '(no disponible)'));
+      log('  facingMode: ' + (settings.facingMode || '(no reportado)'));
+      log('  resolución: ' + (settings.width || '?') + 'x' + (settings.height || '?'));
+
+      document.getElementById('video').srcObject = stream;
+      document.getElementById('btnDetener').disabled = false;
+
+    } catch (err) {
+      log('FALLO en getUserMedia:', 'err');
+      log('  err.name   : ' + err.name, 'err');
+      log('  err.message: ' + err.message, 'err');
+      log('  toString   : ' + String(err), 'err');
+      document.getElementById('btnActivar').disabled = false;
+    }
+  }
+
+  function detenerCamara() {
+    if (stream) {
+      stream.getTracks().forEach(function(t) { t.stop(); });
+      stream = null;
+      document.getElementById('video').srcObject = null;
+      log('Cámara detenida.');
+    }
+    document.getElementById('btnActivar').disabled = false;
+    document.getElementById('btnDetener').disabled = true;
+  }
+</script>
+
+</body>
+</html>

@@ -21,7 +21,8 @@ function doGet(e) {
     'aprendices'           : 'Gestión de Aprendices',
     'registrar-asistencia' : 'Registrar Asistencia',
     'qr'                   : 'QR Dinámico',
-    '404'                  : 'Página no encontrada'
+    '404'                  : 'Página no encontrada',
+    'test-camara'          : 'Test Cámara'
   };
 
   // Página solicitada (default: login)
