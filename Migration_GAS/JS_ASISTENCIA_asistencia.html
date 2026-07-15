@@ -67,6 +67,7 @@ const asistencia = (() => {
       document.getElementById('scannerHint')?.style.setProperty('display', 'block');
 
     } catch (err) {
+      console.error('[AttendQR] Camera error:', err.name, err.message, err);
       manejarErrorCamara(err);
     }
   }
