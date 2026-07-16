@@ -214,6 +214,47 @@ const aprendicesGestion = (() => {
     }
   }
 
+  // ─── Parser CSV ──────────────────────────────────────────────────────────
+  // Acepta separador ; o , y detecta la cabecera automáticamente.
+  // Devuelve array de objetos { numero_documento, nombres, apellidos, codigo_ficha }.
+  function _parsearCSV(texto) {
+    const lineas = texto.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+      .map(l => l.trim()).filter(l => l.length > 0);
+    if (lineas.length < 2) return [];
+
+    const sep       = lineas[0].includes(';') ? ';' : ',';
+    const cabecera  = lineas[0].split(sep).map(c => c.trim().toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, ''));  // quitar tildes
+
+    const idx = {
+      documento : cabecera.indexOf('numero_documento'),
+      nombres   : cabecera.indexOf('nombres'),
+      apellidos : cabecera.indexOf('apellidos'),
+      ficha     : cabecera.indexOf('codigo_ficha'),
+    };
+
+    // Tolerar cabecera sin tildes ("numero_documento" ya es sin tilde, pero por si acaso)
+    if (idx.documento === -1 || idx.nombres === -1 || idx.apellidos === -1 || idx.ficha === -1) {
+      throw new Error(
+        'El CSV debe tener las columnas: numero_documento;nombres;apellidos;codigo_ficha\n' +
+        'Cabecera detectada: ' + lineas[0]
+      );
+    }
+
+    const filas = [];
+    for (let i = 1; i < lineas.length; i++) {
+      const celdas = lineas[i].split(sep).map(c => c.trim());
+      if (celdas.every(c => c === '')) continue; // fila vacía
+      filas.push({
+        numero_documento : celdas[idx.documento] ?? '',
+        nombres          : celdas[idx.nombres]   ?? '',
+        apellidos        : celdas[idx.apellidos] ?? '',
+        codigo_ficha     : celdas[idx.ficha]     ?? '',
+      });
+    }
+    return filas;
+  }
+
   // ─── Importación CSV ─────────────────────────────────────────────────────
 
   function importar(input) {
@@ -223,14 +264,15 @@ const aprendicesGestion = (() => {
     const label = document.getElementById('btnImportarLabel');
     if (label) label.style.opacity = '0.6';
 
-    // google.script.run no acepta FormData — leer el CSV como texto plano
     const reader = new FileReader();
     reader.onload = async function(ev) {
       try {
-        const resultado = await Api.aprendices.importar({
-          contenido: ev.target.result,
-          nombre:    file.name,
-        });
+        const aprendices = _parsearCSV(ev.target.result);
+        if (aprendices.length === 0) {
+          toast('El archivo no contiene filas de datos válidas.', 'error');
+          return;
+        }
+        const resultado = await Api.aprendices.importar({ aprendices });
         mostrarResultadoImportacion(resultado);
         await cargarAprendices();
       } catch (err) {
