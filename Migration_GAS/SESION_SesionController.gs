@@ -82,13 +82,18 @@ function sesionCrear(payload, token) {
 // token: string
 function sesionListar(filtros, token) {
   try {
-    AuthService.verificarToken(token);
+    var usuario = AuthService.verificarToken(token);
     filtros = filtros || {};
 
     var idFicha = filtros.id_ficha ? parseInt(filtros.id_ficha, 10) : null;
     var estado  = filtros.estado   ? String(filtros.estado)         : null;
 
-    var resultado = SesionService.listar(idFicha, estado);
+    var resultado;
+    if (usuario.rol === 'docente' && !idFicha) {
+      resultado = SesionService.listarPorDocente(usuario.id, estado);
+    } else {
+      resultado = SesionService.listar(idFicha, estado);
+    }
     return { success: true, message: 'Sesiones obtenidas correctamente.', data: resultado };
   } catch (e) {
     return { success: false, message: e.message };

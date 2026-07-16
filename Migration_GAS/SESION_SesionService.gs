@@ -114,6 +114,26 @@ var SesionService = (function () {
     };
   }
 
+  function listarPorDocente(idDocente, estado) {
+    var estadosPermitidos = ['abierta', 'cerrada', 'cancelada'];
+
+    if (estado !== null && estado !== undefined &&
+        estadosPermitidos.indexOf(estado) === -1) {
+      throw new Error(
+        "Estado '" + estado + "' no válido. Permitidos: " + estadosPermitidos.join(', ') + '.'
+      );
+    }
+
+    SesionRepository.cerrarVencidas();
+
+    var sesiones = SesionRepository.listarPorDocente(idDocente, estado);
+
+    return {
+      sesiones: sesiones,
+      total   : sesiones.length
+    };
+  }
+
   // ── Cerrar ────────────────────────────────────────────────
   // Cierra una sesión abierta e invalida todos sus tokens QR activos.
   // Reglas:
@@ -265,6 +285,7 @@ var SesionService = (function () {
     consultar            : consultar,
     sesionActivaPorFicha : sesionActivaPorFicha,
     listar               : listar,
+    listarPorDocente     : listarPorDocente,
     cerrar               : cerrar,
     asistenciasDeSesion  : asistenciasDeSesion,
     estadisticasDeSesion : estadisticasDeSesion,
