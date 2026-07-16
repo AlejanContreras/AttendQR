@@ -223,17 +223,11 @@ var XlsxExport = (function () {
         _populate(gsArr[j], _sheets[j]);
       }
 
-      // Exportar como xlsx via Drive export API (DriveApp.getAs falla en google.script.run)
-      var fileId   = ss.getId();
-      var exportUrl = 'https://docs.google.com/spreadsheets/d/' + fileId + '/export?format=xlsx';
-      var response  = UrlFetchApp.fetch(exportUrl, {
-        headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
-        muteHttpExceptions: true
-      });
-      if (response.getResponseCode() !== 200) {
-        throw new Error('Error al exportar xlsx: HTTP ' + response.getResponseCode());
-      }
-      var base64 = Utilities.base64Encode(response.getContent());
+      // Exportar como xlsx via DriveApp (requiere scope drive en appsscript.json)
+      var fileId = ss.getId();
+      var blob   = DriveApp.getFileById(fileId)
+        .getAs('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      var base64 = Utilities.base64Encode(blob.getBytes());
 
       // Limpiar Spreadsheet temporal
       DriveApp.getFileById(fileId).setTrashed(true);
