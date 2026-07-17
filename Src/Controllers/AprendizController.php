@@ -244,44 +244,42 @@ class AprendizController
                 $this->responderError('Solo se aceptan archivos CSV (.csv).', 422);
             }
 
-            $handle = fopen($archivo['tmp_name'], 'r');
-            if ($handle === false) {
-                $this->responderError('No se pudo leer el archivo.', 500);
-            }
-
-            // Detectar separador: leer primera línea cruda y contar ; vs ,
-            $primeraLinea = fgets($handle);
-            if ($primeraLinea === false) {
-                fclose($handle);
+            // Leer contenido completo y detectar separador
+            $contenido = file_get_contents($archivo['tmp_name']);
+            if ($contenido === false || trim($contenido) === '') {
                 $this->responderError('El archivo CSV está vacío.', 422);
             }
+
+            // Eliminar BOM UTF-8 si existe
+            $contenido = ltrim($contenido, "\xEF\xBB\xBF");
+
+            // Normalizar saltos de línea
+            $contenido = str_replace(["\r\n", "\r"], "\n", $contenido);
+
+            // Detectar separador por la primera línea
+            $primeraLinea = strtok($contenido, "\n");
             $separador = substr_count($primeraLinea, ';') >= substr_count($primeraLinea, ',') ? ';' : ',';
-            rewind($handle);
 
-            // Primera fila = cabecera
-            $cabecera = fgetcsv($handle, 0, $separador);
-            if ($cabecera === false) {
-                fclose($handle);
-                $this->responderError('El archivo CSV está vacío.', 422);
-            }
+            // Procesar líneas
+            $lineas = explode("\n", trim($contenido));
+            $cabeceraRaw = str_getcsv(array_shift($lineas), $separador);
+            $cabecera = array_map(fn($c) => strtolower(trim($c)), $cabeceraRaw);
 
-            // Normalizar nombres de columna
-            $cabecera = array_map(fn($c) => strtolower(trim($c)), $cabecera);
             $requeridas = ['numero_documento', 'nombres', 'apellidos', 'codigo_ficha'];
-
             foreach ($requeridas as $col) {
                 if (!in_array($col, $cabecera, true)) {
-                    fclose($handle);
                     $this->responderError("La columna '{$col}' es obligatoria en el CSV.", 422);
                 }
             }
 
-            while (($fila = fgetcsv($handle, 0, $separador)) !== false) {
+            foreach ($lineas as $linea) {
+                $linea = trim($linea);
+                if ($linea === '') continue;
+                $fila = str_getcsv($linea, $separador);
                 if (count($fila) === count($cabecera)) {
                     $filas[] = array_combine($cabecera, $fila);
                 }
             }
-            fclose($handle);
 
         } else {
             // ── Modo B: JSON (GAS compatible) ────────────────────────────────
