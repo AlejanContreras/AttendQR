@@ -249,8 +249,17 @@ class AprendizController
                 $this->responderError('No se pudo leer el archivo.', 500);
             }
 
+            // Detectar separador: leer primera línea cruda y contar ; vs ,
+            $primeraLinea = fgets($handle);
+            if ($primeraLinea === false) {
+                fclose($handle);
+                $this->responderError('El archivo CSV está vacío.', 422);
+            }
+            $separador = substr_count($primeraLinea, ';') >= substr_count($primeraLinea, ',') ? ';' : ',';
+            rewind($handle);
+
             // Primera fila = cabecera
-            $cabecera = fgetcsv($handle);
+            $cabecera = fgetcsv($handle, 0, $separador);
             if ($cabecera === false) {
                 fclose($handle);
                 $this->responderError('El archivo CSV está vacío.', 422);
@@ -267,7 +276,7 @@ class AprendizController
                 }
             }
 
-            while (($fila = fgetcsv($handle)) !== false) {
+            while (($fila = fgetcsv($handle, 0, $separador)) !== false) {
                 if (count($fila) === count($cabecera)) {
                     $filas[] = array_combine($cabecera, $fila);
                 }
