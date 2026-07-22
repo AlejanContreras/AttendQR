@@ -304,17 +304,14 @@ const historial = (() => {
 
               let accion = '';
               if (esDocente) {
-                if (a.estado === 'ausente') {
-                  accion = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--warning)"
-                              onclick="historial.iniciarExcusa(${a.id_asistencia}, this)" title="Marcar como excusa">
-                              Excusar
-                            </button>`;
-                } else if (a.estado === 'excusa') {
-                  accion = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--text-muted)"
-                              onclick="historial.quitarExcusa(${a.id_asistencia}, this)" title="Quitar excusa">
-                              Quitar excusa
-                            </button>`;
-                }
+                accion = `
+                  <select class="form-control" style="font-size:var(--text-xs);padding:2px 4px;height:auto"
+                          onchange="historial.cambiarEstadoSelect(${a.id_asistencia}, this)">
+                    <option value="presente" ${a.estado === 'presente' ? 'selected' : ''}>Presente</option>
+                    <option value="retardo"  ${a.estado === 'retardo'  ? 'selected' : ''}>Tardanza</option>
+                    <option value="ausente"  ${a.estado === 'ausente'  ? 'selected' : ''}>Falla</option>
+                    <option value="excusa"   ${a.estado === 'excusa'   ? 'selected' : ''}>Excusa</option>
+                  </select>`;
               }
 
               return `<tr id="asistencia-row-${a.id_asistencia}">
@@ -331,83 +328,24 @@ const historial = (() => {
       </div>`;
   }
 
-  async function iniciarExcusa(idAsistencia, btn) {
-    // Reemplazar el botón con un mini-form inline
-    const cell = document.getElementById(`accion-cell-${idAsistencia}`);
-    if (!cell) return;
+  async function cambiarEstadoSelect(idAsistencia, select) {
+    const nuevoEstado = select.value;
+    const estadoAnterior = select.dataset.estadoAnterior ?? select.value;
 
-    cell.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:var(--sp-1);min-width:180px">
-        <input type="text" id="obs-input-${idAsistencia}"
-               placeholder="Observación (opcional)"
-               class="form-control" style="font-size:var(--text-xs);padding:var(--sp-1) var(--sp-2)">
-        <div style="display:flex;gap:var(--sp-1)">
-          <button class="btn btn-primary btn-sm" style="font-size:var(--text-xs);flex:1"
-                  onclick="historial.confirmarExcusa(${idAsistencia})">✓ Confirmar</button>
-          <button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs)"
-                  onclick="historial.cancelarAccion(${idAsistencia}, 'ausente')">✗</button>
-        </div>
-      </div>`;
-
-    document.getElementById(`obs-input-${idAsistencia}`)?.focus();
-  }
-
-  async function confirmarExcusa(idAsistencia) {
-    const obs = document.getElementById(`obs-input-${idAsistencia}`)?.value ?? '';
-    await _cambiarEstadoRow(idAsistencia, 'excusa', obs);
-  }
-
-  async function quitarExcusa(idAsistencia, btn) {
-    if (!confirm('¿Quitar la excusa y marcar como ausente?')) return;
-    await _cambiarEstadoRow(idAsistencia, 'ausente', '');
-  }
-
-  async function _cambiarEstadoRow(idAsistencia, nuevoEstado, observacion) {
-    const cell = document.getElementById(`accion-cell-${idAsistencia}`);
-    if (cell) cell.innerHTML = '<span style="font-size:var(--text-xs);color:var(--text-muted)">Guardando...</span>';
-
+    select.disabled = true;
     try {
-      await Api.asistencias.cambiarEstado(idAsistencia, { estado: nuevoEstado, observacion });
+      await Api.asistencias.cambiarEstado(idAsistencia, { estado: nuevoEstado, observacion: '' });
 
-      // Actualizar badge de estado en la fila
       const estadoCell = document.getElementById(`estado-cell-${idAsistencia}`);
       if (estadoCell) estadoCell.innerHTML = asistenciaBadge(nuevoEstado);
-
-      // Actualizar celda de observación
-      const obsCell = document.getElementById(`obs-cell-${idAsistencia}`);
-      if (obsCell) {
-        obsCell.innerHTML = observacion
-          ? `<span style="font-size:var(--text-xs)">${esc(observacion)}</span>`
-          : '<span style="color:var(--text-muted)">—</span>';
-      }
-
-      // Actualizar botón de acción
-      if (cell) {
-        if (nuevoEstado === 'excusa') {
-          cell.innerHTML = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--text-muted)"
-            onclick="historial.quitarExcusa(${idAsistencia}, this)">Quitar excusa</button>`;
-        } else {
-          cell.innerHTML = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--warning)"
-            onclick="historial.iniciarExcusa(${idAsistencia}, this)">Excusar</button>`;
-        }
-      }
+      select.dataset.estadoAnterior = nuevoEstado;
 
       AttendQR.toast.success('Estado actualizado correctamente.');
     } catch (err) {
-      if (cell) cell.innerHTML = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--danger)"
-        onclick="historial.iniciarExcusa(${idAsistencia}, this)">Reintentar</button>`;
+      select.value = estadoAnterior;
       AttendQR.toast.error(err.message ?? 'Error al actualizar el estado.');
-    }
-  }
-
-  function cancelarAccion(idAsistencia, estadoActual) {
-    const cell = document.getElementById(`accion-cell-${idAsistencia}`);
-    if (!cell) return;
-    if (estadoActual === 'ausente') {
-      cell.innerHTML = `<button class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);color:var(--warning)"
-        onclick="historial.iniciarExcusa(${idAsistencia}, this)">Excusar</button>`;
-    } else {
-      cell.innerHTML = '';
+    } finally {
+      select.disabled = false;
     }
   }
 
@@ -546,7 +484,7 @@ const historial = (() => {
     const map = {
       presente: '<span class="badge badge-success">Presente</span>',
       retardo:  '<span class="badge badge-warning">Tardanza</span>',
-      ausente:  '<span class="badge badge-danger">Ausente</span>',
+      ausente:  '<span class="badge badge-danger">Falla</span>',
       excusa:   '<span class="badge badge-neutral">Excusa</span>',
     };
     return map[estado] ?? `<span class="badge badge-neutral">${esc(estado ?? '—')}</span>`;
@@ -556,6 +494,5 @@ const historial = (() => {
     if (window.ATTENDQR_VIEW === 'historial') init();
   });
 
-  return { toggle, filtrar, limpiar, irPagina, exportar,
-           iniciarExcusa, confirmarExcusa, quitarExcusa, cancelarAccion };
+  return { toggle, filtrar, limpiar, irPagina, exportar, cambiarEstadoSelect };
 })();

@@ -158,7 +158,10 @@ class SesionService
             );
         }
 
-        $this->sesionRepo->cerrarVencidas();
+        $cerradas = $this->sesionRepo->cerrarVencidas();
+        if ($cerradas > 0) {
+            $this->sesionRepo->insertarFallasPorSesionesCerradas();
+        }
 
         $sesiones = $this->sesionRepo->listar($idFicha, $estado);
 
@@ -204,6 +207,9 @@ class SesionService
 
         $horaCierre = date('Y-m-d H:i:s.') . substr((string) microtime(true), -3);
         $this->sesionRepo->cerrar($idSesion, $horaCierre);
+
+        // Insertar falla (ausente) para todos los aprendices sin registro al cierre.
+        $this->sesionRepo->insertarFallasParaSesion($idSesion);
 
         return [
             'id_sesion'   => $idSesion,

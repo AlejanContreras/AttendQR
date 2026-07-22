@@ -50,19 +50,21 @@
     <div class="stat-card__trend stat-card__trend--up">Hoy</div>
   </div>
 
-  <div class="stat-card stat-card--blue">
+  <a href="index.php?view=historial&rol=docente" style="text-decoration:none">
+  <div class="stat-card stat-card--blue" style="cursor:pointer" title="Ir al Historial para correcciones manuales">
     <div class="stat-card__icon">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/>
+              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
       </svg>
     </div>
     <div class="stat-card__body">
       <div class="stat-card__value" id="statAprendices">—</div>
-      <div class="stat-card__label">Aprendices</div>
+      <div class="stat-card__label">Registro Manual</div>
     </div>
-    <div class="stat-card__trend stat-card__trend--neutral">Total activos</div>
+    <div class="stat-card__trend stat-card__trend--neutral">Ir al Historial →</div>
   </div>
+  </a>
 
   <div class="stat-card stat-card--purple">
     <div class="stat-card__icon">

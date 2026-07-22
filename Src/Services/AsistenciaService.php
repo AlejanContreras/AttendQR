@@ -263,10 +263,10 @@ class AsistenciaService
             throw new \RuntimeException('Solo los docentes pueden cambiar el estado de asistencia.', 403);
         }
 
-        $estadosValidos = ['ausente', 'excusa'];
+        $estadosValidos = ['presente', 'retardo', 'ausente', 'excusa'];
         if (!in_array($nuevoEstado, $estadosValidos, true)) {
             throw new \RuntimeException(
-                "Estado '{$nuevoEstado}' no válido. Solo se permite: ausente, excusa.",
+                "Estado '{$nuevoEstado}' no válido. Permitidos: presente, retardo, ausente, excusa.",
                 422
             );
         }
@@ -278,17 +278,8 @@ class AsistenciaService
 
         $estadoActual = $asistencia['estado'] ?? '';
 
-        // Reglas de negocio: solo cambios coherentes
-        $transicionesPermitidas = [
-            'ausente' => 'excusa',
-            'excusa'  => 'ausente',
-        ];
-
-        if (!isset($transicionesPermitidas[$estadoActual]) || $transicionesPermitidas[$estadoActual] !== $nuevoEstado) {
-            throw new \RuntimeException(
-                "No se puede cambiar de '{$estadoActual}' a '{$nuevoEstado}'. Solo se permite: ausente → excusa y excusa → ausente.",
-                422
-            );
+        if ($estadoActual === $nuevoEstado) {
+            throw new \RuntimeException("El registro ya tiene estado '{$nuevoEstado}'.", 422);
         }
 
         $this->asistenciaRepo->actualizarEstado(

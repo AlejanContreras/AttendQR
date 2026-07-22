@@ -255,6 +255,61 @@ class SesionRepository extends BaseRepository
     }
 
     /**
+     * Inserta registros de falla (ausente) para todos los aprendices de una sesión
+     * que no tienen ningún registro de asistencia. Se llama al cerrar manualmente.
+     *
+     * INSERT IGNORE + UNIQUE(id_sesion, id_aprendiz) garantiza idempotencia.
+     *
+     * @param int $idSesion Identificador de la sesión recién cerrada.
+     * @return int Filas insertadas.
+     */
+    public function insertarFallasParaSesion(int $idSesion): int
+    {
+        return $this->ejecutar(
+            "INSERT IGNORE INTO asistencias
+                 (id_sesion, id_aprendiz, estado, metodo_registro, registrado_en)
+             SELECT sa.id_sesion, ap.id_aprendiz, 'ausente', 'manual', NOW(3)
+             FROM sesiones_asistencia sa
+             JOIN aprendices ap
+               ON ap.id_ficha = sa.id_ficha
+              AND ap.activo   = 1
+             LEFT JOIN asistencias a
+               ON a.id_sesion   = sa.id_sesion
+              AND a.id_aprendiz = ap.id_aprendiz
+             WHERE sa.id_sesion      = :id_sesion
+               AND a.id_asistencia IS NULL",
+            [':id_sesion' => $idSesion]
+        );
+    }
+
+    /**
+     * Inserta fallas para sesiones que se cerraron automáticamente (vencidas).
+     * Opera sobre sesiones cerradas en los últimos 5 minutos para no procesar
+     * todo el historial en cada llamada lazy.
+     *
+     * @return int Filas insertadas.
+     */
+    public function insertarFallasPorSesionesCerradas(): int
+    {
+        return $this->ejecutar(
+            "INSERT IGNORE INTO asistencias
+                 (id_sesion, id_aprendiz, estado, metodo_registro, registrado_en)
+             SELECT sa.id_sesion, ap.id_aprendiz, 'ausente', 'manual', NOW(3)
+             FROM sesiones_asistencia sa
+             JOIN aprendices ap
+               ON ap.id_ficha = sa.id_ficha
+              AND ap.activo   = 1
+             LEFT JOIN asistencias a
+               ON a.id_sesion   = sa.id_sesion
+              AND a.id_aprendiz = ap.id_aprendiz
+             WHERE sa.estado_sesion  = 'cerrada'
+               AND sa.hora_cierre   >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+               AND a.id_asistencia IS NULL",
+            []
+        );
+    }
+
+    /**
      * Cuenta sesiones abiertas en este momento.
      * Usado por EstadisticaService.
      *
