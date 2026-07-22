@@ -260,8 +260,9 @@ const historial = (() => {
     if (isOpen && inner && !inner.dataset.loaded) {
       inner.dataset.loaded = '1';
       try {
-        // asistencias devuelve: { registros: [...], total, ... }
+        // asistencias devuelve: { registros: [...], total, hora_inicio_clase, ... }
         const data = await Api.sesiones.asistencias(idSesion);
+        inner.dataset.horaInicio = data.hora_inicio_clase ?? '';
         renderDetalleAsistencias(inner, data.registros ?? []);
       } catch (err) {
         inner.innerHTML = `<p style="color:var(--danger);font-size:var(--text-sm)">
@@ -329,12 +330,54 @@ const historial = (() => {
   }
 
   async function cambiarEstadoSelect(idAsistencia, select) {
-    const nuevoEstado = select.value;
+    const nuevoEstado    = select.value;
     const estadoAnterior = select.dataset.estadoAnterior ?? select.value;
 
+    if (nuevoEstado === 'excusa') {
+      // Convertir celda observación en input editable
+      const obsCell = document.getElementById(`obs-cell-${idAsistencia}`);
+      if (obsCell && !obsCell.querySelector('input')) {
+        obsCell.innerHTML = `
+          <input type="text" id="obs-input-${idAsistencia}"
+                 placeholder="Motivo (opcional)"
+                 style="font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border);border-radius:4px;width:140px">
+          <button class="btn btn-primary btn-sm"
+                  style="font-size:var(--text-xs);padding:2px 8px;margin-left:4px"
+                  onclick="historial.confirmarExcusa(${idAsistencia})">Guardar</button>`;
+      }
+      return; // esperar confirmación manual
+    }
+
+    // Falla / Presente / Retardo → guardar inmediatamente
     select.disabled = true;
     try {
-      await Api.asistencias.cambiarEstado(idAsistencia, { estado: nuevoEstado, observacion: '' });
+      let observacion = '';
+
+      if (nuevoEstado === 'retardo') {
+        // Obtener hora_inicio_clase del contenedor padre
+        const inner = select.closest('[data-hora-inicio]');
+        const horaInicio = inner?.dataset?.horaInicio ?? '';
+        if (horaInicio) {
+          const hoy     = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+          const inicio  = new Date(`${hoy}T${horaInicio}`);
+          const ahora   = new Date();
+          const mins    = Math.round((ahora - inicio) / 60000);
+          observacion   = `${mins > 0 ? mins : 0} minutos de retraso.`;
+        }
+        // Actualizar celda observación con el texto calculado
+        const obsCell = document.getElementById(`obs-cell-${idAsistencia}`);
+        if (obsCell) {
+          obsCell.innerHTML = observacion
+            ? `<span style="font-size:var(--text-xs)">${esc(observacion)}</span>`
+            : '<span style="color:var(--text-muted)">—</span>';
+        }
+      } else {
+        // Presente / Falla: limpiar observación
+        const obsCell = document.getElementById(`obs-cell-${idAsistencia}`);
+        if (obsCell) obsCell.innerHTML = '<span style="color:var(--text-muted)">—</span>';
+      }
+
+      await Api.asistencias.cambiarEstado(idAsistencia, { estado: nuevoEstado, observacion });
 
       const estadoCell = document.getElementById(`estado-cell-${idAsistencia}`);
       if (estadoCell) estadoCell.innerHTML = asistenciaBadge(nuevoEstado);
@@ -346,6 +389,35 @@ const historial = (() => {
       AttendQR.toast.error(err.message ?? 'Error al actualizar el estado.');
     } finally {
       select.disabled = false;
+    }
+  }
+
+  async function confirmarExcusa(idAsistencia) {
+    const select = document.querySelector(`#asistencia-row-${idAsistencia} select`);
+    const input  = document.getElementById(`obs-input-${idAsistencia}`);
+    const observacion = input ? input.value.trim() : '';
+
+    if (select) select.disabled = true;
+    try {
+      await Api.asistencias.cambiarEstado(idAsistencia, { estado: 'excusa', observacion });
+
+      const estadoCell = document.getElementById(`estado-cell-${idAsistencia}`);
+      if (estadoCell) estadoCell.innerHTML = asistenciaBadge('excusa');
+
+      const obsCell = document.getElementById(`obs-cell-${idAsistencia}`);
+      if (obsCell) {
+        obsCell.innerHTML = observacion
+          ? `<span style="font-size:var(--text-xs)">${esc(observacion)}</span>`
+          : '<span style="color:var(--text-muted)">—</span>';
+      }
+
+      if (select) select.dataset.estadoAnterior = 'excusa';
+      AttendQR.toast.success('Excusa registrada correctamente.');
+    } catch (err) {
+      if (select) { select.value = select.dataset.estadoAnterior ?? 'ausente'; select.disabled = false; }
+      AttendQR.toast.error(err.message ?? 'Error al registrar la excusa.');
+    } finally {
+      if (select) select.disabled = false;
     }
   }
 
@@ -494,5 +566,5 @@ const historial = (() => {
     if (window.ATTENDQR_VIEW === 'historial') init();
   });
 
-  return { toggle, filtrar, limpiar, irPagina, exportar, cambiarEstadoSelect };
+  return { toggle, filtrar, limpiar, irPagina, exportar, cambiarEstadoSelect, confirmarExcusa };
 })();

@@ -235,11 +235,12 @@ class SesionService
         $registros = $this->sesionRepo->obtenerAsistenciasDeSesion($idSesion);
 
         return [
-            'id_sesion'  => $idSesion,
-            'fecha_sesion' => $sesion['fecha_sesion'],
-            'estado_sesion' => $sesion['estado_sesion'],
-            'registros'  => $registros,
-            'total'      => count($registros),
+            'id_sesion'        => $idSesion,
+            'fecha_sesion'     => $sesion['fecha_sesion'],
+            'estado_sesion'    => $sesion['estado_sesion'],
+            'hora_inicio_clase' => $sesion['hora_inicio_clase'],
+            'registros'        => $registros,
+            'total'            => count($registros),
         ];
     }
 
