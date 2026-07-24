@@ -33,6 +33,18 @@ class DocenteRepository extends BaseRepository
     }
 
     /**
+     * Retorna solo el password_hash de un docente. Usado para verificar contraseña actual.
+     */
+    public function obtenerHashPorId(int $idDocente): ?string
+    {
+        $row = $this->consultarUno(
+            'SELECT password_hash FROM docentes WHERE id_docente = :id',
+            [':id' => $idDocente]
+        );
+        return $row['password_hash'] ?? null;
+    }
+
+    /**
      * Busca un docente por correo incluyendo password_hash. Usado en el módulo de Auth.
      *
      * @param string $correo Correo del docente.

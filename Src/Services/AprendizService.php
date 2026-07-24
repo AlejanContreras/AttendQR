@@ -406,9 +406,10 @@ class AprendizService
             unset($datos['password']);
         }
 
-        // password_actual es solo validación para cambio de contraseña; no se persiste
+        // password_actual es solo validación; se compara contra el hash real de la BD
         if (isset($datos['password_actual'])) {
-            if (!password_verify((string) $datos['password_actual'], $aprendiz['password_hash'] ?? '')) {
+            $hashActual = $this->aprendizRepo->obtenerHashPorId($idAprendiz);
+            if (!password_verify((string) $datos['password_actual'], (string) ($hashActual ?? ''))) {
                 throw new \RuntimeException('La contraseña actual es incorrecta.', 401);
             }
             unset($datos['password_actual']);

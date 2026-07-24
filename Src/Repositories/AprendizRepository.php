@@ -94,6 +94,18 @@ class AprendizRepository extends BaseRepository
     }
 
     /**
+     * Retorna solo el password_hash de un aprendiz. Usado para verificar contraseña actual.
+     */
+    public function obtenerHashPorId(int $idAprendiz): ?string
+    {
+        $row = $this->consultarUno(
+            'SELECT password_hash FROM aprendices WHERE id_aprendiz = :id',
+            [':id' => $idAprendiz]
+        );
+        return $row['password_hash'] ?? null;
+    }
+
+    /**
      * Verifica si ya existe un aprendiz con el número de documento indicado.
      */
     public function existeDocumento(string $numeroDocumento, ?int $excluirId = null): bool

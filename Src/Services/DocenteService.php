@@ -145,6 +145,20 @@ class DocenteService
             }
         }
 
+        // Cambio de contraseña desde el perfil: verifica actual antes de hashear la nueva
+        if (isset($datos['password_actual'])) {
+            $hashActual = $this->docenteRepo->obtenerHashPorId($idDocente);
+            if (!password_verify((string) $datos['password_actual'], (string) ($hashActual ?? ''))) {
+                throw new \RuntimeException('La contraseña actual es incorrecta.', 401);
+            }
+            unset($datos['password_actual']);
+        }
+
+        if (isset($datos['password_nueva'])) {
+            $datos['password_hash'] = password_hash((string) $datos['password_nueva'], PASSWORD_BCRYPT);
+            unset($datos['password_nueva']);
+        }
+
         if (!empty($datos['contrasena'])) {
             $datos['password_hash'] = password_hash((string) $datos['contrasena'], PASSWORD_BCRYPT);
             unset($datos['contrasena']);
