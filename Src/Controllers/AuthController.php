@@ -56,6 +56,11 @@ class AuthController
                 $this->activarCuenta();
                 break;
 
+            case 'solicitar-recuperacion':
+                $this->verificarMetodo($metodo, 'POST');
+                $this->solicitarRecuperacion();
+                break;
+
             default:
                 $this->responderError("Acción '{$accion}' no encontrada en AuthController.", 404);
         }
@@ -209,6 +214,33 @@ class AuthController
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
             $this->responderError('Error interno al activar la cuenta.', 500);
+        }
+    }
+
+    /**
+     * POST /api/auth/solicitar-recuperacion  (pública — sin sesión)
+     * Body: { "documento": "1098234567" }
+     */
+    private function solicitarRecuperacion(): void
+    {
+        $cuerpo    = $this->leerCuerpoJson();
+        $documento = trim((string) ($cuerpo['documento'] ?? ''));
+
+        if ($documento === '') {
+            $this->responderError('El campo documento es obligatorio.', 422);
+        }
+
+        try {
+            $this->aprendizServicio->solicitarRecuperacion($documento);
+            $this->responderExito(
+                'Solicitud enviada. Acércate a tu instructor para restablecer tu contraseña.',
+                []
+            );
+
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al procesar la solicitud.', 500);
         }
     }
 

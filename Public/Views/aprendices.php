@@ -112,7 +112,7 @@
           <th class="sortable" data-sort="numero_documento" style="cursor:pointer;user-select:none" onclick="aprendicesGestion.sortBy('numero_documento')">Documento <span class="sort-icon" id="sort-numero_documento"></span></th>
           <th class="sortable" data-sort="apellidos" style="cursor:pointer;user-select:none" onclick="aprendicesGestion.sortBy('apellidos')">Nombre completo <span class="sort-icon" id="sort-apellidos">▲</span></th>
           <th class="sortable" data-sort="codigo_ficha" style="cursor:pointer;user-select:none" onclick="aprendicesGestion.sortBy('codigo_ficha')">Ficha <span class="sort-icon" id="sort-codigo_ficha"></span></th>
-          <th>Programa</th>
+          <th style="text-align:center">Restablecer contraseña</th>
           <th>Cuenta</th>
           <th>Estado</th>
           <th style="text-align:center">Acciones</th>

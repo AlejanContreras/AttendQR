@@ -166,3 +166,57 @@ function mostrarError(form, mensaje) {
 function ocultarError(form) {
   form.querySelector('.login-alert')?.remove();
 }
+
+// ─── Recuperación de contraseña ────────────────────────────────────────────
+
+function mostrarRecuperacion() {
+  document.getElementById('seccionRecuperacion').style.display = 'block';
+  document.getElementById('recuperarLink').style.display       = 'none';
+  document.getElementById('recuperarDoc')?.focus();
+}
+
+function ocultarRecuperacion() {
+  document.getElementById('seccionRecuperacion').style.display = 'block';
+  const msg = document.getElementById('recuperarMsg');
+  if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
+  document.getElementById('recuperarDoc').value = '';
+  document.getElementById('seccionRecuperacion').style.display = 'none';
+  document.getElementById('recuperarLink').style.display       = 'block';
+}
+
+async function handleRecuperacion() {
+  const doc = document.getElementById('recuperarDoc')?.value.trim();
+  const msg = document.getElementById('recuperarMsg');
+  const btn = document.getElementById('btnSolicitarRecuperacion');
+
+  if (!doc) {
+    mostrarMsgRecuperacion('Ingresa tu número de documento.', false);
+    return;
+  }
+
+  btn.disabled  = true;
+  btn.textContent = 'Enviando...';
+
+  try {
+    await Api.auth.solicitarRecuperacion(doc);
+    mostrarMsgRecuperacion(
+      'Solicitud enviada. Acércate a tu instructor para que restablezca tu contraseña.',
+      true
+    );
+    document.getElementById('recuperarDoc').value = '';
+  } catch (err) {
+    mostrarMsgRecuperacion(err.message ?? 'No se pudo procesar la solicitud.', false);
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Enviar solicitud';
+  }
+}
+
+function mostrarMsgRecuperacion(texto, exito) {
+  const msg = document.getElementById('recuperarMsg');
+  if (!msg) return;
+  msg.textContent   = texto;
+  msg.style.display = 'block';
+  msg.style.background  = exito ? 'var(--green-light)' : '#FEE2E2';
+  msg.style.color       = exito ? 'var(--green-dark)'  : 'var(--danger)';
+}

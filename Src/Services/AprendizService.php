@@ -64,6 +64,62 @@ class AprendizService
         ];
     }
 
+    // ─── Recuperación de contraseña ──────────────────────────────────────────
+
+    /**
+     * Registra una solicitud presencial de recuperación de contraseña.
+     * El aprendiz la inicia desde el login; el instructor la atiende desde su panel.
+     */
+    public function solicitarRecuperacion(string $documento): void
+    {
+        $aprendiz = $this->aprendizRepo->buscarPorDocumento(trim($documento));
+
+        if ($aprendiz === null) {
+            throw new \RuntimeException('Documento no encontrado en el sistema.', 404);
+        }
+
+        if ((int) $aprendiz['activo'] !== 1) {
+            throw new \RuntimeException('La cuenta está inactiva. Contacta al instructor.', 409);
+        }
+
+        $this->aprendizRepo->crearSolicitudRecuperacion((int) $aprendiz['id_aprendiz']);
+    }
+
+    /**
+     * Genera una contraseña temporal aleatoria de 8 caracteres (letras+dígitos),
+     * la hashea y la guarda. Elimina la solicitud pendiente.
+     * Retorna la contraseña en texto plano para que el instructor se la comunique.
+     */
+    public function restablecerContrasena(int $idAprendiz): array
+    {
+        $aprendiz = $this->aprendizRepo->obtenerPorId($idAprendiz);
+
+        if ($aprendiz === null) {
+            throw new \RuntimeException('Aprendiz no encontrado.', 404);
+        }
+
+        if (!$this->aprendizRepo->tieneSolicitudPendiente($idAprendiz)) {
+            throw new \RuntimeException('Este aprendiz no tiene una solicitud de recuperación pendiente.', 409);
+        }
+
+        $chars    = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O/1/I para evitar confusiones
+        $temporal = '';
+        for ($i = 0; $i < 8; $i++) {
+            $temporal .= $chars[random_int(0, strlen($chars) - 1)];
+        }
+
+        $this->aprendizRepo->actualizar($idAprendiz, [
+            'password_hash'   => password_hash($temporal, PASSWORD_BCRYPT),
+            'cuenta_activada' => 1,
+        ]);
+        $this->aprendizRepo->eliminarSolicitudRecuperacion($idAprendiz);
+
+        return [
+            'password_temporal' => $temporal,
+            'nombres'           => trim($aprendiz['nombres'] . ' ' . $aprendiz['apellidos']),
+        ];
+    }
+
     // ─── Registro con contraseña (docente crea cuenta completa) ─────────────
 
     /**

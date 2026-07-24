@@ -312,6 +312,21 @@ CREATE INDEX IF NOT EXISTS idx_asistencia_aprendiz
 
 
 -- ============================================================
+-- TABLA: solicitudes_recuperacion
+-- Registro presencial de recuperación de contraseña.
+-- UNIQUE en id_aprendiz: solo una solicitud pendiente por aprendiz.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS solicitudes_recuperacion (
+  id_solicitud  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  id_aprendiz   INT UNSIGNED NOT NULL,
+  solicitado_en DATETIME     NOT NULL DEFAULT NOW(),
+  UNIQUE KEY uq_aprendiz (id_aprendiz),
+  CONSTRAINT fk_sr_aprendiz FOREIGN KEY (id_aprendiz)
+    REFERENCES aprendices (id_aprendiz) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
 -- DATOS BASE: jornadas
 -- Las tres jornadas estándar SENA.
 -- INSERT IGNORE evita error si ya existen.

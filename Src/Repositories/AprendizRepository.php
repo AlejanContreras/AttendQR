@@ -63,9 +63,11 @@ class AprendizRepository extends BaseRepository
         ?int    $cuentaActiva = null
     ): array {
         $sql    = 'SELECT a.id_aprendiz, a.numero_documento, a.nombres, a.apellidos,
-                          a.activo, a.cuenta_activada, a.id_ficha, f.codigo_ficha, f.nombre_programa
+                          a.activo, a.cuenta_activada, a.id_ficha, f.codigo_ficha, f.nombre_programa,
+                          IF(sr.id_solicitud IS NOT NULL, 1, 0) AS tiene_solicitud
                    FROM aprendices a
                    JOIN fichas f ON f.id_ficha = a.id_ficha
+                   LEFT JOIN solicitudes_recuperacion sr ON sr.id_aprendiz = a.id_aprendiz
                    WHERE 1=1';
         $params = [];
 
@@ -183,6 +185,32 @@ class AprendizRepository extends BaseRepository
         return $this->ejecutar(
             'UPDATE aprendices SET ' . implode(', ', $set) . ' WHERE id_aprendiz = :id',
             $params
+        );
+    }
+
+    // ─── Recuperación de contraseña ──────────────────────────────────────────
+
+    public function crearSolicitudRecuperacion(int $idAprendiz): void
+    {
+        $this->ejecutar(
+            'INSERT IGNORE INTO solicitudes_recuperacion (id_aprendiz) VALUES (:id)',
+            [':id' => $idAprendiz]
+        );
+    }
+
+    public function tieneSolicitudPendiente(int $idAprendiz): bool
+    {
+        return $this->existe(
+            'SELECT 1 FROM solicitudes_recuperacion WHERE id_aprendiz = :id',
+            [':id' => $idAprendiz]
+        );
+    }
+
+    public function eliminarSolicitudRecuperacion(int $idAprendiz): void
+    {
+        $this->ejecutar(
+            'DELETE FROM solicitudes_recuperacion WHERE id_aprendiz = :id',
+            [':id' => $idAprendiz]
         );
     }
 

@@ -59,6 +59,9 @@ class AprendizController
             'eliminar' => $this->despacharConMetodo($metodo, 'DELETE',
                 fn() => $this->eliminar($this->extraerIdRequerido($params, 'aprendiz'))
             ),
+            'restablecer-contrasena' => $this->despacharConMetodo($metodo, 'POST',
+                fn() => $this->restablecerContrasena($this->extraerIdRequerido($params, 'aprendiz'))
+            ),
             default => $this->responderError(
                 "Acción '{$accion}' no encontrada en AprendizController.", 404
             ),
@@ -306,6 +309,29 @@ class AprendizController
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
             $this->responderError('Error interno durante la importación.', 500);
+        }
+    }
+
+    /**
+     * POST /api/aprendices/restablecer-contrasena/{idAprendiz}  — solo docente
+     * Genera contraseña temporal, la hashea y elimina la solicitud pendiente.
+     */
+    private function restablecerContrasena(int $idAprendiz): void
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+        $usuario = $_SESSION['usuario'] ?? null;
+        if (!$usuario || ($usuario['rol'] ?? '') !== 'docente') {
+            $this->responderError('Solo los instructores pueden restablecer contraseñas.', 403);
+        }
+
+        try {
+            $resultado = $this->servicio->restablecerContrasena($idAprendiz);
+            $this->responderExito('Contraseña restablecida correctamente.', $resultado);
+
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al restablecer la contraseña.', 500);
         }
     }
 

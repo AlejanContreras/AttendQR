@@ -69,7 +69,8 @@ const Api = (() => {
     logout:             ()      => post('/auth/logout'),
     verificar:          ()      => get('/auth/verificar'),
     verificarDocumento: (doc)   => post('/auth/verificar-documento', { documento: doc }),
-    activarCuenta:      (body)  => post('/auth/activar-cuenta', body),
+    activarCuenta:         (body)  => post('/auth/activar-cuenta', body),
+    solicitarRecuperacion: (doc)   => post('/auth/solicitar-recuperacion', { documento: doc }),
   };
 
   const docentes = {
@@ -83,7 +84,8 @@ const Api = (() => {
     listar:     (params)   => get('/aprendices/listar', params),
     activar:    (id)       => put(`/aprendices/actualizar/${id}`, { activo: 1 }),
     desactivar: (id)       => put(`/aprendices/actualizar/${id}`, { activo: 0 }),
-    importar:   (formData) => request('/aprendices/importar', { method: 'POST', body: formData }),
+    importar:              (formData) => request('/aprendices/importar', { method: 'POST', body: formData }),
+    restablecerContrasena: (id)       => post(`/aprendices/restablecer-contrasena/${id}`),
   };
 
   const del = (ep) => request(ep, { method: 'DELETE' });

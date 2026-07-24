@@ -80,13 +80,24 @@ const aprendicesGestion = (() => {
         <td style="font-family:monospace;font-weight:var(--fw-semibold)">${esc(a.numero_documento)}</td>
         <td>${esc(a.nombres)} ${esc(a.apellidos)}</td>
         <td><span class="badge badge-neutral">${esc(a.codigo_ficha)}</span></td>
-        <td style="font-size:var(--text-xs);color:var(--text-muted)">${esc(a.nombre_programa ?? '')}</td>
+        <td style="text-align:center">${resetBtn(a)}</td>
         <td>${badgeCuenta(a.cuenta_activada)}</td>
         <td>${badgeEstado(a.activo)}</td>
         <td style="text-align:center;white-space:nowrap">
           ${accionesHTML(a)}
         </td>
       </tr>`).join('');
+  }
+
+  function resetBtn(a) {
+    if (!parseInt(a.tiene_solicitud)) {
+      return '<span style="color:var(--text-muted);font-size:var(--text-xs)">—</span>';
+    }
+    return `<button class="btn btn-sm"
+              style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D"
+              onclick="aprendicesGestion.restablecerContrasena(${a.id_aprendiz},this)">
+              🔑 Restablecer
+            </button>`;
   }
 
   function badgeCuenta(v) {
@@ -199,6 +210,19 @@ const aprendicesGestion = (() => {
       await cargarAprendices();
     } catch (err) {
       toast(err.message ?? 'Error al activar.', 'error');
+    }
+  }
+
+  async function restablecerContrasena(id, btn) {
+    if (!confirm('¿Restablecer la contraseña de este aprendiz?\nSe generará una contraseña temporal aleatoria.')) return;
+    btn.disabled = true;
+    try {
+      const resultado = await Api.aprendices.restablecerContrasena(id);
+      alert(`✅ Contraseña restablecida\n\nAprendiz: ${resultado.nombres}\nContraseña temporal: ${resultado.password_temporal}\n\nEntrega esta contraseña al aprendiz para que inicie sesión.`);
+      await cargarAprendices();
+    } catch (err) {
+      toast(err.message ?? 'Error al restablecer la contraseña.', 'error');
+      btn.disabled = false;
     }
   }
 
@@ -315,5 +339,5 @@ const aprendicesGestion = (() => {
     if (window.ATTENDQR_VIEW === 'aprendices') init();
   });
 
-  return { filtrar, buscarLocal, limpiarFiltros, activar, desactivar, importar, sortBy };
+  return { filtrar, buscarLocal, limpiarFiltros, activar, desactivar, importar, sortBy, restablecerContrasena };
 })();

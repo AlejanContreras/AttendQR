@@ -208,6 +208,47 @@
         <a href="registro.php" style="color:var(--green-primary);text-decoration:none;font-weight:var(--fw-semibold)">Crear mi cuenta</a>
       </p>
 
+      <p id="recuperarLink" style="display:block;text-align:center;font-size:var(--text-sm);color:var(--text-muted);margin-top:var(--sp-2)">
+        <a href="#" onclick="mostrarRecuperacion();return false;"
+           style="color:var(--text-muted);text-decoration:underline;font-size:var(--text-xs)">
+          ¿Olvidaste tu contraseña?
+        </a>
+      </p>
+
+      <!-- ─── Sección recuperación de contraseña (oculta por defecto) ── -->
+      <div id="seccionRecuperacion" style="display:none;margin-top:var(--sp-4)">
+        <div style="border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-5);background:var(--surface-2)">
+          <p style="font-size:var(--text-sm);font-weight:var(--fw-semibold);margin-bottom:var(--sp-1)">
+            Solicitar restablecimiento de contraseña
+          </p>
+          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--sp-4)">
+            Ingresa tu número de documento. Tu instructor recibirá la solicitud y te entregará una contraseña temporal.
+          </p>
+          <div class="form-group" style="margin-bottom:var(--sp-3)">
+            <div class="input-group">
+              <span class="input-group__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2"/>
+                </svg>
+              </span>
+              <input type="text" id="recuperarDoc" class="form-control"
+                     placeholder="Número de documento" inputmode="numeric" pattern="[0-9]{5,15}">
+            </div>
+          </div>
+          <div style="display:flex;gap:var(--sp-2)">
+            <button class="btn btn-primary btn-sm" style="flex:1" id="btnSolicitarRecuperacion"
+                    onclick="handleRecuperacion()">
+              Enviar solicitud
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="ocultarRecuperacion()">
+              Cancelar
+            </button>
+          </div>
+          <div id="recuperarMsg" style="display:none;margin-top:var(--sp-3);font-size:var(--text-xs);border-radius:var(--r-sm);padding:var(--sp-3)"></div>
+        </div>
+      </div>
+
       <p class="login-footer-text" style="text-align:center;font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--sp-5)">
         ¿Problemas para ingresar? Contacta al administrador del sistema.
       </p>
