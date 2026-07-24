@@ -209,10 +209,10 @@
       </p>
 
       <p id="recuperarLink" style="display:block;text-align:center;font-size:var(--text-sm);color:var(--text-muted);margin-top:var(--sp-2)">
-        <a href="#" onclick="mostrarRecuperacion();return false;"
-           style="color:var(--text-muted);text-decoration:underline;font-size:var(--text-xs)">
+        <button type="button" onclick="mostrarRecuperacion()"
+                style="background:none;border:none;cursor:pointer;color:var(--text-muted);text-decoration:underline;font-size:var(--text-xs);padding:0">
           ¿Olvidaste tu contraseña?
-        </a>
+        </button>
       </p>
 
       <!-- ─── Sección recuperación de contraseña (oculta por defecto) ── -->

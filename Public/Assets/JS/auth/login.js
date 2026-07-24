@@ -176,10 +176,10 @@ function mostrarRecuperacion() {
 }
 
 function ocultarRecuperacion() {
-  document.getElementById('seccionRecuperacion').style.display = 'block';
   const msg = document.getElementById('recuperarMsg');
   if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
-  document.getElementById('recuperarDoc').value = '';
+  const docInput = document.getElementById('recuperarDoc');
+  if (docInput) docInput.value = '';
   document.getElementById('seccionRecuperacion').style.display = 'none';
   document.getElementById('recuperarLink').style.display       = 'block';
 }
