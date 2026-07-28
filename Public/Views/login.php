@@ -4,11 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Iniciar sesión — AttendQR</title>
-  <link rel="stylesheet" href="../Assets/CSS/variables.css">
-  <link rel="stylesheet" href="../Assets/CSS/reset.css">
-  <link rel="stylesheet" href="../Assets/CSS/style.css">
-  <link rel="stylesheet" href="../Assets/CSS/components.css">
-  <link rel="stylesheet" href="../Assets/CSS/login.css">
+  <?php
+  function vlg(string $rel): string {
+      $abs = dirname(__DIR__) . '/' . $rel;
+      $ts  = file_exists($abs) ? filemtime($abs) : time();
+      return htmlspecialchars('../' . $rel) . '?v=' . $ts;
+  }
+  ?>
+  <link rel="stylesheet" href="<?= vlg('Assets/CSS/variables.css') ?>">
+  <link rel="stylesheet" href="<?= vlg('Assets/CSS/reset.css') ?>">
+  <link rel="stylesheet" href="<?= vlg('Assets/CSS/style.css') ?>">
+  <link rel="stylesheet" href="<?= vlg('Assets/CSS/components.css') ?>">
+  <link rel="stylesheet" href="<?= vlg('Assets/CSS/login.css') ?>">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2339A900'/><text y='24' x='5' font-size='22' font-family='Arial' fill='white' font-weight='bold'>A</text></svg>">
 </head>
 <body>
@@ -259,10 +266,10 @@
 </div><!-- /login-panel -->
 </div><!-- /login-page -->
 
-<script src="../Assets/JS/api/api.js"></script>
-<script src="../Assets/JS/utils/utils.js"></script>
-<script src="../Assets/JS/auth/auth.js"></script>
-<script src="../Assets/JS/auth/login.js"></script>
+<script src="<?= vlg('Assets/JS/api/api.js') ?>"></script>
+<script src="<?= vlg('Assets/JS/utils/utils.js') ?>"></script>
+<script src="<?= vlg('Assets/JS/auth/auth.js') ?>"></script>
+<script src="<?= vlg('Assets/JS/auth/login.js') ?>"></script>
 
 </body>
 </html>

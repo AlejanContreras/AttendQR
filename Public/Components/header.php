@@ -7,15 +7,23 @@
   <title><?= htmlspecialchars($pageTitle ?? 'AttendQR') ?> — AttendQR</title>
 
   <!-- Design System CSS -->
-  <link rel="stylesheet" href="Assets/CSS/variables.css">
-  <link rel="stylesheet" href="Assets/CSS/reset.css">
-  <link rel="stylesheet" href="Assets/CSS/style.css">
-  <link rel="stylesheet" href="Assets/CSS/layout.css">
-  <link rel="stylesheet" href="Assets/CSS/components.css">
+  <?php
+  // v() genera ?v=<timestamp> para forzar recarga cuando el archivo cambie
+  function v(string $rel): string {
+      $abs = __DIR__ . '/../' . $rel;
+      $ts  = file_exists($abs) ? filemtime($abs) : time();
+      return htmlspecialchars($rel) . '?v=' . $ts;
+  }
+  ?>
+  <link rel="stylesheet" href="<?= v('Assets/CSS/variables.css') ?>">
+  <link rel="stylesheet" href="<?= v('Assets/CSS/reset.css') ?>">
+  <link rel="stylesheet" href="<?= v('Assets/CSS/style.css') ?>">
+  <link rel="stylesheet" href="<?= v('Assets/CSS/layout.css') ?>">
+  <link rel="stylesheet" href="<?= v('Assets/CSS/components.css') ?>">
 
   <!-- View-specific CSS -->
   <?php if (!empty($viewCss)): foreach ($viewCss as $css): ?>
-  <link rel="stylesheet" href="Assets/CSS/<?= htmlspecialchars($css) ?>">
+  <link rel="stylesheet" href="<?= v('Assets/CSS/' . $css) ?>">
   <?php endforeach; endif; ?>
 
   <!-- Favicon placeholder -->

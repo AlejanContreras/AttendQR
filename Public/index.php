@@ -137,9 +137,17 @@ window.ATTENDQR_VIEW = <?= json_encode($currentView) ?>;
 </script>
 
 <!-- JavaScript — orden: api → utils → auth → vista específica -->
-<script src="Assets/JS/api/api.js"></script>
-<script src="Assets/JS/utils/utils.js"></script>
-<script src="Assets/JS/auth/auth.js"></script>
+<?php
+// vj() = versión automática para JS (usa la función v() ya definida en header.php)
+function vj(string $rel): string {
+    $abs = __DIR__ . '/' . $rel;
+    $ts  = file_exists($abs) ? filemtime($abs) : time();
+    return htmlspecialchars($rel) . '?v=' . $ts;
+}
+?>
+<script src="<?= vj('Assets/JS/api/api.js') ?>"></script>
+<script src="<?= vj('Assets/JS/utils/utils.js') ?>"></script>
+<script src="<?= vj('Assets/JS/auth/auth.js') ?>"></script>
 
 <?php
 $viewJs = [
@@ -154,7 +162,7 @@ $viewJs = [
 ];
 
 if (isset($viewJs[$currentView])): ?>
-<script src="<?= htmlspecialchars($viewJs[$currentView]) ?>"></script>
+<script src="<?= vj($viewJs[$currentView]) ?>"></script>
 <?php endif; ?>
 
 </body>
