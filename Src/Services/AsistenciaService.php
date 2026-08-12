@@ -323,8 +323,8 @@ class AsistenciaService
      *
      * @param array<string, mixed> $usuario     Docente autenticado.
      * @param int|null             $idFicha     Filtrar por ficha (null = todas las fichas).
-     * @param string|null          $fechaInicio Inicio del período (Y-m-d). Default: 1er día del mes.
-     * @param string|null          $fechaFin    Fin del período (Y-m-d). Default: último día del mes.
+     * @param string|null          $fechaInicio Inicio del período (Y-m-d). Default: historial completo.
+     * @param string|null          $fechaFin    Fin del período (Y-m-d). Default: hoy.
      * @return string Contenido binario del archivo .xlsx.
      * @throws \RuntimeException 403 si el usuario no es docente.
      * @throws \RuntimeException 404 si no hay fichas/datos para el período.
@@ -340,8 +340,10 @@ class AsistenciaService
         }
 
         $idDocente   = (int) $usuario['id'];
-        $fechaInicio ??= date('Y-m-01');
-        $fechaFin    ??= date('Y-m-t');
+        // Sin rango explícito → exportar TODO el historial acumulado de la ficha,
+        // no solo el mes en curso (antes limitaba a date('Y-m-01')..date('Y-m-t')).
+        $fechaInicio ??= '2000-01-01';
+        $fechaFin    ??= date('Y-m-d');
 
         $fichas = $this->asistenciaRepo->fichasParaReporte($idDocente, $idFicha);
         if (empty($fichas)) {
@@ -373,8 +375,7 @@ class AsistenciaService
             $attMap[(int) $a['id_ficha']][(int) $a['id_aprendiz']][$a['fecha_sesion']] = $a['estado'];
         }
 
-        $mesLabel = $this->etiquetaMes($fechaInicio);
-        $writer   = new XlsxWriter();
+        $writer = new XlsxWriter();
 
         foreach ($idFichas as $idF) {
             $ficha = $fichaMap[$idF] ?? null;
@@ -383,6 +384,13 @@ class AsistenciaService
             }
             $fechasSesion = array_keys($sesionesPorFicha[$idF] ?? []);
             sort($fechasSesion);
+
+            // Etiqueta basada en las fechas reales de la ficha (no en el rango
+            // consultado), para que cubra correctamente todo el historial:
+            // un solo mes → "AGOSTO DEL 2026"; varios meses → "JUNIO - AGOSTO DEL 2026".
+            $mesLabel = empty($fechasSesion)
+                ? $this->etiquetaMes($fechaInicio, $fechaFin)
+                : $this->etiquetaMes($fechasSesion[0], $fechasSesion[array_key_last($fechasSesion)]);
 
             $this->escribirHojaFicha(
                 $writer,
@@ -397,8 +405,11 @@ class AsistenciaService
         return $writer->output();
     }
 
-    /** Convierte una fecha Y-m-d en "ABRIL DEL 2025". */
-    private function etiquetaMes(string $fecha): string
+    /**
+     * Convierte un rango de fechas Y-m-d en una etiqueta tipo "ABRIL DEL 2025"
+     * (mismo mes) o "JUNIO - AGOSTO DEL 2026" (varios meses, historial completo).
+     */
+    private function etiquetaMes(string $fechaInicio, ?string $fechaFin = null): string
     {
         static $meses = [
             1 => 'ENERO',    2 => 'FEBRERO',   3 => 'MARZO',
@@ -406,8 +417,20 @@ class AsistenciaService
             7 => 'JULIO',    8 => 'AGOSTO',    9 => 'SEPTIEMBRE',
             10 => 'OCTUBRE', 11 => 'NOVIEMBRE', 12 => 'DICIEMBRE',
         ];
-        $ts  = strtotime($fecha);
-        return ($meses[(int) date('n', $ts)] ?? 'MES') . ' DEL ' . date('Y', $ts);
+        $tsInicio = strtotime($fechaInicio);
+        $inicio   = ($meses[(int) date('n', $tsInicio)] ?? 'MES') . ' DEL ' . date('Y', $tsInicio);
+
+        if ($fechaFin === null) {
+            return $inicio;
+        }
+
+        $tsFin = strtotime($fechaFin);
+        if (date('Y-n', $tsInicio) === date('Y-n', $tsFin)) {
+            return $inicio;
+        }
+
+        $fin = ($meses[(int) date('n', $tsFin)] ?? 'MES') . ' DEL ' . date('Y', $tsFin);
+        return ($meses[(int) date('n', $tsInicio)] ?? 'MES') . ' - ' . $fin;
     }
 
     /**
@@ -490,10 +513,18 @@ class AsistenciaService
         $w->cell($s, 'C', 7, 'Nombres',   XlsxWriter::S_COL_NAME);
         $w->cell($s, 'D', 7, 'Apellidos', XlsxWriter::S_COL_NAME);
 
+        // Colores de fecha alternados por mes, para distinguir a simple vista
+        // p. ej. julio de agosto cuando el historial exportado abarca varios meses.
+        $colorPorMes = [];
         foreach ($fechasSesion as $i => $fecha) {
             $diaNum  = (int) date('j', strtotime($fecha));
             $diaSem  = $abrevDia[date('D', strtotime($fecha))] ?? '';
-            $w->cell($s, $w->colLetter($iStart + $i), 7, $diaNum . "\n" . $diaSem, XlsxWriter::S_COL_DATE);
+            $mesKey  = date('Y-m', strtotime($fecha));
+            if (!isset($colorPorMes[$mesKey])) {
+                $colorPorMes[$mesKey] = count($colorPorMes) % 2;
+            }
+            $estiloFecha = $colorPorMes[$mesKey] === 0 ? XlsxWriter::S_COL_DATE : XlsxWriter::S_COL_DATE_ALT;
+            $w->cell($s, $w->colLetter($iStart + $i), 7, $diaNum . "\n" . $diaSem, $estiloFecha);
         }
 
         $w->cell($s, $w->colLetter($iColFallas), 7, 'Fallas', XlsxWriter::S_TOTAL_F);

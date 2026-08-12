@@ -28,6 +28,7 @@ class XlsxWriter
     const S_TOTAL_F   = 12;
     const S_TOTAL_A   = 13;
     const S_BLANK     = 14;
+    const S_COL_DATE_ALT = 15;
 
     private array $sheets  = [];
     private array $ssIndex = [];
@@ -242,7 +243,7 @@ class XlsxWriter
 
         $masterXfs = '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>';
 
-        // Indices 0-14 deben coincidir exactamente con las constantes S_*
+        // Indices 0-15 deben coincidir exactamente con las constantes S_*
         $a  = static fn(string $h = '', string $v = '', bool $w = false, string $i = ''): string =>
             '<alignment'
             . ($h ? " horizontal=\"$h\"" : '')
@@ -260,7 +261,7 @@ class XlsxWriter
             . ($aln    ? ' applyAlignment="1"' : '')
             . ($aln    ? '>' . $aln . '</xf>'  : '/>');
 
-        $xfs = '<cellXfs count="15">'
+        $xfs = '<cellXfs count="16">'
              . $xf(0, 0, 0)                                                                  // 0 DEFAULT
              . $xf(1, 2, 0, $a('center', 'center'))                                         // 1 HDR_GREEN
              . $xf(2, 3, 0, $a('center', 'center'))                                         // 2 HDR_GREY
@@ -276,6 +277,7 @@ class XlsxWriter
              . $xf(2, 10, 1, $a('center', 'center'))                                        // 12 TOTAL_F
              . $xf(2, 7,  1, $a('center', 'center'))                                        // 13 TOTAL_A
              . $xf(0, 0, 0)                                                                  // 14 BLANK
+             . $xf(2, 3, 1, $a('center', 'center', true))                                   // 15 COL_DATE_ALT
              . '</cellXfs>';
 
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'

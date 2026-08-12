@@ -140,11 +140,6 @@ const AttendQR = (() => {
     sidebar.restoreState();
     clock.start('#topbarClock');
     greeting.apply();
-
-    const today = new Date().toISOString().slice(0, 10);
-    document.querySelectorAll('input[type="date"]:not([value])').forEach(el => {
-      el.value = today;
-    });
   }
 
   document.addEventListener('DOMContentLoaded', init);
