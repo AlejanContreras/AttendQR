@@ -44,6 +44,8 @@ RewriteRule ^api(/.*)?$ api.php [L,QSA]
 # -----------------------------------------------------------------------------
 # 4. Cabeceras de seguridad para respuestas de la API
 # -----------------------------------------------------------------------------
+
+#estos IfMoudle toco comentarlos para dejarlo funcionar en infinityfree
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "DENY"
