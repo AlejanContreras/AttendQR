@@ -61,6 +61,12 @@ class AuthController
                 $this->solicitarRecuperacion();
                 break;
 
+            // [Recuperación de cuenta del docente por correo]
+            case 'recuperar-docente':
+                $this->verificarMetodo($metodo, 'POST');
+                $this->recuperarDocente();
+                break;
+
             default:
                 $this->responderError("Acción '{$accion}' no encontrada en AuthController.", 404);
         }
@@ -242,6 +248,33 @@ class AuthController
         } catch (\Throwable $e) {
             $this->responderError('Error interno al procesar la solicitud.', 500);
         }
+    }
+
+    /**
+     * POST /api/auth/recuperar-docente   Body: { "correo": "..." }
+     *
+     * [Recuperación de cuenta del docente] Responde SIEMPRE lo mismo, exista o
+     * no el correo, se haya enviado o no (no revela qué correos existen).
+     */
+    private function recuperarDocente(): void
+    {
+        $cuerpo = $this->leerCuerpoJson();
+        $correo = trim((string) ($cuerpo['correo'] ?? ''));
+
+        if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+            $this->responderError('Ingresa un correo electrónico válido.', 422);
+        }
+
+        try {
+            $this->servicio->solicitarRecuperacionDocente($correo);
+        } catch (\Throwable $e) {
+            error_log('[AttendQR][Recuperación] ' . $e->getMessage());
+        }
+
+        $this->responderExito(
+            'Si el correo está registrado, en unos minutos recibirás una contraseña temporal. Revisa también la carpeta de spam.',
+            []
+        );
     }
 
     // -------------------------------------------------------------------------

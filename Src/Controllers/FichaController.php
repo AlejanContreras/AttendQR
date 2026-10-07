@@ -6,11 +6,13 @@ class FichaController
 {
     private FichaService  $servicio;
     private SesionService $sesionServicio;
+    private AccesoService $acceso;   // [Aislamiento entre docentes]
 
     public function __construct()
     {
         $this->servicio       = new FichaService();
         $this->sesionServicio = new SesionService();
+        $this->acceso         = new AccesoService();
     }
 
     public function handle(string $metodo, string $accion, array $params): void
@@ -53,9 +55,11 @@ class FichaController
         $nombrePrograma = $_GET['nombre_programa'] ?? null;
         $estado         = $_GET['estado']          ?? null;
         $idJornada      = isset($_GET['id_jornada'])  ? (int) $_GET['id_jornada']  : null;
-        $idDocente      = isset($_GET['id_docente'])  ? (int) $_GET['id_docente']  : null;
-
         try {
+            // [Aislamiento entre docentes] el docente sale de la sesión. Antes se
+            // aceptaba ?id_docente= del navegador (y sin él se listaban TODAS las fichas).
+            $idDocente = (int) AccesoService::usuario()['id'];
+
             $resultado = $this->servicio->listar($nombrePrograma, $estado, $idJornada, $idDocente);
             $this->responderExito('Fichas obtenidas correctamente.', $resultado);
         } catch (\RuntimeException $e) {
@@ -71,6 +75,8 @@ class FichaController
     private function consultar(int $idFicha): void
     {
         try {
+            $this->acceso->exigirFichaPropia($idFicha, AccesoService::usuario()); // [Aislamiento]
+
             $ficha = $this->servicio->consultar($idFicha);
             $this->responderExito('Ficha encontrada.', $ficha);
         } catch (\RuntimeException $e) {
@@ -93,6 +99,8 @@ class FichaController
         $estado      = $_GET['estado']       ?? null;
 
         try {
+            $this->acceso->exigirFichaPropia($idFicha, AccesoService::usuario()); // [Aislamiento]
+
             $resultado = $this->sesionServicio->historialPorFicha($idFicha, $fechaInicio, $fechaFin, $estado);
             $this->responderExito('Historial de la ficha obtenido correctamente.', $resultado);
         } catch (\RuntimeException $e) {
@@ -163,6 +171,9 @@ class FichaController
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 404);
         }
+
+        // [Aislamiento] una clase no se puede "regalar" a otro docente
+        unset($cuerpo['id_docente']);
 
         try {
             $ficha = $this->servicio->actualizar($idFicha, $cuerpo);

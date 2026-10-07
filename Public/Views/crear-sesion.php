@@ -215,12 +215,27 @@
             </span>
             <span style="display:flex;align-items:center;gap:4px">
               <span style="width:8px;height:8px;border-radius:50%;background:var(--warning);display:inline-block"></span>
-              Retardo: H+6 a H+20 min
+              <span id="leyendaRetardo">Retardo: H+6 a H+20 min</span>
             </span>
             <span style="display:flex;align-items:center;gap:4px">
               <span style="width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block"></span>
-              Cerrado: después de H+20
+              <span id="leyendaCierre">Cerrado: después de H+20</span>
             </span>
+          </div>
+        </div>
+
+        <!-- ── Duración máxima de la sesión ─────────────────────────── -->
+        <div class="form-group" style="margin-top:var(--sp-4);margin-bottom:0">
+          <label class="form-label" for="iniciarDuracion">Duración de la sesión</label>
+          <select id="iniciarDuracion" class="form-control" onchange="sesiones.actualizarLeyendaDuracion()">
+            <option value="">Automática según la jornada</option>
+            <option value="20">20 minutos</option>
+            <option value="30">30 minutos</option>
+            <option value="45">45 minutos</option>
+            <option value="60">60 minutos</option>
+          </select>
+          <div class="form-hint" style="margin-top:var(--sp-2)">
+            El QR sigue cambiando cada 30 segundos. Puedes cerrar la sesión antes en cualquier momento.
           </div>
         </div>
 

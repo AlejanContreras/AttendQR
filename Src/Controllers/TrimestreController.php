@@ -20,15 +20,15 @@ class TrimestreController
             'consultar' => $this->despacharConMetodo($metodo, 'GET',
                 fn() => $this->consultar($this->extraerIdRequerido($params, 'trimestre'))
             ),
-            'crear' => $this->despacharConMetodo($metodo, 'POST',
-                fn() => $this->crear()
-            ),
-            'actualizar' => $this->despacharConMetodo($metodo, 'PUT',
-                fn() => $this->actualizar($this->extraerIdRequerido($params, 'trimestre'))
-            ),
-            'eliminar' => $this->despacharConMetodo($metodo, 'DELETE',
-                fn() => $this->eliminar($this->extraerIdRequerido($params, 'trimestre'))
-            ),
+            // [Aislamiento] catálogo global: ningún docente lo modifica por la API
+            // (no hay pantalla que lo use; antes se podía hacer desde la consola F12).
+            'crear' => $this->responderError('Los catálogos (jornadas y trimestres) solo se modifican desde la base de datos.', 403),
+            // [Aislamiento] catálogo global: ningún docente lo modifica por la API
+            // (no hay pantalla que lo use; antes se podía hacer desde la consola F12).
+            'actualizar' => $this->responderError('Los catálogos (jornadas y trimestres) solo se modifican desde la base de datos.', 403),
+            // [Aislamiento] catálogo global: ningún docente lo modifica por la API
+            // (no hay pantalla que lo use; antes se podía hacer desde la consola F12).
+            'eliminar' => $this->responderError('Los catálogos (jornadas y trimestres) solo se modifican desde la base de datos.', 403),
             default => $this->responderError(
                 "Acción '{$accion}' no encontrada en TrimestreController.", 404
             ),

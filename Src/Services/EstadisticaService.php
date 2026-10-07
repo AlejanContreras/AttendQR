@@ -62,7 +62,10 @@ class EstadisticaService
         return [
             'sesiones_activas'  => count($sesionesActivas),
             'sesiones_cerradas' => count($sesionesCerradas),
-            'asistencias_hoy'   => $this->asistenciaRepo->contarHoy(),
+            // [Aislamiento] por docente cuando se conoce (siempre, desde el controlador)
+            'asistencias_hoy'   => $idDocente !== null
+                ? $this->asistenciaRepo->contarHoyPorDocente($idDocente)
+                : $this->asistenciaRepo->contarHoy(),
             'filtros'           => [
                 'id_docente' => $idDocente,
                 'id_ficha'   => $idFicha,
@@ -90,7 +93,9 @@ class EstadisticaService
 
         return [
             'total_sesiones_cerradas' => count($sesiones),
-            'asistencias_hoy'         => $this->asistenciaRepo->contarHoy(),
+            'asistencias_hoy'         => $idDocente !== null
+                ? $this->asistenciaRepo->contarHoyPorDocente($idDocente)
+                : $this->asistenciaRepo->contarHoy(),
             'filtros' => [
                 'id_ficha'    => $idFicha,
                 'id_docente'  => $idDocente,

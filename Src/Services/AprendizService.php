@@ -42,7 +42,8 @@ class AprendizService
         ?int    $idFicha      = null,
         ?string $estado       = null,
         ?string $documento    = null,
-        ?string $cuentaEstado = null
+        ?string $cuentaEstado = null,
+        ?int    $idDocente    = null
     ): array {
         $activo = match ($estado) {
             'activo'   => 1,
@@ -56,7 +57,8 @@ class AprendizService
             default     => null,
         };
 
-        $aprendices = $this->aprendizRepo->listar($idFicha, $activo, $documento, $cuentaActiva);
+        // [Aislamiento entre docentes] $idDocente viene de la sesión (nunca del navegador)
+        $aprendices = $this->aprendizRepo->listar($idFicha, $activo, $documento, $cuentaActiva, $idDocente);
 
         return [
             'aprendices' => $aprendices,
@@ -317,7 +319,7 @@ class AprendizService
      * @param array<int, array{numero_documento: string, nombres: string, apellidos: string, codigo_ficha: string}> $filas
      * @return array{ exitosos: int, errores: array<int, array{fila: int, documento: string, error: string}> }
      */
-    public function importar(array $filas): array
+    public function importar(array $filas, ?int $idDocente = null): array
     {
         $exitosos = 0;
         $errores  = [];
@@ -366,6 +368,16 @@ class AprendizService
                 continue;
             }
 
+            // [Aislamiento entre docentes] no se puede cargar aprendices en la ficha de otro docente
+            if ($idDocente !== null && (int) $ficha['id_docente'] !== $idDocente) {
+                $errores[] = [
+                    'fila'      => $nFila,
+                    'documento' => $documento,
+                    'error'     => "La ficha '{$codigoFicha}' no pertenece a tus clases.",
+                ];
+                continue;
+            }
+
             try {
                 $this->preRegistrar(
                     $documento,
@@ -388,6 +400,66 @@ class AprendizService
             'exitosos' => $exitosos,
             'errores'  => $errores,
             'total'    => count($filas),
+        ];
+    }
+
+    // ─── Continuidad de trimestre ─────────────────────────────────────────────
+
+    /**
+     * [Trimestres] Confirma qué aprendices de una ficha continúan en el nuevo
+     * trimestre. Los aprendices activos que NO vienen en $idsContinuan quedan
+     * retirados (activo = 0).
+     *
+     * Qué NO hace (a propósito):
+     *   - No crea ni duplica aprendices: el mismo id_aprendiz sigue en la ficha.
+     *   - No borra asistencias ni sesiones: el trimestre anterior queda intacto
+     *     (el trimestre se calcula desde fecha_sesion, no se guarda).
+     *   - No cambia la ficha: las sesiones nuevas caen solas en el trimestre actual.
+     *
+     * @param int                  $idFicha      Ficha del docente.
+     * @param int[]                $idsContinuan Aprendices que siguen.
+     * @param array<string, mixed> $usuario      Docente autenticado.
+     * @return array<string, mixed> Resumen: continúan, retirados, trimestre.
+     * @throws \RuntimeException 404 ficha inexistente, 403 ficha ajena,
+     *                            422 lista vacía o IDs que no pertenecen a la ficha.
+     */
+    public function confirmarContinuidad(int $idFicha, array $idsContinuan, array $usuario): array
+    {
+        $ficha = $this->fichaRepo->obtenerPorId($idFicha);
+        if ($ficha === null) {
+            throw new \RuntimeException('La ficha indicada no existe.', 404);
+        }
+        if ((int) $ficha['id_docente'] !== (int) ($usuario['id'] ?? 0)) {
+            throw new \RuntimeException('No tiene permisos sobre esta ficha.', 403);
+        }
+
+        $idsContinuan = array_values(array_unique(array_map('intval', $idsContinuan)));
+        if (empty($idsContinuan)) {
+            throw new \RuntimeException(
+                'Selecciona al menos un aprendiz que continúe. Si ninguno continúa, desactiva la clase.', 422
+            );
+        }
+
+        $activos = $this->aprendizRepo->idsActivosPorFicha($idFicha);
+        $ajenos  = array_diff($idsContinuan, $activos);
+        if (!empty($ajenos)) {
+            throw new \RuntimeException(
+                'Algunos aprendices seleccionados no están activos en esta ficha. Recarga la página e inténtalo de nuevo.', 422
+            );
+        }
+
+        $aRetirar  = array_values(array_diff($activos, $idsContinuan));
+        $retirados = $this->aprendizRepo->retirarVarios($idFicha, $aRetirar);
+
+        $mes       = (int) date('n');
+        $trimestre = intdiv($mes - 1, 3) + 1;
+
+        return [
+            'id_ficha'     => $idFicha,
+            'codigo_ficha' => $ficha['codigo_ficha'] ?? '',
+            'continuan'    => count($idsContinuan),
+            'retirados'    => $retirados,
+            'trimestre'    => 'T' . $trimestre . ' ' . date('Y'),
         ];
     }
 

@@ -16,16 +16,19 @@ declare(strict_types=1);
  *   POST   /api/aprendices/importar           → importar lote (CSV o JSON) — solo docente
  *   PUT    /api/aprendices/actualizar/{id}    → actualizar datos
  *   DELETE /api/aprendices/eliminar/{id}      → eliminar aprendiz
+ *   POST   /api/aprendices/continuidad        → confirmar quiénes siguen en el nuevo trimestre (docente)
  *
  * Ubicación en el proyecto: Src/Controllers/AprendizController.php
  */
 class AprendizController
 {
     private AprendizService $servicio;
+    private AccesoService   $acceso;   // [Aislamiento entre docentes]
 
     public function __construct()
     {
         $this->servicio = new AprendizService();
+        $this->acceso   = new AccesoService();
     }
 
     /**
@@ -59,6 +62,9 @@ class AprendizController
             'eliminar' => $this->despacharConMetodo($metodo, 'DELETE',
                 fn() => $this->eliminar($this->extraerIdRequerido($params, 'aprendiz'))
             ),
+            'continuidad' => $this->despacharConMetodo($metodo, 'POST',
+                fn() => $this->confirmarContinuidad()
+            ),
             'restablecer-contrasena' => $this->despacharConMetodo($metodo, 'POST',
                 fn() => $this->restablecerContrasena($this->extraerIdRequerido($params, 'aprendiz'))
             ),
@@ -84,7 +90,14 @@ class AprendizController
         $cuentaEstado = $_GET['cuenta']    ?? null;
 
         try {
-            $resultado = $this->servicio->listar($idFicha, $estado, $documento, $cuentaEstado);
+            // [Aislamiento entre docentes] Solo docentes, y solo aprendices de SUS fichas.
+            // Antes cualquier usuario (incluso un aprendiz) recibía la lista completa.
+            $usuario = AccesoService::usuario();
+            AccesoService::exigirDocente($usuario, 'Solo los instructores pueden listar aprendices.');
+
+            $resultado = $this->servicio->listar(
+                $idFicha, $estado, $documento, $cuentaEstado, (int) $usuario['id']
+            );
             $this->responderExito('Aprendices obtenidos correctamente.', $resultado);
 
         } catch (\RuntimeException $e) {
@@ -99,9 +112,10 @@ class AprendizController
      */
     private function consultar(int $idAprendiz): void
     {
-        $this->verificarAccesoAprendiz($idAprendiz);
-
         try {
+            // [Aislamiento] aprendiz → solo él mismo; docente → solo aprendices de sus fichas
+            $this->acceso->exigirAprendizAccesible($idAprendiz, AccesoService::usuario());
+
             $aprendiz = $this->servicio->consultar($idAprendiz);
             $this->responderExito('Aprendiz encontrado.', $aprendiz);
 
@@ -119,6 +133,9 @@ class AprendizController
     private function listarPorFicha(int $idFicha): void
     {
         try {
+            // [Aislamiento] la ficha debe ser del docente de la sesión
+            $this->acceso->exigirFichaPropia($idFicha, AccesoService::usuario());
+
             $resultado = $this->servicio->listar($idFicha);
             $this->responderExito('Aprendices de la ficha obtenidos correctamente.', $resultado);
 
@@ -144,6 +161,9 @@ class AprendizController
         }
 
         try {
+            // [Aislamiento] solo un docente, y solo en una de sus fichas
+            $this->acceso->exigirFichaPropia((int) $cuerpo['id_ficha'], AccesoService::usuario());
+
             $aprendiz = $this->servicio->registrar(
                 (string) $cuerpo['numero_documento'],
                 (string) $cuerpo['nombres'],
@@ -166,8 +186,6 @@ class AprendizController
      */
     private function actualizar(int $idAprendiz): void
     {
-        $this->verificarAccesoAprendiz($idAprendiz);
-
         $cuerpo = $this->leerCuerpoJson();
 
         if (empty($cuerpo)) {
@@ -175,6 +193,26 @@ class AprendizController
         }
 
         try {
+            // [Aislamiento] aprendiz → solo su perfil; docente → solo aprendices de sus fichas
+            $usuario = AccesoService::usuario();
+            $this->acceso->exigirAprendizAccesible($idAprendiz, $usuario);
+
+            // [Aislamiento] Campos permitidos según el rol. Antes un aprendiz podía
+            // cambiarse a sí mismo id_ficha, activo o cuenta_activada.
+            $permitidos = AccesoService::esDocente($usuario)
+                ? ['nombres', 'apellidos', 'activo', 'id_ficha']
+                : ['nombres', 'apellidos', 'password_actual', 'password_nueva'];
+            $cuerpo = array_intersect_key($cuerpo, array_flip($permitidos));
+
+            if (empty($cuerpo)) {
+                $this->responderError('No se recibieron campos que se puedan actualizar.', 422);
+            }
+
+            // Mover un aprendiz de ficha: solo a otra ficha del mismo docente
+            if (isset($cuerpo['id_ficha'])) {
+                $this->acceso->exigirFichaPropia((int) $cuerpo['id_ficha'], $usuario);
+            }
+
             $aprendiz = $this->servicio->actualizar($idAprendiz, $cuerpo);
 
             // Sincronizar sesión PHP si el aprendiz actualizó su propio perfil
@@ -202,6 +240,12 @@ class AprendizController
     private function eliminar(int $idAprendiz): void
     {
         try {
+            // [Aislamiento] antes cualquier usuario autenticado (incluso un aprendiz)
+            // podía eliminar cualquier aprendiz.
+            $usuario = AccesoService::usuario();
+            AccesoService::exigirDocente($usuario, 'Solo los instructores pueden eliminar aprendices.');
+            $this->acceso->exigirAprendizAccesible($idAprendiz, $usuario);
+
             $resultado = $this->servicio->eliminar($idAprendiz);
             $this->responderExito($resultado['message'] ?? 'Aprendiz eliminado correctamente.', []);
 
@@ -299,7 +343,8 @@ class AprendizController
         }
 
         try {
-            $resultado = $this->servicio->importar($filas);
+            // [Aislamiento] solo se importa a fichas del docente de la sesión
+            $resultado = $this->servicio->importar($filas, (int) $usuario['id']);
             $this->responderExito(
                 "Importación completada: {$resultado['exitosos']} registrados, " . count($resultado['errores']) . " con errores.",
                 $resultado
@@ -325,6 +370,9 @@ class AprendizController
         }
 
         try {
+            // [Aislamiento] solo aprendices de las fichas del docente
+            $this->acceso->exigirAprendizAccesible($idAprendiz, $usuario);
+
             $resultado = $this->servicio->restablecerContrasena($idAprendiz);
             $this->responderExito('Contraseña restablecida correctamente.', $resultado);
 
@@ -332,6 +380,50 @@ class AprendizController
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
         } catch (\Throwable $e) {
             $this->responderError('Error interno al restablecer la contraseña.', 500);
+        }
+    }
+
+    /**
+     * POST /api/aprendices/continuidad  — solo docente
+     * Body JSON: { "id_ficha": 4, "continuan": [12, 15, 18] }
+     *
+     * [Trimestres] Los aprendices activos de la ficha que no estén en "continuan"
+     * quedan retirados (activo = 0). No se borra ni se duplica nada.
+     */
+    private function confirmarContinuidad(): void
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+        $usuario = $_SESSION['usuario'] ?? null;
+        if (!$usuario || ($usuario['rol'] ?? '') !== 'docente') {
+            $this->responderError('Solo los instructores pueden confirmar la continuidad.', 403);
+        }
+
+        $cuerpo = $this->leerCuerpoJson();
+
+        if (empty($cuerpo['id_ficha']) || !ctype_digit((string) $cuerpo['id_ficha'])) {
+            $this->responderError('El campo id_ficha es obligatorio.', 422);
+        }
+        if (!isset($cuerpo['continuan']) || !is_array($cuerpo['continuan'])) {
+            $this->responderError('El campo continuan debe ser una lista de aprendices.', 422);
+        }
+        foreach ($cuerpo['continuan'] as $id) {
+            if (!ctype_digit((string) $id)) {
+                $this->responderError('La lista continuan solo admite IDs numéricos.', 422);
+            }
+        }
+
+        try {
+            $resultado = $this->servicio->confirmarContinuidad(
+                (int) $cuerpo['id_ficha'],
+                $cuerpo['continuan'],
+                $usuario
+            );
+            $this->responderExito('Continuidad confirmada correctamente.', $resultado);
+
+        } catch (\RuntimeException $e) {
+            $this->responderError($e->getMessage(), $e->getCode() ?: 400);
+        } catch (\Throwable $e) {
+            $this->responderError('Error interno al confirmar la continuidad.', 500);
         }
     }
 

@@ -11,8 +11,65 @@ const historial = (() => {
   // ─── Init ───────────────────────────────────────────────────────────
 
   async function init() {
+    llenarTrimestres();
+    // Si el docente cambia las fechas a mano, el trimestre deja de aplicar.
+    ['filterDesde', 'filterHasta'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', () => {
+        const sel = document.getElementById('filterTrimestre');
+        if (sel) sel.value = '';
+      });
+    });
     await cargarFichasFilter();
     await cargarDatos();
+  }
+
+  // ─── Trimestres (calendario: T1 ene–mar, T2 abr–jun, T3 jul–sep, T4 oct–dic) ─
+
+  const MESES_TRIM = { 1: 'ene–mar', 2: 'abr–jun', 3: 'jul–sep', 4: 'oct–dic' };
+
+  /** Llena el selector con el trimestre actual y los 7 anteriores. */
+  function llenarTrimestres() {
+    const sel = document.getElementById('filterTrimestre');
+    if (!sel) return;
+    const hoy = new Date();
+    let anio  = hoy.getFullYear();
+    let trim  = Math.floor(hoy.getMonth() / 3) + 1;
+    for (let i = 0; i < 8; i++) {
+      const opt = document.createElement('option');
+      opt.value = `${anio}-${trim}`;
+      opt.textContent = `T${trim} ${anio} (${MESES_TRIM[trim]})${i === 0 ? ' · actual' : ''}`;
+      sel.appendChild(opt);
+      trim--;
+      if (trim === 0) { trim = 4; anio--; }
+    }
+  }
+
+  /** Rango de fechas Y-m-d de un trimestre "AAAA-N". */
+  function rangoTrimestre(valor) {
+    const [anio, trim] = valor.split('-').map(Number);
+    const mesIni = (trim - 1) * 3 + 1;
+    const ultimoDia = new Date(anio, mesIni + 2, 0).getDate(); // día 0 del mes siguiente
+    const pad = n => String(n).padStart(2, '0');
+    return {
+      desde: `${anio}-${pad(mesIni)}-01`,
+      hasta: `${anio}-${pad(mesIni + 2)}-${pad(ultimoDia)}`,
+    };
+  }
+
+  /** Al elegir un trimestre se llenan Desde/Hasta y se filtra la tabla. */
+  async function seleccionarTrimestre() {
+    const valor = document.getElementById('filterTrimestre')?.value;
+    const desde = document.getElementById('filterDesde');
+    const hasta = document.getElementById('filterHasta');
+    if (valor) {
+      const r = rangoTrimestre(valor);
+      if (desde) desde.value = r.desde;
+      if (hasta) hasta.value = r.hasta;
+    } else {
+      if (desde) desde.value = '';
+      if (hasta) hasta.value = '';
+    }
+    await filtrar();
   }
 
   async function cargarFichasFilter() {
@@ -457,7 +514,7 @@ const historial = (() => {
   }
 
   async function limpiar() {
-    ['filterFicha', 'filterEstado', 'filterDesde', 'filterHasta'].forEach(id => {
+    ['filterFicha', 'filterTrimestre', 'filterEstado', 'filterDesde', 'filterHasta'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
@@ -508,12 +565,21 @@ const historial = (() => {
     // Construir URL del endpoint con los mismos filtros activos
     const params = new URLSearchParams();
     const ficha  = document.getElementById('filterFicha')?.value;
+    const trim   = document.getElementById('filterTrimestre')?.value;
     const desde  = document.getElementById('filterDesde')?.value;
     const hasta  = document.getElementById('filterHasta')?.value;
 
     if (ficha) params.set('id_ficha', ficha);
-    if (desde) params.set('fecha_inicio', desde);
-    if (hasta) params.set('fecha_fin', hasta);
+    if (trim) {
+      // Trimestre elegido → el servidor calcula el rango (y nombra el archivo T4_2026)
+      const [anio, numTrim] = trim.split('-');
+      params.set('trimestre', numTrim);
+      params.set('anio', anio);
+    } else {
+      // "Todos" → historial completo; el Excel trae una hoja por ficha y trimestre
+      if (desde) params.set('fecha_inicio', desde);
+      if (hasta) params.set('fecha_fin', hasta);
+    }
 
     // Reutilizar la detección del BASE path que usa api.js
     const parts  = window.location.pathname.split('/');
@@ -566,5 +632,5 @@ const historial = (() => {
     if (window.ATTENDQR_VIEW === 'historial') init();
   });
 
-  return { toggle, filtrar, limpiar, irPagina, exportar, cambiarEstadoSelect, confirmarExcusa };
+  return { toggle, filtrar, limpiar, irPagina, exportar, cambiarEstadoSelect, confirmarExcusa, seleccionarTrimestre };
 })();

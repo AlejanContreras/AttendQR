@@ -318,6 +318,115 @@ const aprendicesGestion = (() => {
     modal.style.display = 'flex';
   }
 
+  // ─── Pase de trimestre (continuidad) ─────────────────────────────────────
+  // Trimestres calendario: T1 ene–mar, T2 abr–jun, T3 jul–sep, T4 oct–dic.
+  // Los desmarcados quedan retirados (activo = 0). No se borra ni se duplica nada:
+  // sus asistencias del trimestre anterior siguen en el Excel de ese trimestre.
+
+  let continuidadFicha = null;
+
+  function trimestreActual() {
+    const hoy = new Date();
+    return { num: Math.floor(hoy.getMonth() / 3) + 1, anio: hoy.getFullYear() };
+  }
+
+  async function abrirContinuidad() {
+    const sel     = document.getElementById('filtroFicha');
+    const idFicha = sel?.value;
+    if (!idFicha) {
+      toast('Primero selecciona una ficha en el filtro "Ficha".', 'warning');
+      sel?.focus();
+      return;
+    }
+    const textoFicha = sel.options[sel.selectedIndex]?.textContent ?? '';
+    const t = trimestreActual();
+
+    try {
+      const data    = await Api.aprendices.listar({ id_ficha: idFicha, estado: 'activo' });
+      const activos = (Array.isArray(data) ? data : (data.aprendices ?? []))
+        .filter(a => Number(a.activo) === 1);
+
+      if (activos.length === 0) {
+        toast('Esta ficha no tiene aprendices activos.', 'warning');
+        return;
+      }
+      activos.sort((a, b) => String(a.apellidos).localeCompare(String(b.apellidos), 'es'));
+      continuidadFicha = { id: parseInt(idFicha, 10), texto: textoFicha, total: activos.length, trim: t };
+
+      document.getElementById('continuidadIntro').innerHTML =
+        `Ficha <strong>${esc(textoFicha)}</strong>. Marca los aprendices que <strong>continúan</strong> en el `
+        + `<strong>Trimestre ${t.num} de ${t.anio}</strong>. Los que desmarques quedarán como retirados; `
+        + `su historial de trimestres anteriores no se modifica.`;
+
+      document.getElementById('continuidadLista').innerHTML = activos.map(a => `
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;border-bottom:1px solid var(--border)">
+          <input type="checkbox" class="chk-continuidad" value="${Number(a.id_aprendiz)}" checked
+                 onchange="aprendicesGestion.actualizarResumenContinuidad()">
+          <span>${esc(a.apellidos)} ${esc(a.nombres)}</span>
+          <span style="margin-left:auto;color:var(--text-muted);font-size:var(--text-xs)">${esc(a.numero_documento ?? '')}</span>
+        </label>`).join('');
+
+      document.getElementById('continuidadTodos').checked = true;
+      actualizarResumenContinuidad();
+      document.getElementById('modalContinuidadBackdrop').style.display = 'flex';
+    } catch (err) {
+      toast(err.message ?? 'No se pudo cargar la lista de aprendices.', 'error');
+    }
+  }
+
+  function cerrarContinuidad() {
+    document.getElementById('modalContinuidadBackdrop').style.display = 'none';
+    continuidadFicha = null;
+  }
+
+  function marcarTodosContinuidad(marcado) {
+    document.querySelectorAll('.chk-continuidad').forEach(c => { c.checked = marcado; });
+    actualizarResumenContinuidad();
+  }
+
+  function actualizarResumenContinuidad() {
+    const total     = document.querySelectorAll('.chk-continuidad').length;
+    const marcados  = document.querySelectorAll('.chk-continuidad:checked').length;
+    const retirados = total - marcados;
+    const el = document.getElementById('continuidadResumen');
+    if (el) {
+      el.innerHTML = `<strong>${marcados}</strong> continúan · `
+        + `<strong style="color:${retirados ? 'var(--danger)' : 'inherit'}">${retirados}</strong> quedarán retirados`;
+    }
+    const todos = document.getElementById('continuidadTodos');
+    if (todos) todos.checked = total > 0 && marcados === total;
+  }
+
+  async function confirmarContinuidad() {
+    if (!continuidadFicha) return;
+    const continuan = [...document.querySelectorAll('.chk-continuidad:checked')].map(c => parseInt(c.value, 10));
+    const retirados = continuidadFicha.total - continuan.length;
+
+    if (continuan.length === 0) {
+      toast('Selecciona al menos un aprendiz que continúe.', 'warning');
+      return;
+    }
+    const t = continuidadFicha.trim;
+    const msg = `¿Confirmar el pase al Trimestre ${t.num} de ${t.anio}?\n\n`
+      + `• Continúan: ${continuan.length}\n`
+      + `• Quedarán retirados: ${retirados}\n\n`
+      + `Las asistencias de trimestres anteriores no se modifican.`;
+    if (!confirm(msg)) return;
+
+    const btn = document.getElementById('btnConfirmarContinuidad');
+    if (btn) btn.disabled = true;
+    try {
+      const r = await Api.aprendices.confirmarContinuidad({ id_ficha: continuidadFicha.id, continuan });
+      toast(`Listo: ${r.continuan} continúan en ${r.trimestre} y ${r.retirados} quedaron retirados.`);
+      cerrarContinuidad();
+      await cargarAprendices();
+    } catch (err) {
+      toast(err.message ?? 'Error al confirmar la continuidad.', 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   function esc(str) {
@@ -339,5 +448,8 @@ const aprendicesGestion = (() => {
     if (window.ATTENDQR_VIEW === 'aprendices') init();
   });
 
-  return { filtrar, buscarLocal, limpiarFiltros, activar, desactivar, importar, sortBy, restablecerContrasena };
+  return {
+    filtrar, buscarLocal, limpiarFiltros, activar, desactivar, importar, sortBy, restablecerContrasena,
+    abrirContinuidad, cerrarContinuidad, marcarTodosContinuidad, actualizarResumenContinuidad, confirmarContinuidad,
+  };
 })();

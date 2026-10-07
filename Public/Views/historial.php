@@ -24,6 +24,12 @@
       </select>
     </div>
     <div class="filter-bar__group">
+      <label class="filter-bar__label">Trimestre</label>
+      <select class="form-control" id="filterTrimestre" onchange="historial.seleccionarTrimestre()">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <div class="filter-bar__group">
       <label class="filter-bar__label">Estado</label>
       <select class="form-control" id="filterEstado">
         <option value="">Todos</option>

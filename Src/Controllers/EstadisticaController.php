@@ -5,10 +5,12 @@ declare(strict_types=1);
 class EstadisticaController
 {
     private EstadisticaService $servicio;
+    private AccesoService      $acceso;   // [Aislamiento entre docentes]
 
     public function __construct()
     {
         $this->servicio = new EstadisticaService();
+        $this->acceso   = new AccesoService();
     }
 
     public function handle(string $metodo, string $accion, array $params): void
@@ -57,11 +59,17 @@ class EstadisticaController
      */
     private function dashboard(): void
     {
-        $idDocente = isset($_GET['id_docente']) ? (int) $_GET['id_docente'] : null;
         $idFicha   = isset($_GET['id_ficha'])   ? (int) $_GET['id_ficha']   : null;
         $trimestre = isset($_GET['trimestre'])  ? (int) $_GET['trimestre']  : null;
 
         try {
+            // [Aislamiento] el docente sale de la sesión (se ignora ?id_docente= del navegador)
+            $usuario   = AccesoService::usuario();
+            $idDocente = (int) $usuario['id'];
+            if ($idFicha !== null) {
+                $this->acceso->exigirFichaPropia($idFicha, $usuario);
+            }
+
             $resultado = $this->servicio->dashboard($idDocente, $idFicha, $trimestre);
             $this->responderExito('Dashboard obtenido correctamente.', $resultado);
         } catch (\RuntimeException $e) {
@@ -78,11 +86,16 @@ class EstadisticaController
     private function asistencia(): void
     {
         $idFicha     = isset($_GET['id_ficha'])    ? (int) $_GET['id_ficha']    : null;
-        $idDocente   = isset($_GET['id_docente'])  ? (int) $_GET['id_docente']  : null;
         $fechaInicio = $_GET['fecha_inicio'] ?? null;
         $fechaFin    = $_GET['fecha_fin']    ?? null;
 
         try {
+            // [Aislamiento] el docente sale de la sesión (se ignora ?id_docente= del navegador)
+            $usuario   = AccesoService::usuario();
+            $idDocente = (int) $usuario['id'];
+            if ($idFicha !== null) {
+                $this->acceso->exigirFichaPropia($idFicha, $usuario);
+            }
             $resultado = $this->servicio->asistencia($idFicha, $idDocente, $fechaInicio, $fechaFin);
             $this->responderExito('Métricas de asistencia obtenidas correctamente.', $resultado);
         } catch (\RuntimeException $e) {
@@ -101,6 +114,16 @@ class EstadisticaController
         $tipo = $_GET['tipo'] ?? 'aprendiz';
 
         try {
+            // [Aislamiento] solo entidades propias: sus aprendices, sus fichas o él mismo
+            $usuario = AccesoService::usuario();
+            match ($tipo) {
+                'aprendiz' => $this->acceso->exigirAprendizAccesible($idEntidad, $usuario),
+                'ficha'    => $this->acceso->exigirFichaPropia($idEntidad, $usuario),
+                'docente'  => $idEntidad === (int) $usuario['id']
+                    ? null
+                    : throw new \RuntimeException('Solo puedes consultar tus propias estadísticas.', 403),
+                default    => null, // el servicio rechaza tipos no válidos (422)
+            };
             $resultado = $this->servicio->consultar($idEntidad, $tipo);
             $this->responderExito('Estadísticas obtenidas correctamente.', $resultado);
         } catch (\RuntimeException $e) {

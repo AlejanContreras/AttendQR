@@ -20,10 +20,12 @@ declare(strict_types=1);
 class SesionController
 {
     private SesionService $servicio;
+    private AccesoService $acceso;   // [Aislamiento entre docentes]
 
     public function __construct()
     {
         $this->servicio = new SesionService();
+        $this->acceso   = new AccesoService();
     }
 
     public function handle(string $metodo, string $accion, array $params): void
@@ -99,6 +101,16 @@ class SesionController
             $this->responderError('Se activó validación de ubicación pero no se enviaron coordenadas del docente.', 422);
         }
 
+        // [Duración por jornada] Opcional. Vacío/ausente → SesionService usa
+        // el valor por defecto de la jornada. Rango validado en el servicio (20–60).
+        $duracionElegida = null;
+        if (isset($cuerpo['duracion_maxima_minutos']) && $cuerpo['duracion_maxima_minutos'] !== '') {
+            if (!is_numeric($cuerpo['duracion_maxima_minutos'])) {
+                $this->responderError('La duración de la sesión debe ser un número de minutos.', 422);
+            }
+            $duracionElegida = (int) $cuerpo['duracion_maxima_minutos'];
+        }
+
         try {
             $sesion = $this->servicio->crear(
                 (int) $cuerpo['id_ficha'],
@@ -108,7 +120,8 @@ class SesionController
                 $ubicacionActiva,
                 $latDocente,
                 $lngDocente,
-                $accuracyDocente
+                $accuracyDocente,
+                $duracionElegida
             );
             $this->responderExito('Sesión creada correctamente.', $sesion, 201);
         } catch (\RuntimeException $e) {
@@ -128,7 +141,9 @@ class SesionController
         $estado  = $_GET['estado'] ?? null;
 
         try {
-            $resultado = $this->servicio->listar($idFicha, $estado);
+            // [Aislamiento] antes se listaban las sesiones de TODOS los docentes
+            $idDocente = (int) AccesoService::usuario()['id'];
+            $resultado = $this->servicio->listar($idFicha, $estado, $idDocente);
             $this->responderExito('Sesiones obtenidas correctamente.', $resultado);
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);
@@ -143,6 +158,7 @@ class SesionController
     private function detalle(int $idSesion): void
     {
         try {
+            $this->acceso->exigirSesionPropia($idSesion, AccesoService::usuario()); // [Aislamiento]
             $sesion = $this->servicio->consultar($idSesion);
             $this->responderExito('Sesión encontrada.', $sesion);
         } catch (\RuntimeException $e) {
@@ -158,6 +174,7 @@ class SesionController
     private function activa(int $idFicha): void
     {
         try {
+            $this->acceso->exigirFichaPropia($idFicha, AccesoService::usuario()); // [Aislamiento]
             $sesion = $this->servicio->sesionActivaPorFicha($idFicha);
             $this->responderExito('Sesión activa encontrada.', $sesion);
         } catch (\RuntimeException $e) {
@@ -174,6 +191,7 @@ class SesionController
     private function asistencias(int $idSesion): void
     {
         try {
+            $this->acceso->exigirSesionPropia($idSesion, AccesoService::usuario()); // [Aislamiento]
             $resultado = $this->servicio->asistenciasDeSesion($idSesion);
             $this->responderExito('Asistencias de la sesión obtenidas correctamente.', $resultado);
         } catch (\RuntimeException $e) {
@@ -190,6 +208,7 @@ class SesionController
     private function estadisticas(int $idSesion): void
     {
         try {
+            $this->acceso->exigirSesionPropia($idSesion, AccesoService::usuario()); // [Aislamiento]
             $resultado = $this->servicio->estadisticasDeSesion($idSesion);
             $this->responderExito('Estadísticas de la sesión obtenidas correctamente.', $resultado);
         } catch (\RuntimeException $e) {

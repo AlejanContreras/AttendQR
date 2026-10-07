@@ -20,10 +20,12 @@ declare(strict_types=1);
 class AsistenciaController
 {
     private AsistenciaService $servicio;
+    private AccesoService     $acceso;   // [Aislamiento entre docentes]
 
     public function __construct()
     {
         $this->servicio = new AsistenciaService();
+        $this->acceso   = new AccesoService();
     }
 
     /**
@@ -118,6 +120,8 @@ class AsistenciaController
     private function consultar(int $idAsistencia): void
     {
         try {
+            // [Aislamiento] aprendiz → solo sus registros; docente → solo de sus fichas
+            $this->acceso->exigirAsistenciaAccesible($idAsistencia, AccesoService::usuario());
             $asistencia = $this->servicio->consultar($idAsistencia);
             $this->responderExito('Asistencia encontrada.', $asistencia);
         } catch (\RuntimeException $e) {
@@ -137,6 +141,8 @@ class AsistenciaController
         $fechaFin    = $_GET['fecha_fin']    ?? null;
 
         try {
+            // [Aislamiento] antes cualquier usuario podía pedir el historial de cualquier aprendiz
+            $this->acceso->exigirAprendizAccesible($idAprendiz, AccesoService::usuario());
             $historial = $this->servicio->historial($idAprendiz, $fechaInicio, $fechaFin);
             $this->responderExito('Historial obtenido correctamente.', $historial);
         } catch (\RuntimeException $e) {
@@ -160,6 +166,7 @@ class AsistenciaController
         }
 
         try {
+            $this->acceso->exigirSesionPropia((int) $cuerpo['id_sesion'], AccesoService::usuario()); // [Aislamiento]
             $resultado = $this->servicio->validar(
                 (int) $cuerpo['id_aprendiz'],
                 (int) $cuerpo['id_sesion']
@@ -188,6 +195,8 @@ class AsistenciaController
         }
 
         try {
+            AccesoService::exigirDocente($usuario, 'Solo los docentes pueden cambiar el estado de asistencia.');
+            $this->acceso->exigirAsistenciaAccesible($idAsistencia, $usuario); // [Aislamiento]
             $asistencia = $this->servicio->cambiarEstado(
                 $idAsistencia,
                 (string) $cuerpo['estado'],
@@ -205,8 +214,10 @@ class AsistenciaController
     /**
      * GET /api/asistencias/exportar
      * Query params: ?id_ficha=X&fecha_inicio=Y&fecha_fin=Z
+     *               ?trimestre=1..4&anio=AAAA   (reemplaza fecha_inicio/fecha_fin)
      *
-     * Docente  → planilla .xlsx multi-hoja tipo instructor SENA (una hoja por ficha).
+     * Docente  → planilla .xlsx multi-hoja tipo instructor SENA
+     *            (una hoja por ficha y por trimestre: 123456_T4_2026).
      * Aprendiz → historial personal en CSV con BOM UTF-8 (comportamiento original).
      */
     private function exportar(): void
@@ -215,14 +226,20 @@ class AsistenciaController
         $idFicha     = isset($_GET['id_ficha'])     ? (int) $_GET['id_ficha']        : null;
         $fechaInicio = isset($_GET['fecha_inicio']) ? (string) $_GET['fecha_inicio'] : null;
         $fechaFin    = isset($_GET['fecha_fin'])    ? (string) $_GET['fecha_fin']    : null;
+        $trimestre   = isset($_GET['trimestre']) && $_GET['trimestre'] !== '' ? (int) $_GET['trimestre'] : null;
+        $anio        = isset($_GET['anio'])      && $_GET['anio']      !== '' ? (int) $_GET['anio']      : null;
         $rol         = $usuario['rol'] ?? '';
 
         try {
             // ── Docente: reporte Excel multi-hoja ────────────────────────────
             if ($rol === 'docente') {
-                $bytes    = $this->servicio->generarReporteExcel($usuario, $idFicha, $fechaInicio, $fechaFin);
+                $bytes    = $this->servicio->generarReporteExcel(
+                    $usuario, $idFicha, $fechaInicio, $fechaFin, $trimestre, $anio
+                );
                 $fecha    = date('Y-m-d');
-                $filename = "planilla_asistencia_{$fecha}.xlsx";
+                $filename = $trimestre !== null
+                    ? 'Asistencia_T' . $trimestre . '_' . ($anio ?? (int) date('Y')) . '.xlsx'
+                    : "planilla_asistencia_{$fecha}.xlsx";
 
                 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
                 header("Content-Disposition: attachment; filename=\"{$filename}\"");
@@ -235,6 +252,9 @@ class AsistenciaController
             }
 
             // ── Aprendiz: historial personal en CSV ──────────────────────────
+            if ($trimestre !== null) {
+                [$fechaInicio, $fechaFin] = AsistenciaService::rangoTrimestre($trimestre, $anio ?? (int) date('Y'));
+            }
             $filas    = $this->servicio->generarReporte($usuario, $idFicha, $fechaInicio, $fechaFin);
             $fecha    = date('Y-m-d');
             $filename = "asistencias_{$fecha}.csv";
@@ -295,6 +315,10 @@ class AsistenciaController
     private function eliminar(int $idAsistencia): void
     {
         try {
+            // [Aislamiento] antes cualquier usuario autenticado podía borrar registros
+            $usuario = AccesoService::usuario();
+            AccesoService::exigirDocente($usuario, 'Solo los docentes pueden eliminar registros de asistencia.');
+            $this->acceso->exigirAsistenciaAccesible($idAsistencia, $usuario);
             $resultado = $this->servicio->eliminar($idAsistencia);
             $this->responderExito($resultado['message'] ?? 'Asistencia eliminada correctamente.', []);
         } catch (\RuntimeException $e) {

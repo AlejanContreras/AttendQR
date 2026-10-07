@@ -50,7 +50,20 @@ class AuthService
         $correo  = strtolower(trim($correo));
         $docente = $this->authRepo->buscarDocentePorCorreo($correo);
 
-        if ($docente === null || !password_verify($password, $docente['password_hash'])) {
+        if ($docente === null) {
+            throw new \RuntimeException('Credenciales inválidas.', 401);
+        }
+
+        $idDocente  = (int) $docente['id_docente'];
+        $usoTemporal = false;
+
+        if (password_verify($password, $docente['password_hash'])) {
+            // Entró con su contraseña de siempre: si había pedido una temporal, se descarta.
+            $this->authRepo->limpiarRecuperacionDocente($idDocente);
+        } elseif ($this->temporalValida($idDocente, $password)) {
+            // [Recuperación] Entró con la contraseña temporal del correo.
+            $usoTemporal = true;
+        } else {
             throw new \RuntimeException('Credenciales inválidas.', 401);
         }
 
@@ -58,12 +71,18 @@ class AuthService
             throw new \RuntimeException('El docente se encuentra inactivo.', 403);
         }
 
+        if ($usoTemporal) {
+            // La temporal pasa a ser su contraseña (se le pide cambiarla en Mi Perfil).
+            $this->authRepo->consumirRecuperacionDocente($idDocente);
+        }
+
         return [
-            'id'        => (int) $docente['id_docente'],
-            'nombres'   => $docente['nombres'],
-            'apellidos' => $docente['apellidos'],
-            'correo'    => $docente['correo'],
-            'rol'       => 'docente',
+            'id'                  => $idDocente,
+            'nombres'             => $docente['nombres'],
+            'apellidos'           => $docente['apellidos'],
+            'correo'              => $docente['correo'],
+            'rol'                 => 'docente',
+            'contrasena_temporal' => $usoTemporal,
         ];
     }
 
@@ -82,6 +101,127 @@ class AuthService
      * @throws \RuntimeException 401 si el documento no existe o la contraseña es incorrecta.
      * @throws \RuntimeException 403 si el aprendiz está retirado.
      */
+    // ─── [Recuperación de cuenta del docente por correo] ─────────────────────
+
+    /** Minutos que dura la contraseña temporal. */
+    private const RECUPERACION_MINUTOS = 30;
+    /** Minutos mínimos entre dos solicitudes para el mismo correo. */
+    private const RECUPERACION_ESPERA_MINUTOS = 5;
+
+    /**
+     * Genera una contraseña temporal de 8 caracteres y la envía al correo del docente.
+     *
+     * Seguridad:
+     *   - La respuesta al navegador es SIEMPRE la misma (exista o no el correo),
+     *     para que nadie pueda averiguar qué correos están registrados.
+     *   - La contraseña actual NO cambia: la temporal convive con ella 30 minutos.
+     *     Si alguien pide la recuperación con el correo de otro, ese docente
+     *     sigue entrando normal.
+     *   - Máximo una solicitud cada 5 minutos por correo.
+     *   - En la BD solo se guarda el hash de la temporal.
+     *
+     * @return bool true si se envió el correo (solo para pruebas internas;
+     *              el controlador no se lo dice al navegador).
+     */
+    public function solicitarRecuperacionDocente(string $correo): bool
+    {
+        $correo  = strtolower(trim($correo));
+        $docente = $this->authRepo->buscarDocentePorCorreo($correo);
+
+        if ($docente === null || (int) $docente['activo'] !== 1) {
+            return false;
+        }
+
+        $idDocente = (int) $docente['id_docente'];
+        $actual    = $this->authRepo->obtenerRecuperacionDocente($idDocente);
+
+        if ($actual === null) {
+            error_log('[AttendQR][Recuperación] Falta correr Migracion_Recuperacion_Docente.sql');
+            return false;
+        }
+
+        // Límite de frecuencia: si la temporal vigente se creó hace menos de 5 min, no se reenvía.
+        if (!empty($actual['recuperacion_expira'])) {
+            $creada = strtotime((string) $actual['recuperacion_expira']) - self::RECUPERACION_MINUTOS * 60;
+            if (time() - $creada < self::RECUPERACION_ESPERA_MINUTOS * 60) {
+                return false;
+            }
+        }
+
+        $correoSrv = new CorreoService();
+        if (!$correoSrv->estaConfigurado()) {
+            error_log('[AttendQR][Recuperación] Correo no configurado (Src/Config/correo.php).');
+            return false;
+        }
+
+        $temporal = $this->generarTemporal();
+        $expira   = date('Y-m-d H:i:s', time() + self::RECUPERACION_MINUTOS * 60);
+
+        if (!$this->authRepo->guardarRecuperacionDocente($idDocente, password_hash($temporal, PASSWORD_BCRYPT), $expira)) {
+            return false;
+        }
+
+        $nombre = trim($docente['nombres'] . ' ' . $docente['apellidos']);
+        $url    = $correoSrv->urlLogin();
+        $minutos = self::RECUPERACION_MINUTOS;
+
+        $texto = "Hola {$nombre},\n\n"
+            . "Recibimos una solicitud para recuperar tu cuenta de AttendQR.\n\n"
+            . "Tu contraseña temporal es: {$temporal}\n\n"
+            . "Sirve durante {$minutos} minutos. Inicia sesión con ella y cámbiala en \"Mi Perfil\".\n"
+            . ($url !== '' ? "Iniciar sesión: {$url}\n" : '')
+            . "\nSi no fuiste tú, ignora este correo: tu contraseña actual sigue funcionando.\n";
+
+        $nombreH = htmlspecialchars($nombre, ENT_QUOTES, 'UTF-8');
+        $urlH    = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+        $html = "<div style=\"font-family:Arial,sans-serif;font-size:15px;color:#1f2937;max-width:520px\">"
+            . "<h2 style=\"color:#39A900;margin-bottom:4px\">AttendQR</h2>"
+            . "<p>Hola <strong>{$nombreH}</strong>,</p>"
+            . "<p>Recibimos una solicitud para recuperar tu cuenta.</p>"
+            . "<p>Tu contraseña temporal es:</p>"
+            . "<p style=\"font-size:24px;font-weight:bold;letter-spacing:3px;background:#f3f4f6;padding:12px 16px;border-radius:8px;display:inline-block\">{$temporal}</p>"
+            . "<p>Sirve durante <strong>{$minutos} minutos</strong>. Inicia sesión con ella y cámbiala en <em>Mi Perfil</em>.</p>"
+            . ($url !== '' ? "<p><a href=\"{$urlH}\" style=\"color:#39A900\">Iniciar sesión en AttendQR</a></p>" : '')
+            . "<p style=\"color:#6b7280;font-size:13px\">Si no fuiste tú, ignora este correo: tu contraseña actual sigue funcionando.</p>"
+            . "</div>";
+
+        $enviado = $correoSrv->enviar($docente['correo'], $nombre, 'AttendQR · Recuperación de contraseña', $html, $texto);
+
+        // Si el correo no salió, se descarta la temporal para que pueda intentar de nuevo
+        // de inmediato (sin esperar el límite de 5 minutos).
+        if (!$enviado) {
+            $this->authRepo->limpiarRecuperacionDocente($idDocente);
+        }
+
+        return $enviado;
+    }
+
+    /** ¿La contraseña coincide con una temporal vigente del docente? */
+    private function temporalValida(int $idDocente, string $password): bool
+    {
+        $rec = $this->authRepo->obtenerRecuperacionDocente($idDocente);
+        if ($rec === null || empty($rec['recuperacion_hash']) || empty($rec['recuperacion_expira'])) {
+            return false;
+        }
+        // Se compara con la hora de PHP (America/Bogota), no con NOW() de MySQL,
+        // porque el MySQL del hosting puede estar en otra zona horaria.
+        if (strtotime((string) $rec['recuperacion_expira']) < time()) {
+            return false;
+        }
+        return password_verify($password, (string) $rec['recuperacion_hash']);
+    }
+
+    /** 8 caracteres sin 0/O/1/I (mismo alfabeto que la recuperación de aprendices). */
+    private function generarTemporal(): string
+    {
+        $chars    = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $temporal = '';
+        for ($i = 0; $i < 8; $i++) {
+            $temporal .= $chars[random_int(0, strlen($chars) - 1)];
+        }
+        return $temporal;
+    }
+
     public function loginAprendiz(string $documento, string $password): array
     {
         $documento = trim($documento);

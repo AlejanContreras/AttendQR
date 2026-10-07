@@ -92,4 +92,76 @@ class AuthRepository extends BaseRepository
             [':id' => $idAprendiz]
         );
     }
+
+    // ─── [Recuperación de cuenta del docente] ────────────────────────────────
+    // Columnas recuperacion_hash / recuperacion_expira (Migracion_Recuperacion_Docente.sql).
+    // Si la migración aún no se corrió, estos métodos no rompen el login:
+    // devuelven null / false y la recuperación simplemente no está disponible.
+
+    /**
+     * Datos de la contraseña temporal vigente de un docente, o null.
+     *
+     * @return array{recuperacion_hash: ?string, recuperacion_expira: ?string}|null
+     */
+    public function obtenerRecuperacionDocente(int $idDocente): ?array
+    {
+        try {
+            return $this->consultarUno(
+                'SELECT recuperacion_hash, recuperacion_expira
+                 FROM docentes
+                 WHERE id_docente = :id',
+                [':id' => $idDocente]
+            );
+        } catch (\PDOException $e) {
+            return null; // columnas aún no migradas
+        }
+    }
+
+    /** Guarda una contraseña temporal (hash) y su vencimiento. */
+    public function guardarRecuperacionDocente(int $idDocente, string $hash, string $expira): bool
+    {
+        try {
+            $this->ejecutar(
+                'UPDATE docentes
+                 SET recuperacion_hash = :hash, recuperacion_expira = :expira
+                 WHERE id_docente = :id',
+                [':hash' => $hash, ':expira' => $expira, ':id' => $idDocente]
+            );
+            return true;
+        } catch (\PDOException $e) {
+            return false; // columnas aún no migradas
+        }
+    }
+
+    /**
+     * La contraseña temporal pasa a ser la contraseña del docente
+     * y se limpian los campos de recuperación.
+     */
+    public function consumirRecuperacionDocente(int $idDocente): void
+    {
+        $this->ejecutar(
+            'UPDATE docentes
+             SET password_hash = recuperacion_hash,
+                 recuperacion_hash = NULL,
+                 recuperacion_expira = NULL
+             WHERE id_docente = :id
+               AND recuperacion_hash IS NOT NULL',
+            [':id' => $idDocente]
+        );
+    }
+
+    /** Borra una contraseña temporal (p. ej. al entrar con la contraseña normal). */
+    public function limpiarRecuperacionDocente(int $idDocente): void
+    {
+        try {
+            $this->ejecutar(
+                'UPDATE docentes
+                 SET recuperacion_hash = NULL, recuperacion_expira = NULL
+                 WHERE id_docente = :id AND recuperacion_hash IS NOT NULL',
+                [':id' => $idDocente]
+            );
+        } catch (\PDOException $e) {
+            // columnas aún no migradas: nada que limpiar
+        }
+    }
 }

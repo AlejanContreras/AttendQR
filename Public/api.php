@@ -104,6 +104,7 @@ require_once REPOSITORIES_PATH . 'AuthRepository.php';
 require_once REPOSITORIES_PATH . 'DocenteRepository.php';
 require_once REPOSITORIES_PATH . 'FichaRepository.php';
 require_once REPOSITORIES_PATH . 'JornadaRepository.php';
+require_once REPOSITORIES_PATH . 'PropiedadRepository.php';   // [Aislamiento entre docentes]
 require_once REPOSITORIES_PATH . 'QrRepository.php';
 require_once REPOSITORIES_PATH . 'SesionRepository.php';
 require_once REPOSITORIES_PATH . 'TokenRepository.php';
@@ -124,6 +125,8 @@ require_once UTILS_PATH . 'XlsxWriter.php';
 
 // 3f. Services (dependen de Repositories — deben cargarse después)
 require_once SERVICES_PATH . 'AuthService.php';
+require_once SERVICES_PATH . 'AccesoService.php';             // [Aislamiento entre docentes]
+require_once SERVICES_PATH . 'CorreoService.php';             // [Recuperación de cuenta del docente]
 require_once SERVICES_PATH . 'AprendizService.php';
 require_once SERVICES_PATH . 'AsistenciaService.php';
 require_once SERVICES_PATH . 'DocenteService.php';

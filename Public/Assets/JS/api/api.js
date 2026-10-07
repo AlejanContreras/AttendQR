@@ -71,6 +71,8 @@ const Api = (() => {
     verificarDocumento: (doc)   => post('/auth/verificar-documento', { documento: doc }),
     activarCuenta:         (body)  => post('/auth/activar-cuenta', body),
     solicitarRecuperacion: (doc)   => post('/auth/solicitar-recuperacion', { documento: doc }),
+    // [Recuperación de cuenta del docente por correo]
+    recuperarDocente:      (correo) => post('/auth/recuperar-docente', { correo }),
   };
 
   const docentes = {
@@ -86,6 +88,8 @@ const Api = (() => {
     desactivar: (id)       => put(`/aprendices/actualizar/${id}`, { activo: 0 }),
     importar:              (formData) => request('/aprendices/importar', { method: 'POST', body: formData }),
     restablecerContrasena: (id)       => post(`/aprendices/restablecer-contrasena/${id}`),
+    // [Trimestres] body: { id_ficha, continuan: [ids] }
+    confirmarContinuidad:  (body)     => post('/aprendices/continuidad', body),
   };
 
   const del = (ep) => request(ep, { method: 'DELETE' });

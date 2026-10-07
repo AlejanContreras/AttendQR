@@ -53,7 +53,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ─── Cambio de pestaña docente / aprendiz ──────────────────────────────
 
+// [Recuperación de cuenta del docente] Rol de la pestaña activa: la sección
+// "¿Olvidaste tu contraseña?" se adapta (documento → instructor / correo → email).
+let rolActual = 'aprendiz';
+
 function switchRole(tab, role) {
+  rolActual = role;
+  ocultarRecuperacion();
   document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('is-active'));
   tab.classList.add('is-active');
 
@@ -123,6 +129,16 @@ async function handleLogin(e, role) {
     // Guardar usuario en sessionStorage para uso inmediato en el shell
     auth.setUsuario(usuario);
 
+    // [Recuperación] Entró con la contraseña temporal del correo → a Mi Perfil a cambiarla
+    if (usuario.contrasena_temporal) {
+      try { sessionStorage.setItem('attendqr_aviso_temporal', '1'); } catch { /* sin storage */ }
+      const parts = window.location.pathname.split('/');
+      const idx   = parts.findIndex(p => p.toLowerCase() === 'attendqr');
+      const base  = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
+      window.location.href = `${base}/Public/index.php?view=perfil&rol=docente`;
+      return;
+    }
+
     // Redirigir al dashboard correspondiente al rol
     auth.irADashboard(usuario.rol ?? role);
 
@@ -170,9 +186,28 @@ function ocultarError(form) {
 // ─── Recuperación de contraseña ────────────────────────────────────────────
 
 function mostrarRecuperacion() {
+  // [Recuperación] Textos e input según la pestaña activa
+  const esDocente = rolActual === 'docente';
+  const input = document.getElementById('recuperarDoc');
+  document.getElementById('recuperarTitulo').textContent = esDocente
+    ? 'Recuperar acceso de instructor'
+    : 'Solicitar restablecimiento de contraseña';
+  document.getElementById('recuperarAyuda').textContent = esDocente
+    ? 'Ingresa tu correo. Te enviaremos una contraseña temporal que sirve por 30 minutos; tu contraseña actual sigue funcionando.'
+    : 'Ingresa tu número de documento. Tu instructor recibirá la solicitud y te entregará una contraseña temporal.';
+  if (input) {
+    input.value       = '';
+    input.type        = esDocente ? 'email' : 'text';
+    input.placeholder = esDocente ? 'correo@sena.edu.co' : 'Número de documento';
+    input.inputMode   = esDocente ? 'email' : 'numeric';
+    if (esDocente) input.removeAttribute('pattern'); else input.setAttribute('pattern', '[0-9]{5,15}');
+  }
+  const msg = document.getElementById('recuperarMsg');
+  if (msg) msg.style.display = 'none';
+
   document.getElementById('seccionRecuperacion').style.display = 'block';
   document.getElementById('recuperarLink').style.display       = 'none';
-  document.getElementById('recuperarDoc')?.focus();
+  input?.focus();
 }
 
 function ocultarRecuperacion() {
@@ -188,6 +223,30 @@ async function handleRecuperacion() {
   const doc = document.getElementById('recuperarDoc')?.value.trim();
   const msg = document.getElementById('recuperarMsg');
   const btn = document.getElementById('btnSolicitarRecuperacion');
+
+  // [Recuperación de cuenta del docente por correo]
+  if (rolActual === 'docente') {
+    if (!doc || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(doc)) {
+      mostrarMsgRecuperacion('Ingresa un correo electrónico válido.', false);
+      return;
+    }
+    btn.disabled    = true;
+    btn.textContent = 'Enviando...';
+    try {
+      await Api.auth.recuperarDocente(doc);
+      mostrarMsgRecuperacion(
+        'Si el correo está registrado, en unos minutos recibirás una contraseña temporal. Revisa también la carpeta de spam.',
+        true
+      );
+      document.getElementById('recuperarDoc').value = '';
+    } catch (err) {
+      mostrarMsgRecuperacion(err.message ?? 'No se pudo procesar la solicitud.', false);
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Enviar solicitud';
+    }
+    return;
+  }
 
   if (!doc) {
     mostrarMsgRecuperacion('Ingresa tu número de documento.', false);

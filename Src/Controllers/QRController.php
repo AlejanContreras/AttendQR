@@ -5,10 +5,12 @@ declare(strict_types=1);
 class QrController
 {
     private QrService $servicio;
+    private AccesoService $acceso;   // [Aislamiento entre docentes]
 
     public function __construct()
     {
         $this->servicio = new QrService();
+        $this->acceso   = new AccesoService();
     }
 
     public function handle(string $metodo, string $accion, array $params): void
@@ -39,6 +41,8 @@ class QrController
     private function generar(int $idSesion): void
     {
         try {
+            // [Aislamiento] solo el docente dueño de la sesión genera su QR
+            $this->acceso->exigirSesionPropia($idSesion, AccesoService::usuario());
             $resultado = $this->servicio->generar($idSesion);
             $this->responderExito('QR generado correctamente.', $resultado, 201);
         } catch (\RuntimeException $e) {
@@ -54,6 +58,9 @@ class QrController
     private function tokenActivo(int $idSesion): void
     {
         try {
+            // [Aislamiento] CRÍTICO: antes un aprendiz podía pedir aquí el token vigente
+            // y registrar su asistencia sin estar en el aula. Solo el docente dueño.
+            $this->acceso->exigirSesionPropia($idSesion, AccesoService::usuario());
             $resultado = $this->servicio->tokenActivo($idSesion);
             $this->responderExito('Token QR activo obtenido.', $resultado);
         } catch (\RuntimeException $e) {

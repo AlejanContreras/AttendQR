@@ -42,15 +42,14 @@ class DocenteController
             'consultar' => $this->despacharConMetodo($metodo, 'GET',
                 fn() => $this->consultar($this->extraerIdRequerido($params, 'docente'))
             ),
-            'registrar' => $this->despacharConMetodo($metodo, 'POST',
-                fn() => $this->registrar()
-            ),
+            // [Aislamiento] las cuentas de docente se crean desde la base de datos;
+            // un docente no puede crear otros docentes desde la consola (F12).
+            'registrar' => $this->responderError('La creación de docentes no está habilitada por la API.', 403),
             'actualizar' => $this->despacharConMetodo($metodo, 'PUT',
                 fn() => $this->actualizar($this->extraerIdRequerido($params, 'docente'))
             ),
-            'eliminar' => $this->despacharConMetodo($metodo, 'DELETE',
-                fn() => $this->eliminar($this->extraerIdRequerido($params, 'docente'))
-            ),
+            // [Aislamiento] ninguna cuenta de docente se elimina por la API
+            'eliminar' => $this->responderError('La eliminación de docentes no está habilitada por la API.', 403),
             default => $this->responderError(
                 "Acción '{$accion}' no encontrada en DocenteController.", 404
             ),
@@ -70,7 +69,17 @@ class DocenteController
         $estado = $_GET['estado'] ?? null;
 
         try {
+            // [Aislamiento entre docentes] un docente no necesita ver nombres y correos
+            // de los demás docentes: se devuelve solo su propio registro.
+            $usuario   = AccesoService::usuario();
             $resultado = $this->servicio->listar($estado);
+            if (isset($resultado['docentes']) && is_array($resultado['docentes'])) {
+                $resultado['docentes'] = array_values(array_filter(
+                    $resultado['docentes'],
+                    fn($d) => (int) ($d['id_docente'] ?? 0) === (int) $usuario['id']
+                ));
+                $resultado['total'] = count($resultado['docentes']);
+            }
             $this->responderExito('Docentes obtenidos correctamente.', $resultado);
 
         } catch (\RuntimeException $e) {
@@ -86,6 +95,7 @@ class DocenteController
     private function consultar(int $idDocente): void
     {
         try {
+            $this->exigirSiMismo($idDocente); // [Aislamiento]
             $docente = $this->servicio->consultar($idDocente);
             $this->responderExito('Docente encontrado.', $docente);
 
@@ -139,6 +149,8 @@ class DocenteController
         }
 
         try {
+            // [Aislamiento] antes un docente podía cambiar correo/contraseña de otro docente
+            $this->exigirSiMismo($idDocente);
             $docente = $this->servicio->actualizar($idDocente, $cuerpo);
 
             // Sincronizar nombre en la sesión PHP para que el shell lo refleje en la siguiente carga
@@ -162,6 +174,8 @@ class DocenteController
     private function eliminar(int $idDocente): void
     {
         try {
+            // [Aislamiento] antes un docente podía eliminar a otro docente
+            $this->exigirSiMismo($idDocente);
             $resultado = $this->servicio->eliminar($idDocente);
             $this->responderExito($resultado['message'] ?? 'Docente eliminado correctamente.', []);
 
@@ -175,6 +189,21 @@ class DocenteController
     // -------------------------------------------------------------------------
     // Auxiliares
     // -------------------------------------------------------------------------
+
+    /**
+     * [Aislamiento entre docentes] El docente solo puede consultar, editar o
+     * eliminar su propia cuenta.
+     *
+     * @throws \RuntimeException 403 si el ID no es el del docente de la sesión.
+     */
+    private function exigirSiMismo(int $idDocente): void
+    {
+        $usuario = AccesoService::usuario();
+        AccesoService::exigirDocente($usuario);
+        if ((int) $usuario['id'] !== $idDocente) {
+            throw new \RuntimeException('Solo puedes gestionar tu propia cuenta.', 403);
+        }
+    }
 
     private function despacharConMetodo(string $metodoRecibido, string $metodoEsperado, callable $callback): void
     {

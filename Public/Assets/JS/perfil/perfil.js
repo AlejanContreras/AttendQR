@@ -231,6 +231,16 @@ const perfil = (() => {
 
   document.addEventListener('DOMContentLoaded', () => {
     if (window.ATTENDQR_VIEW === 'perfil') init();
+
+    // [Recuperación de cuenta del docente] Si entró con la contraseña temporal del correo
+    let avisoTemporal = null;
+    try { avisoTemporal = sessionStorage.getItem('attendqr_aviso_temporal'); } catch { /* sin storage */ }
+    if (window.ATTENDQR_VIEW === 'perfil' && avisoTemporal) {
+      try { sessionStorage.removeItem('attendqr_aviso_temporal'); } catch { /* sin storage */ }
+      setTimeout(() => {
+        AttendQR?.toast?.warning?.('Entraste con una contraseña temporal. Cámbiala ahora en "Cambiar contraseña".');
+      }, 600);
+    }
   });
 
   return { guardar, cambiarPassword, evalPassword };

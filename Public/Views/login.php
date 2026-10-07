@@ -233,10 +233,10 @@
       <!-- ─── Sección recuperación de contraseña (oculta por defecto) ── -->
       <div id="seccionRecuperacion" style="display:none;margin-top:var(--sp-4)">
         <div style="border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-5);background:var(--surface-2)">
-          <p style="font-size:var(--text-sm);font-weight:var(--fw-semibold);margin-bottom:var(--sp-1)">
+          <p id="recuperarTitulo" style="font-size:var(--text-sm);font-weight:var(--fw-semibold);margin-bottom:var(--sp-1)">
             Solicitar restablecimiento de contraseña
           </p>
-          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--sp-4)">
+          <p id="recuperarAyuda" style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--sp-4)">
             Ingresa tu número de documento. Tu instructor recibirá la solicitud y te entregará una contraseña temporal.
           </p>
           <div class="form-group" style="margin-bottom:var(--sp-3)">

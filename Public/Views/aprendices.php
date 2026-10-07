@@ -6,6 +6,13 @@
     <p class="page-header__subtitle">Administra el listado de aprendices, actívalos o desactívalos e importa desde un archivo CSV.</p>
   </div>
   <div class="page-header__actions">
+    <button class="btn btn-secondary" type="button" onclick="aprendicesGestion.abrirContinuidad()"
+            title="Elegir qué aprendices de la ficha continúan en el nuevo trimestre">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+      </svg>
+      Pase de trimestre
+    </button>
     <label class="btn btn-secondary" id="btnImportarLabel" title="Importar CSV">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -141,7 +148,78 @@
   </div>
 </div>
 
+<!-- ─── Modal: pase de trimestre (continuidad de aprendices) ──────────── -->
+<div class="modal-backdrop" id="modalContinuidadBackdrop" style="display:none"
+     onclick="if(event.target===this)aprendicesGestion.cerrarContinuidad()"
+     role="dialog" aria-modal="true" aria-labelledby="modalContinuidadTitle">
+  <div class="modal" style="max-width:560px;width:100%">
+    <div class="modal__header">
+      <h3 class="modal__title" id="modalContinuidadTitle">Pase de trimestre</h3>
+      <button class="modal__close" onclick="aprendicesGestion.cerrarContinuidad()">&times;</button>
+    </div>
+    <div class="modal__body">
+      <p id="continuidadIntro" style="margin-bottom:var(--sp-3);color:var(--text-secondary);font-size:var(--text-sm)"></p>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:var(--sp-2);cursor:pointer">
+        <input type="checkbox" id="continuidadTodos" checked onchange="aprendicesGestion.marcarTodosContinuidad(this.checked)">
+        Marcar / desmarcar todos
+      </label>
+      <div id="continuidadLista" style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:var(--sp-2)"></div>
+      <p id="continuidadResumen" style="margin-top:var(--sp-3);font-size:var(--text-sm)"></p>
+    </div>
+    <div class="modal__footer">
+      <button class="btn btn-ghost" type="button" onclick="aprendicesGestion.cerrarContinuidad()">Cancelar</button>
+      <button class="btn btn-primary" type="button" id="btnConfirmarContinuidad" onclick="aprendicesGestion.confirmarContinuidad()">
+        Confirmar continuidad
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast container (si no está en el layout global) -->
 <div id="toast-container" class="toast-container" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px"></div>
+
+<style>
+/* Estilos de los modales de esta vista (importación y pase de trimestre).
+   No existían estilos globales para .modal-backdrop/.modal, por eso el modal
+   se veía "suelto" al final de la página. Se limitan por ID para no afectar
+   otras vistas. */
+#modalImportBackdrop, #modalContinuidadBackdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(2px);
+  z-index: var(--z-modal, 400);
+  align-items: center; justify-content: center;
+  padding: var(--sp-4);
+}
+#modalImportBackdrop .modal, #modalContinuidadBackdrop .modal {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  max-height: calc(100vh - 32px);
+  display: flex; flex-direction: column;
+}
+#modalImportBackdrop .modal__header, #modalContinuidadBackdrop .modal__header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-5) var(--sp-6);
+  border-bottom: 1px solid var(--border);
+}
+#modalImportBackdrop .modal__title, #modalContinuidadBackdrop .modal__title {
+  font-size: var(--text-lg); font-weight: var(--fw-bold); color: var(--text-primary);
+}
+#modalImportBackdrop .modal__close, #modalContinuidadBackdrop .modal__close {
+  background: none; border: none; font-size: 22px; line-height: 1;
+  color: var(--text-muted); cursor: pointer;
+}
+#modalImportBackdrop .modal__body, #modalContinuidadBackdrop .modal__body {
+  padding: var(--sp-5) var(--sp-6); overflow-y: auto;
+}
+#modalImportBackdrop .modal__footer, #modalContinuidadBackdrop .modal__footer {
+  display: flex; justify-content: flex-end; gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-6);
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
+}
+</style>
 
 <script>window.ATTENDQR_VIEW = 'aprendices';</script>

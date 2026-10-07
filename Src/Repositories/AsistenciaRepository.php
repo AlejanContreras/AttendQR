@@ -131,6 +131,22 @@ class AsistenciaRepository extends BaseRepository
     }
 
     /**
+     * [Aislamiento entre docentes] Asistencias de hoy solo en las fichas del docente.
+     */
+    public function contarHoyPorDocente(int $idDocente): int
+    {
+        return $this->contar(
+            'SELECT COUNT(*)
+               FROM asistencias a
+               JOIN sesiones_asistencia s ON s.id_sesion = a.id_sesion
+               JOIN fichas f              ON f.id_ficha  = s.id_ficha
+              WHERE DATE(a.registrado_en) = CURDATE()
+                AND f.id_docente = :id_docente',
+            [':id_docente' => $idDocente]
+        );
+    }
+
+    /**
      * Cuenta el total de asistencias de un aprendiz.
      * Usado por AprendizService antes de eliminar un aprendiz.
      *
@@ -339,7 +355,14 @@ class AsistenciaRepository extends BaseRepository
     }
 
     /**
-     * Aprendices activos pertenecientes a un conjunto de fichas.
+     * Aprendices (activos Y retirados) pertenecientes a un conjunto de fichas.
+     *
+     * [Trimestres] Antes solo devolvía activo = 1. Eso hacía que un aprendiz
+     * retirado hoy desapareciera también del reporte de trimestres pasados en
+     * los que sí asistió. Ahora se devuelven todos con su bandera `activo` y
+     * AsistenciaService decide quién va en cada hoja de trimestre:
+     *   - tiene registros de asistencia en ese trimestre, o
+     *   - está activo y el trimestre es el actual.
      *
      * @param int[] $idFichas
      */
@@ -350,10 +373,9 @@ class AsistenciaRepository extends BaseRepository
         }
         $ids = implode(',', array_map('intval', $idFichas));
         return $this->consultar(
-            "SELECT id_aprendiz, nombres, apellidos, id_ficha
+            "SELECT id_aprendiz, nombres, apellidos, id_ficha, activo
              FROM aprendices
              WHERE id_ficha IN ({$ids})
-               AND activo = 1
              ORDER BY id_ficha, apellidos ASC, nombres ASC",
             []
         );
@@ -376,7 +398,8 @@ class AsistenciaRepository extends BaseRepository
              FROM asistencias a
              JOIN sesiones_asistencia sa ON sa.id_sesion = a.id_sesion
              WHERE sa.id_ficha IN ({$ids})
-               AND sa.fecha_sesion BETWEEN :inicio AND :fin",
+               AND sa.fecha_sesion BETWEEN :inicio AND :fin
+               AND sa.estado_sesion IN ('cerrada','abierta')",
             [':inicio' => $fechaInicio, ':fin' => $fechaFin]
         );
     }

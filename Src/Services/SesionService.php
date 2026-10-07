@@ -13,6 +13,12 @@ declare(strict_types=1);
  */
 class SesionService
 {
+    /** Duración usada cuando ni el docente ni la jornada definen una. */
+    private const DURACION_DEFECTO_MINUTOS = 20;
+    /** Límites permitidos para la duración de una sesión (ventana de asistencia). */
+    private const DURACION_MINIMA_MINUTOS  = 20;
+    private const DURACION_MAXIMA_MINUTOS  = 60;
+
     private SesionRepository $sesionRepo;
     private QrRepository     $qrRepo;
 
@@ -54,7 +60,8 @@ class SesionService
         bool   $ubicacionActiva  = false,
         ?float $latDocente       = null,
         ?float $lngDocente       = null,
-        ?float $accuracyDocente  = null
+        ?float $accuracyDocente  = null,
+        ?int   $duracionElegida  = null
     ): array {
         $ficha = $this->sesionRepo->obtenerFichaConJornada($idFicha);
 
@@ -80,9 +87,27 @@ class SesionService
 
         // Regla temporal oficial:
         //   limite_retardo_minutos  = 5  → PRESENTE: H a H+5
-        //   duracion_maxima_minutos = 20 → RETARDO: H+6 a H+20 / rechazado H+21 en adelante
+        //   duracion_maxima_minutos = D  → RETARDO: H+6 a H+D / rechazado después de H+D
+        //                                  y cierre automático en H+D.
+        //
+        // [Duración por jornada] D se resuelve así:
+        //   1. Lo que elija el docente al iniciar (20–60 min), si eligió algo.
+        //   2. Si no, el valor por defecto de la jornada (ej.: noche = 60).
+        //   3. Si la jornada no tiene valor configurado, 20 (comportamiento original).
+        // La rotación del QR NO depende de D: sigue siendo cada 30 segundos.
         $limiteRetardoMinutos  = 5;
-        $duracionMaximaMinutos = 20;
+        $duracionMaximaMinutos = $duracionElegida
+            ?? $this->sesionRepo->obtenerDuracionDefectoJornada((int) $ficha['id_jornada'])
+            ?? self::DURACION_DEFECTO_MINUTOS;
+
+        if ($duracionMaximaMinutos < self::DURACION_MINIMA_MINUTOS
+            || $duracionMaximaMinutos > self::DURACION_MAXIMA_MINUTOS) {
+            throw new \RuntimeException(
+                'La duración de la sesión debe estar entre '
+                . self::DURACION_MINIMA_MINUTOS . ' y ' . self::DURACION_MAXIMA_MINUTOS . ' minutos.',
+                422
+            );
+        }
 
         $idSesion = $this->sesionRepo->crear(
             $idFicha,
@@ -147,7 +172,7 @@ class SesionService
      * @return array<string, mixed>
      * @throws \RuntimeException 422 si el estado no es válido.
      */
-    public function listar(?int $idFicha = null, ?string $estado = null): array
+    public function listar(?int $idFicha = null, ?string $estado = null, ?int $idDocente = null): array
     {
         $estadosPermitidos = ['abierta', 'cerrada', 'cancelada'];
 
@@ -163,7 +188,8 @@ class SesionService
             $this->sesionRepo->insertarFallasPorSesionesCerradas();
         }
 
-        $sesiones = $this->sesionRepo->listar($idFicha, $estado);
+        // [Aislamiento entre docentes] $idDocente viene de la sesión PHP
+        $sesiones = $this->sesionRepo->listar($idFicha, $estado, $idDocente);
 
         return [
             'sesiones' => $sesiones,

@@ -33,7 +33,11 @@ CREATE TABLE IF NOT EXISTS docentes (
   correo        VARCHAR(120)  NOT NULL UNIQUE,
   password_hash VARCHAR(255)  NOT NULL,
   activo        TINYINT(1)    NOT NULL DEFAULT 1,
-  creado_en     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
+  creado_en     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  recuperacion_hash   VARCHAR(255) NULL DEFAULT NULL
+                      COMMENT 'Hash de la contraseña temporal de recuperación',
+  recuperacion_expira DATETIME     NULL DEFAULT NULL
+                      COMMENT 'Vencimiento de la contraseña temporal (hora de Colombia)'
 ) ENGINE=InnoDB
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci
@@ -51,7 +55,9 @@ CREATE TABLE IF NOT EXISTS jornadas (
   hora_inicio    TIME               NOT NULL,
   hora_fin       TIME               NOT NULL,
   minutos_gracia SMALLINT UNSIGNED  NOT NULL DEFAULT 10
-                                    COMMENT 'Tolerancia antes de marcar retardo'
+                                    COMMENT 'Tolerancia antes de marcar retardo',
+  duracion_defecto_minutos SMALLINT UNSIGNED NOT NULL DEFAULT 20
+                                    COMMENT 'Duración por defecto de la sesión (20–60). Noche = 60.'
 ) ENGINE=InnoDB
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci
@@ -331,10 +337,10 @@ CREATE TABLE IF NOT EXISTS solicitudes_recuperacion (
 -- Las tres jornadas estándar SENA.
 -- INSERT IGNORE evita error si ya existen.
 -- ============================================================
-INSERT IGNORE INTO jornadas (nombre, hora_inicio, hora_fin, minutos_gracia) VALUES
-  ('mañana', '06:00:00', '12:00:00', 10),
-  ('tarde',  '14:00:00', '18:00:00', 10),
-  ('noche',  '18:00:00', '22:00:00', 10);
+INSERT IGNORE INTO jornadas (nombre, hora_inicio, hora_fin, minutos_gracia, duracion_defecto_minutos) VALUES
+  ('mañana', '06:00:00', '12:00:00', 10, 20),
+  ('tarde',  '14:00:00', '18:00:00', 10, 20),
+  ('noche',  '18:00:00', '22:00:00', 10, 60);
 
 
 -- ============================================================

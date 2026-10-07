@@ -60,7 +60,8 @@ class AprendizRepository extends BaseRepository
         ?int    $idFicha      = null,
         ?int    $activo       = null,
         ?string $documento    = null,
-        ?int    $cuentaActiva = null
+        ?int    $cuentaActiva = null,
+        ?int    $idDocente    = null
     ): array {
         $sql    = 'SELECT a.id_aprendiz, a.numero_documento, a.nombres, a.apellidos,
                           a.activo, a.cuenta_activada, a.id_ficha, f.codigo_ficha, f.nombre_programa,
@@ -71,6 +72,11 @@ class AprendizRepository extends BaseRepository
                    WHERE 1=1';
         $params = [];
 
+        // [Aislamiento entre docentes] solo aprendices de las fichas del docente
+        if ($idDocente !== null) {
+            $sql .= ' AND f.id_docente       = :id_docente';
+            $params[':id_docente']    = $idDocente;
+        }
         if ($idFicha !== null) {
             $sql .= ' AND a.id_ficha         = :id_ficha';
             $params[':id_ficha']      = $idFicha;
@@ -223,6 +229,49 @@ class AprendizRepository extends BaseRepository
         $this->ejecutar(
             'DELETE FROM solicitudes_recuperacion WHERE id_aprendiz = :id',
             [':id' => $idAprendiz]
+        );
+    }
+
+    /**
+     * IDs de los aprendices activos de una ficha.
+     *
+     * @return int[]
+     */
+    public function idsActivosPorFicha(int $idFicha): array
+    {
+        $filas = $this->consultar(
+            'SELECT id_aprendiz FROM aprendices WHERE id_ficha = :id AND activo = 1',
+            [':id' => $idFicha]
+        );
+        return array_map(fn($f) => (int) $f['id_aprendiz'], $filas);
+    }
+
+    /**
+     * [Trimestres] Marca como retirados (activo = 0) varios aprendices de una ficha
+     * en una sola sentencia. NO borra nada: su id_aprendiz, sus asistencias y su
+     * historial quedan intactos y siguen saliendo en los reportes de trimestres
+     * anteriores.
+     *
+     * El filtro por id_ficha impide tocar aprendices de otra ficha aunque
+     * llegue un ID ajeno.
+     *
+     * @param int   $idFicha     Ficha a la que deben pertenecer.
+     * @param int[] $idsAprendiz Aprendices a retirar.
+     * @return int Filas afectadas.
+     */
+    public function retirarVarios(int $idFicha, array $idsAprendiz): int
+    {
+        if (empty($idsAprendiz)) {
+            return 0;
+        }
+        $ids = implode(',', array_map('intval', $idsAprendiz));
+        return $this->ejecutar(
+            "UPDATE aprendices
+             SET activo = 0
+             WHERE id_ficha = :id_ficha
+               AND activo = 1
+               AND id_aprendiz IN ({$ids})",
+            [':id_ficha' => $idFicha]
         );
     }
 

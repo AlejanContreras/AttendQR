@@ -359,8 +359,36 @@ const sesiones = (() => {
       horaInput.value = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
     }
 
+    // Duración: por defecto "Automática según la jornada" (mañana/tarde 20, noche 60)
+    const durSel = document.getElementById('iniciarDuracion');
+    if (durSel) durSel.value = '';
+    actualizarLeyendaDuracion(clase.nombre_jornada);
+
     document.getElementById('modalIniciarBackdrop').style.display = 'flex';
     setTimeout(() => horaInput?.focus(), 100);
+  }
+
+  /**
+   * Actualiza la leyenda Retardo/Cerrado según la duración elegida.
+   * Con "Automática" se muestra la regla de la jornada de la clase.
+   */
+  function actualizarLeyendaDuracion(nombreJornada) {
+    const durSel = document.getElementById('iniciarDuracion');
+    let jornada  = nombreJornada;
+    if (typeof jornada !== 'string') {
+      const idFicha = parseInt(document.getElementById('iniciarFichaId')?.value ?? '0', 10);
+      jornada = clases.find(c => c.id_ficha === idFicha)?.nombre_jornada ?? '';
+    }
+    const elegido = parseInt(durSel?.value ?? '', 10);
+    // Solo referencia visual: el valor real lo define el servidor (jornadas.duracion_defecto_minutos)
+    const minutos = Number.isNaN(elegido)
+      ? (String(jornada).toLowerCase() === 'noche' ? 60 : 20)
+      : elegido;
+
+    const ret = document.getElementById('leyendaRetardo');
+    const cie = document.getElementById('leyendaCierre');
+    if (ret) ret.textContent = `Retardo: H+6 a H+${minutos} min`;
+    if (cie) cie.textContent = `Cerrado: después de H+${minutos}`;
   }
 
   function cerrarModalIniciar() {
@@ -458,6 +486,10 @@ const sesiones = (() => {
       nombre_materia:    nombreMateria,
     };
 
+    // Duración elegida (vacío = automática según la jornada, la decide el servidor)
+    const duracion = document.getElementById('iniciarDuracion')?.value;
+    if (duracion) body.duracion_maxima_minutos = parseInt(duracion, 10);
+
     if (validarUbicacion && geoDocente) {
       body.ubicacion_activa  = true;
       body.lat_docente       = geoDocente.latitud;
@@ -529,7 +561,7 @@ const sesiones = (() => {
     abrirModalNueva, cerrarModalNueva, crearClase,
     abrirModalEditar, cerrarModalEditar, editarClase,
     eliminarClase,
-    abrirModalIniciar, cerrarModalIniciar, iniciarSesion,
+    abrirModalIniciar, cerrarModalIniciar, iniciarSesion, actualizarLeyendaDuracion,
     irQrFicha,
     obtenerUbicacion, _toggleGeoSection,
   };

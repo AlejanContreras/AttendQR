@@ -39,6 +39,35 @@ class SesionRepository extends BaseRepository
     }
 
     /**
+     * Duración por defecto (minutos) configurada para una jornada.
+     *
+     * [Duración por jornada] Lee jornadas.duracion_defecto_minutos
+     * (ej.: mañana/tarde = 20, noche = 60).
+     *
+     * Si la columna todavía no existe (no se ha corrido la migración
+     * Database/Migracion_Trimestres_Duracion.sql) devuelve null en lugar de
+     * romper la creación de sesiones; SesionService usa entonces 20 minutos.
+     *
+     * @param int $idJornada Identificador de la jornada.
+     * @return int|null Minutos por defecto o null si no está configurado.
+     */
+    public function obtenerDuracionDefectoJornada(int $idJornada): ?int
+    {
+        try {
+            $fila = $this->consultarUno(
+                'SELECT duracion_defecto_minutos FROM jornadas WHERE id_jornada = :id',
+                [':id' => $idJornada]
+            );
+        } catch (\PDOException $e) {
+            return null; // columna aún no migrada
+        }
+
+        return ($fila !== null && $fila['duracion_defecto_minutos'] !== null)
+            ? (int) $fila['duracion_defecto_minutos']
+            : null;
+    }
+
+    /**
      * Verifica si ya existe una sesión abierta para la ficha en la fecha indicada.
      *
      * @param int    $idFicha Identificador de la ficha.
@@ -138,7 +167,7 @@ class SesionRepository extends BaseRepository
      * @param string|null $estado  Filtro por estado_sesion.
      * @return array<int, array<string, mixed>>
      */
-    public function listar(?int $idFicha = null, ?string $estado = null): array
+    public function listar(?int $idFicha = null, ?string $estado = null, ?int $idDocente = null): array
     {
         $sql    = 'SELECT sa.id_sesion, sa.id_ficha, sa.nombre_materia, sa.fecha_sesion,
                           sa.estado_sesion, sa.hora_apertura, sa.hora_cierre,
@@ -156,6 +185,12 @@ class SesionRepository extends BaseRepository
                    LEFT JOIN asistencias a ON a.id_sesion = sa.id_sesion
                    WHERE 1=1';
         $params = [];
+
+        // [Aislamiento entre docentes] solo sesiones de las fichas del docente
+        if ($idDocente !== null) {
+            $sql .= ' AND f.id_docente = :id_docente';
+            $params[':id_docente'] = $idDocente;
+        }
 
         if ($idFicha !== null) {
             $sql .= ' AND sa.id_ficha = :id_ficha';

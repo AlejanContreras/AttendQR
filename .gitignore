@@ -64,3 +64,6 @@ error_log
 /node_modules/
 coverage/
 .phpunit.result.cache
+
+# Configuración de correo (lleva la contraseña de aplicación de Gmail)
+Src/Config/correo.php

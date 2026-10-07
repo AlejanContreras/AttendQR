@@ -318,30 +318,50 @@ class AsistenciaService
 
     /**
      * Genera el libro Excel de planilla de asistencias tipo instructor SENA.
-     * Una hoja por ficha; filas = aprendices; columnas = fechas de sesión del período.
-     * Devuelve el binario .xlsx listo para enviar al navegador.
+     *
+     * [Trimestres] Una hoja por ficha Y por trimestre calendario:
+     *   T1 = ene–mar, T2 = abr–jun, T3 = jul–sep, T4 = oct–dic.
+     * El trimestre NO se guarda en la BD: se calcula desde fecha_sesion, que
+     * nunca cambia. Así el historial de T3 queda fijo aunque la ficha continúe
+     * en T4. Nombre de hoja: {codigo_ficha}_T{n}_{año}  → p. ej. 123456_T4_2026.
+     *
+     * Aprendices por hoja:
+     *   - quienes tienen registros de asistencia en ese trimestre (aunque hoy
+     *     estén retirados, activo = 0), y
+     *   - los activos, solo si la hoja es del trimestre actual.
      *
      * @param array<string, mixed> $usuario     Docente autenticado.
      * @param int|null             $idFicha     Filtrar por ficha (null = todas las fichas).
      * @param string|null          $fechaInicio Inicio del período (Y-m-d). Default: historial completo.
      * @param string|null          $fechaFin    Fin del período (Y-m-d). Default: hoy.
+     * @param int|null             $trimestre   1–4. Si llega junto con $anio, define el período.
+     * @param int|null             $anio        Año del trimestre (p. ej. 2026).
      * @return string Contenido binario del archivo .xlsx.
      * @throws \RuntimeException 403 si el usuario no es docente.
      * @throws \RuntimeException 404 si no hay fichas/datos para el período.
+     * @throws \RuntimeException 422 si el trimestre o el año no son válidos.
      */
     public function generarReporteExcel(
         array   $usuario,
         ?int    $idFicha,
         ?string $fechaInicio,
-        ?string $fechaFin
+        ?string $fechaFin,
+        ?int    $trimestre = null,
+        ?int    $anio      = null
     ): string {
         if (($usuario['rol'] ?? '') !== 'docente') {
             throw new \RuntimeException('Solo los docentes pueden generar el reporte Excel.', 403);
         }
 
-        $idDocente   = (int) $usuario['id'];
-        // Sin rango explícito → exportar TODO el historial acumulado de la ficha,
-        // no solo el mes en curso (antes limitaba a date('Y-m-01')..date('Y-m-t')).
+        $idDocente = (int) $usuario['id'];
+
+        // Trimestre explícito → su rango de fechas reemplaza a fecha_inicio/fecha_fin.
+        if ($trimestre !== null) {
+            [$fechaInicio, $fechaFin] = self::rangoTrimestre($trimestre, $anio ?? (int) date('Y'));
+        }
+
+        // Sin rango explícito → exportar TODO el historial acumulado de la ficha
+        // (cada trimestre queda en su propia hoja).
         $fechaInicio ??= '2000-01-01';
         $fechaFin    ??= date('Y-m-d');
 
@@ -357,52 +377,124 @@ class AsistenciaService
         $aprendices  = $this->asistenciaRepo->aprendicesPorFichas($idFichas);
         $asistencias = $this->asistenciaRepo->asistenciasParaReporte($idFichas, $fechaInicio, $fechaFin);
 
-        // Organizar sesiones por ficha → conjunto de fechas
-        $sesionesPorFicha = [];
+        // Fechas de sesión agrupadas: ficha → clave de trimestre → fecha
+        $sesionesPorFichaTrim = [];
         foreach ($sesiones as $s) {
-            $sesionesPorFicha[(int) $s['id_ficha']][$s['fecha_sesion']] = true;
+            $clave = self::claveTrimestre($s['fecha_sesion']);
+            $sesionesPorFichaTrim[(int) $s['id_ficha']][$clave][$s['fecha_sesion']] = true;
         }
 
-        // Aprendices por ficha
+        // Aprendices por ficha (incluye retirados; se filtran por hoja más abajo)
         $aprendicesPorFicha = [];
         foreach ($aprendices as $ap) {
             $aprendicesPorFicha[(int) $ap['id_ficha']][] = $ap;
         }
 
         // Mapa de asistencia: ficha → aprendiz → fecha → estado
-        $attMap = [];
+        // y quién tiene registros en cada trimestre: ficha → trimestre → aprendiz
+        $attMap         = [];
+        $conRegistroEn  = [];
         foreach ($asistencias as $a) {
-            $attMap[(int) $a['id_ficha']][(int) $a['id_aprendiz']][$a['fecha_sesion']] = $a['estado'];
+            $idF  = (int) $a['id_ficha'];
+            $idAp = (int) $a['id_aprendiz'];
+            $attMap[$idF][$idAp][$a['fecha_sesion']] = $a['estado'];
+            $conRegistroEn[$idF][self::claveTrimestre($a['fecha_sesion'])][$idAp] = true;
         }
 
-        $writer = new XlsxWriter();
+        $claveActual = self::claveTrimestre(date('Y-m-d'));
+        $writer      = new XlsxWriter();
 
         foreach ($idFichas as $idF) {
             $ficha = $fichaMap[$idF] ?? null;
             if ($ficha === null) {
                 continue;
             }
-            $fechasSesion = array_keys($sesionesPorFicha[$idF] ?? []);
-            sort($fechasSesion);
 
-            // Etiqueta basada en las fechas reales de la ficha (no en el rango
-            // consultado), para que cubra correctamente todo el historial:
-            // un solo mes → "AGOSTO DEL 2026"; varios meses → "JUNIO - AGOSTO DEL 2026".
-            $mesLabel = empty($fechasSesion)
-                ? $this->etiquetaMes($fechaInicio, $fechaFin)
-                : $this->etiquetaMes($fechasSesion[0], $fechasSesion[array_key_last($fechasSesion)]);
+            $trimestresFicha = $sesionesPorFichaTrim[$idF] ?? [];
 
-            $this->escribirHojaFicha(
-                $writer,
-                $ficha,
-                $fechasSesion,
-                $aprendicesPorFicha[$idF] ?? [],
-                $attMap[$idF] ?? [],
-                $mesLabel
-            );
+            // Ficha sin sesiones en el período → una hoja vacía del trimestre
+            // pedido (o del actual) con sus aprendices activos.
+            if (empty($trimestresFicha)) {
+                $trimestresFicha = [self::claveTrimestre($fechaInicio === '2000-01-01' ? date('Y-m-d') : $fechaInicio) => []];
+            }
+            ksort($trimestresFicha);
+
+            foreach ($trimestresFicha as $clave => $fechasSet) {
+                $fechasSesion = array_keys($fechasSet);
+                sort($fechasSesion);
+
+                $aprendicesHoja = array_values(array_filter(
+                    $aprendicesPorFicha[$idF] ?? [],
+                    function (array $ap) use ($conRegistroEn, $idF, $clave, $claveActual): bool {
+                        $tieneRegistro = isset($conRegistroEn[$idF][$clave][(int) $ap['id_aprendiz']]);
+                        $activoHoy     = (int) ($ap['activo'] ?? 0) === 1 && $clave === $claveActual;
+                        return $tieneRegistro || $activoHoy;
+                    }
+                ));
+
+                [$anioHoja, $numTrim] = array_map('intval', explode('-', $clave));
+
+                $etiqueta = 'TRIMESTRE ' . $numTrim . ' - ' . $anioHoja;
+                if (!empty($fechasSesion)) {
+                    $etiqueta .= '  (' . $this->etiquetaMes(
+                        $fechasSesion[0],
+                        $fechasSesion[array_key_last($fechasSesion)]
+                    ) . ')';
+                }
+
+                $this->escribirHojaFicha(
+                    $writer,
+                    $ficha,
+                    $fechasSesion,
+                    $aprendicesHoja,
+                    $attMap[$idF] ?? [],
+                    $etiqueta,
+                    ($ficha['codigo_ficha'] ?? '?') . '_T' . $numTrim . '_' . $anioHoja
+                );
+            }
         }
 
         return $writer->output();
+    }
+
+    /**
+     * Número de trimestre calendario (1–4) de una fecha Y-m-d.
+     * ene–mar = 1, abr–jun = 2, jul–sep = 3, oct–dic = 4.
+     */
+    public static function numeroTrimestre(string $fecha): int
+    {
+        return intdiv((int) date('n', strtotime($fecha)) - 1, 3) + 1;
+    }
+
+    /**
+     * Clave ordenable "AAAA-N" del trimestre de una fecha, p. ej. "2026-4".
+     */
+    private static function claveTrimestre(string $fecha): string
+    {
+        return date('Y', strtotime($fecha)) . '-' . self::numeroTrimestre($fecha);
+    }
+
+    /**
+     * Rango [inicio, fin] (Y-m-d) de un trimestre calendario.
+     * Ej.: (3, 2026) → ['2026-07-01', '2026-09-30'].
+     *
+     * @return array{0: string, 1: string}
+     * @throws \RuntimeException 422 si el trimestre o el año no son válidos.
+     */
+    public static function rangoTrimestre(int $trimestre, int $anio): array
+    {
+        if ($trimestre < 1 || $trimestre > 4) {
+            throw new \RuntimeException('El trimestre debe ser 1, 2, 3 o 4.', 422);
+        }
+        if ($anio < 2000 || $anio > 2100) {
+            throw new \RuntimeException('El año del trimestre no es válido.', 422);
+        }
+
+        $mesInicio = ($trimestre - 1) * 3 + 1;
+        $inicio    = sprintf('%04d-%02d-01', $anio, $mesInicio);
+        $fin       = date('Y-m-t', strtotime(sprintf('%04d-%02d-01', $anio, $mesInicio + 2)));
+
+        return [$inicio, $fin];
     }
 
     /**
@@ -452,9 +544,13 @@ class AsistenciaService
         array      $fechasSesion,
         array      $aprendices,
         array      $attMapFicha,
-        string     $mesLabel
+        string     $mesLabel,
+        ?string    $sheetName = null
     ): void {
-        $sheetName = 'Ficha ' . ($ficha['codigo_ficha'] ?? '?');
+        // [Trimestres] Nombre de hoja: {codigo_ficha}_T{n}_{año}. Excel admite
+        // máximo 31 caracteres y prohíbe : \ / ? * [ ]
+        $sheetName = $sheetName ?? ('Ficha ' . ($ficha['codigo_ficha'] ?? '?'));
+        $sheetName = substr(str_replace([':', '\\', '/', '?', '*', '[', ']'], '-', $sheetName), 0, 31);
         $s         = $w->addSheet($sheetName);
 
         $abrevDia = [
