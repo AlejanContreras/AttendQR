@@ -226,6 +226,26 @@
         <form id="formPaso2" onsubmit="registro.activarCuenta(event)">
           <input type="hidden" id="regIdAprendiz" value="">
 
+          <!-- [Correo del aprendiz] obligatorio: sirve para recuperar la contraseña sin el instructor -->
+          <div class="form-group">
+            <label class="form-label" for="regCorreo">
+              Correo electrónico <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+              </span>
+              <input type="email" id="regCorreo" class="form-control"
+                     placeholder="tucorreo@gmail.com" autocomplete="email" maxlength="120" required>
+            </div>
+            <small style="font-size:var(--text-xs);color:var(--text-muted)">
+              Si olvidas tu contraseña, te enviaremos una temporal a este correo.
+            </small>
+          </div>
+
           <div class="form-group">
             <label class="form-label" for="regPassword">
               Contraseña <span class="required">*</span>

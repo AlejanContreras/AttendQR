@@ -165,5 +165,54 @@ if (isset($viewJs[$currentView])): ?>
 <script src="<?= vj($viewJs[$currentView]) ?>"></script>
 <?php endif; ?>
 
+<?php if ($userRole === 'aprendiz' && !empty($usuario['requiere_correo'])): ?>
+<!-- [Correo del aprendiz] Aprendiz sin correo: se le pide antes de seguir.
+     Sirve para que pueda recuperar su contraseña sin depender del instructor. -->
+<div id="modalCorreoAprendiz" style="position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);
+     display:flex;align-items:center;justify-content:center;padding:16px">
+  <form onsubmit="return guardarCorreoAprendiz(event)" style="background:var(--surface,#fff);color:var(--text-primary,#111);
+        border-radius:16px;max-width:420px;width:100%;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.3)">
+    <h3 style="font-size:1.15rem;font-weight:700;margin-bottom:6px">Registra tu correo</h3>
+    <p style="font-size:.9rem;color:var(--text-muted,#6b7280);margin-bottom:16px">
+      Si algún día olvidas tu contraseña, te enviaremos una temporal a este correo
+      sin tener que pedírsela a tu instructor.
+    </p>
+    <input type="email" id="correoAprendizInput" class="form-control" required maxlength="120"
+           placeholder="tucorreo@gmail.com" autocomplete="email" style="margin-bottom:8px">
+    <div id="correoAprendizError" style="display:none;color:var(--danger,#dc2626);font-size:.85rem;margin-bottom:8px"></div>
+    <button type="submit" class="btn btn-primary btn-full" id="btnCorreoAprendiz" style="width:100%;margin-top:8px">
+      Guardar y continuar
+    </button>
+  </form>
+</div>
+<script>
+async function guardarCorreoAprendiz(e) {
+  e.preventDefault();
+  const input = document.getElementById('correoAprendizInput');
+  const err   = document.getElementById('correoAprendizError');
+  const btn   = document.getElementById('btnCorreoAprendiz');
+  const correo = (input.value || '').trim();
+  err.style.display = 'none';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) {
+    err.textContent = 'Ingresa un correo electrónico válido.';
+    err.style.display = 'block';
+    return false;
+  }
+  btn.disabled = true;
+  try {
+    await Api.aprendices.actualizar(window.ATTENDQR_USER.id, { correo });
+    document.getElementById('modalCorreoAprendiz').remove();
+    AttendQR?.toast?.success?.('Correo guardado. ¡Gracias!');
+  } catch (ex) {
+    err.textContent = ex.message || 'No se pudo guardar el correo.';
+    err.style.display = 'block';
+    btn.disabled = false;
+  }
+  return false;
+}
+setTimeout(() => document.getElementById('correoAprendizInput')?.focus(), 200);
+</script>
+<?php endif; ?>
+
 </body>
 </html>

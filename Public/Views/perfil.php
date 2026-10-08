@@ -90,24 +90,34 @@
       <div class="card-body">
         <form id="formPerfil" onsubmit="perfil.guardar(event)">
 
+          <!-- Nombres y apellidos en campos separados: antes era un solo "Nombre completo"
+               que se partía adivinando y duplicaba palabras al guardar (ej. "Ana Ana Gomez"). -->
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Nombre completo</label>
-              <input type="text" class="form-control" id="perfilNombre" placeholder="Cargando...">
+              <label class="form-label">Nombres</label>
+              <input type="text" class="form-control" id="perfilNombres" placeholder="Cargando..." maxlength="80">
             </div>
             <div class="form-group">
-              <label class="form-label">Correo electrónico</label>
-              <input type="email" class="form-control" id="perfilEmail" placeholder="Cargando...">
+              <label class="form-label">Apellidos</label>
+              <input type="text" class="form-control" id="perfilApellidos" placeholder="Cargando..." maxlength="80">
             </div>
           </div>
 
           <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Correo electrónico</label>
+              <input type="email" class="form-control" id="perfilEmail" placeholder="tucorreo@gmail.com" maxlength="120">
+              <small id="perfilEmailAyuda" style="font-size:var(--text-xs);color:var(--text-muted)"></small>
+            </div>
             <div class="form-group">
               <label class="form-label">Documento</label>
               <input type="text" class="form-control" id="perfilDoc" readonly
                      style="background:var(--surface-alt);cursor:not-allowed">
               <small style="font-size:var(--text-xs);color:var(--text-muted)">El documento no puede modificarse</small>
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label class="form-label">Rol</label>
               <input type="text" class="form-control" id="perfilRolInput" readonly

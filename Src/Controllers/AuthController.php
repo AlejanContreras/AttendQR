@@ -197,6 +197,7 @@ class AuthController
         $idAprendiz = (int) ($cuerpo['id_aprendiz'] ?? 0);
         $password   = (string) ($cuerpo['password']           ?? '');
         $confirmar  = (string) ($cuerpo['confirmar_password'] ?? '');
+        $correo     = trim((string) ($cuerpo['correo']        ?? ''));   // [Correo del aprendiz]
 
         if ($idAprendiz <= 0) {
             $this->responderError('El campo id_aprendiz es obligatorio.', 422);
@@ -209,7 +210,7 @@ class AuthController
         }
 
         try {
-            $usuario = $this->aprendizServicio->activarCuenta($idAprendiz, $password);
+            $usuario = $this->aprendizServicio->activarCuenta($idAprendiz, $password, $correo);
 
             // Iniciar sesión automáticamente igual que en login
             $_SESSION['usuario'] = $usuario;
@@ -237,11 +238,15 @@ class AuthController
         }
 
         try {
-            $this->aprendizServicio->solicitarRecuperacion($documento);
-            $this->responderExito(
-                'Solicitud enviada. Acércate a tu instructor para restablecer tu contraseña.',
-                []
-            );
+            // [Correo del aprendiz] Si tiene correo → se le envía la temporal.
+            // Si no → método de siempre: la solicitud le llega al instructor.
+            $resultado = $this->servicio->solicitarRecuperacionAprendiz($documento);
+
+            $mensaje = $resultado['via'] === 'correo'
+                ? "Te enviamos una contraseña temporal a {$resultado['correo']}. Revisa también la carpeta de spam."
+                : 'Solicitud enviada. Acércate a tu instructor para restablecer tu contraseña.';
+
+            $this->responderExito($mensaje, $resultado);
 
         } catch (\RuntimeException $e) {
             $this->responderError($e->getMessage(), $e->getCode() ?: 400);

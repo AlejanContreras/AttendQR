@@ -130,6 +130,12 @@ CREATE TABLE IF NOT EXISTS aprendices (
                                  COMMENT '0 = retirado',
   cuenta_activada  TINYINT(1)    NOT NULL DEFAULT 0
                                  COMMENT '0 = pre-registrado, 1 = auto-registro completado',
+  correo              VARCHAR(120) NULL DEFAULT NULL
+                      COMMENT 'Correo del aprendiz para recuperar su cuenta',
+  recuperacion_hash   VARCHAR(255) NULL DEFAULT NULL
+                      COMMENT 'Hash de la contraseña temporal de recuperación',
+  recuperacion_expira DATETIME     NULL DEFAULT NULL
+                      COMMENT 'Vencimiento de la contraseña temporal (hora de Colombia)',
 
   CONSTRAINT fk_aprendiz_ficha
     FOREIGN KEY (id_ficha) REFERENCES fichas(id_ficha)

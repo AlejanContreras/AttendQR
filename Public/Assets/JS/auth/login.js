@@ -130,12 +130,14 @@ async function handleLogin(e, role) {
     auth.setUsuario(usuario);
 
     // [Recuperación] Entró con la contraseña temporal del correo → a Mi Perfil a cambiarla
+    // (docentes y aprendices)
     if (usuario.contrasena_temporal) {
       try { sessionStorage.setItem('attendqr_aviso_temporal', '1'); } catch { /* sin storage */ }
       const parts = window.location.pathname.split('/');
       const idx   = parts.findIndex(p => p.toLowerCase() === 'attendqr');
       const base  = idx >= 0 ? '/' + parts.slice(1, idx + 1).join('/') : '';
-      window.location.href = `${base}/Public/index.php?view=perfil&rol=docente`;
+      const rolUrl = (usuario.rol ?? role) === 'aprendiz' ? 'aprendiz' : 'docente';
+      window.location.href = `${base}/Public/index.php?view=perfil&rol=${rolUrl}`;
       return;
     }
 
@@ -194,7 +196,7 @@ function mostrarRecuperacion() {
     : 'Solicitar restablecimiento de contraseña';
   document.getElementById('recuperarAyuda').textContent = esDocente
     ? 'Ingresa tu correo. Te enviaremos una contraseña temporal que sirve por 30 minutos; tu contraseña actual sigue funcionando.'
-    : 'Ingresa tu número de documento. Tu instructor recibirá la solicitud y te entregará una contraseña temporal.';
+    : 'Ingresa tu número de documento. Si registraste tu correo, te enviaremos una contraseña temporal; si no, tu instructor recibirá la solicitud.';
   if (input) {
     input.value       = '';
     input.type        = esDocente ? 'email' : 'text';
@@ -257,9 +259,12 @@ async function handleRecuperacion() {
   btn.textContent = 'Enviando...';
 
   try {
-    await Api.auth.solicitarRecuperacion(doc);
+    // [Correo del aprendiz] el servidor dice por dónde se fue la recuperación
+    const r = await Api.auth.solicitarRecuperacion(doc);
     mostrarMsgRecuperacion(
-      'Solicitud enviada. Acércate a tu instructor para que restablezca tu contraseña.',
+      r?.via === 'correo'
+        ? `Te enviamos una contraseña temporal a ${r.correo}. Sirve por 30 minutos; revisa también la carpeta de spam.`
+        : 'Solicitud enviada. Acércate a tu instructor para que restablezca tu contraseña.',
       true
     );
     document.getElementById('recuperarDoc').value = '';

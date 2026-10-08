@@ -70,8 +70,16 @@ const registro = (() => {
       return;
     }
 
+    const correo    = (document.getElementById('regCorreo')?.value ?? '').trim();
     const password  = document.getElementById('regPassword')?.value ?? '';
     const confirmar = document.getElementById('regPasswordConfirm')?.value ?? '';
+
+    // [Correo del aprendiz] obligatorio
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) {
+      mostrarError('errorPaso2', 'errorPaso2Msg', 'Ingresa un correo electrónico válido.');
+      document.getElementById('regCorreo')?.focus();
+      return;
+    }
 
     if (password.length < 8) {
       mostrarError('errorPaso2', 'errorPaso2Msg', 'La contraseña debe tener al menos 8 caracteres.');
@@ -86,7 +94,7 @@ const registro = (() => {
     setLoading(btn, true, 'Creando cuenta...');
 
     try {
-      await Api.auth.activarCuenta({ id_aprendiz: idAprendiz, password, confirmar_password: confirmar });
+      await Api.auth.activarCuenta({ id_aprendiz: idAprendiz, correo, password, confirmar_password: confirmar });
 
       // Redirigir al dashboard de aprendiz
       const parts  = window.location.pathname.split('/');

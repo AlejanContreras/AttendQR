@@ -93,24 +93,40 @@ class AuthRepository extends BaseRepository
         );
     }
 
-    // ─── [Recuperación de cuenta del docente] ────────────────────────────────
-    // Columnas recuperacion_hash / recuperacion_expira (Migracion_Recuperacion_Docente.sql).
+    // ─── [Recuperación de cuenta por correo: docentes y aprendices] ─────────
+    // Columnas recuperacion_hash / recuperacion_expira:
+    //   docentes   → Migracion_Recuperacion_Docente.sql
+    //   aprendices → Migracion_Correo_Aprendiz.sql
     // Si la migración aún no se corrió, estos métodos no rompen el login:
-    // devuelven null / false y la recuperación simplemente no está disponible.
+    // devuelven null / false y la recuperación por correo no está disponible.
+
+    /** Tabla y columna id permitidas (nunca vienen del navegador). */
+    private const TABLAS_RECUPERACION = [
+        'docente'  => ['docentes',   'id_docente'],
+        'aprendiz' => ['aprendices', 'id_aprendiz'],
+    ];
+
+    /** @return array{0:string,1:string} */
+    private function tablaRecuperacion(string $tipo): array
+    {
+        if (!isset(self::TABLAS_RECUPERACION[$tipo])) {
+            throw new \InvalidArgumentException("Tipo de usuario no válido: {$tipo}");
+        }
+        return self::TABLAS_RECUPERACION[$tipo];
+    }
 
     /**
-     * Datos de la contraseña temporal vigente de un docente, o null.
+     * Contraseña temporal vigente de un usuario, o null si no hay columnas.
      *
      * @return array{recuperacion_hash: ?string, recuperacion_expira: ?string}|null
      */
-    public function obtenerRecuperacionDocente(int $idDocente): ?array
+    public function obtenerRecuperacion(string $tipo, int $id): ?array
     {
+        [$tabla, $col] = $this->tablaRecuperacion($tipo);
         try {
             return $this->consultarUno(
-                'SELECT recuperacion_hash, recuperacion_expira
-                 FROM docentes
-                 WHERE id_docente = :id',
-                [':id' => $idDocente]
+                "SELECT recuperacion_hash, recuperacion_expira FROM {$tabla} WHERE {$col} = :id",
+                [':id' => $id]
             );
         } catch (\PDOException $e) {
             return null; // columnas aún no migradas
@@ -118,50 +134,76 @@ class AuthRepository extends BaseRepository
     }
 
     /** Guarda una contraseña temporal (hash) y su vencimiento. */
-    public function guardarRecuperacionDocente(int $idDocente, string $hash, string $expira): bool
+    public function guardarRecuperacion(string $tipo, int $id, string $hash, string $expira): bool
     {
+        [$tabla, $col] = $this->tablaRecuperacion($tipo);
         try {
             $this->ejecutar(
-                'UPDATE docentes
-                 SET recuperacion_hash = :hash, recuperacion_expira = :expira
-                 WHERE id_docente = :id',
-                [':hash' => $hash, ':expira' => $expira, ':id' => $idDocente]
+                "UPDATE {$tabla} SET recuperacion_hash = :hash, recuperacion_expira = :expira WHERE {$col} = :id",
+                [':hash' => $hash, ':expira' => $expira, ':id' => $id]
             );
             return true;
         } catch (\PDOException $e) {
-            return false; // columnas aún no migradas
+            return false;
         }
     }
 
-    /**
-     * La contraseña temporal pasa a ser la contraseña del docente
-     * y se limpian los campos de recuperación.
-     */
-    public function consumirRecuperacionDocente(int $idDocente): void
+    /** La temporal pasa a ser la contraseña y se limpian los campos de recuperación. */
+    public function consumirRecuperacion(string $tipo, int $id): void
     {
+        [$tabla, $col] = $this->tablaRecuperacion($tipo);
         $this->ejecutar(
-            'UPDATE docentes
-             SET password_hash = recuperacion_hash,
-                 recuperacion_hash = NULL,
-                 recuperacion_expira = NULL
-             WHERE id_docente = :id
-               AND recuperacion_hash IS NOT NULL',
-            [':id' => $idDocente]
+            "UPDATE {$tabla}
+             SET password_hash = recuperacion_hash, recuperacion_hash = NULL, recuperacion_expira = NULL
+             WHERE {$col} = :id AND recuperacion_hash IS NOT NULL",
+            [':id' => $id]
         );
     }
 
     /** Borra una contraseña temporal (p. ej. al entrar con la contraseña normal). */
-    public function limpiarRecuperacionDocente(int $idDocente): void
+    public function limpiarRecuperacion(string $tipo, int $id): void
     {
+        [$tabla, $col] = $this->tablaRecuperacion($tipo);
         try {
             $this->ejecutar(
-                'UPDATE docentes
-                 SET recuperacion_hash = NULL, recuperacion_expira = NULL
-                 WHERE id_docente = :id AND recuperacion_hash IS NOT NULL',
-                [':id' => $idDocente]
+                "UPDATE {$tabla} SET recuperacion_hash = NULL, recuperacion_expira = NULL
+                 WHERE {$col} = :id AND recuperacion_hash IS NOT NULL",
+                [':id' => $id]
             );
         } catch (\PDOException $e) {
             // columnas aún no migradas: nada que limpiar
         }
     }
+
+    /** Correo registrado del aprendiz (null si no tiene o si la columna no existe aún). */
+    public function obtenerCorreoAprendiz(int $idAprendiz): ?string
+    {
+        try {
+            $fila = $this->consultarUno(
+                'SELECT correo FROM aprendices WHERE id_aprendiz = :id',
+                [':id' => $idAprendiz]
+            );
+        } catch (\PDOException $e) {
+            return null;
+        }
+        $correo = trim((string) ($fila['correo'] ?? ''));
+        return $correo !== '' ? $correo : null;
+    }
+
+    /** ¿Existen ya las columnas del correo del aprendiz? */
+    public function correoAprendizDisponible(): bool
+    {
+        try {
+            $this->consultar('SELECT correo FROM aprendices LIMIT 1');
+            return true;
+        } catch (\PDOException $e) {
+            return false;
+        }
+    }
+
+    // ── Atajos del docente (nombres usados por AuthService desde la versión anterior)
+    public function obtenerRecuperacionDocente(int $id): ?array { return $this->obtenerRecuperacion('docente', $id); }
+    public function guardarRecuperacionDocente(int $id, string $hash, string $expira): bool { return $this->guardarRecuperacion('docente', $id, $hash, $expira); }
+    public function consumirRecuperacionDocente(int $id): void { $this->consumirRecuperacion('docente', $id); }
+    public function limpiarRecuperacionDocente(int $id): void { $this->limpiarRecuperacion('docente', $id); }
 }

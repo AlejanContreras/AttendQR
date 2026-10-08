@@ -232,6 +232,46 @@ class AprendizRepository extends BaseRepository
         );
     }
 
+    // ─── [Correo del aprendiz] ───────────────────────────────────────────────
+    // Columna aprendices.correo (Migracion_Correo_Aprendiz.sql). Consultas aparte
+    // y protegidas: si la migración no se ha corrido, el resto del sistema sigue
+    // funcionando igual que antes.
+
+    /** ¿Existe ya la columna aprendices.correo? */
+    public function correoDisponible(): bool
+    {
+        try {
+            $this->consultar('SELECT correo FROM aprendices LIMIT 1');
+            return true;
+        } catch (\PDOException $e) {
+            return false;
+        }
+    }
+
+    /** Correo del aprendiz, o null si no tiene / la columna no existe. */
+    public function obtenerCorreo(int $idAprendiz): ?string
+    {
+        try {
+            $fila = $this->consultarUno(
+                'SELECT correo FROM aprendices WHERE id_aprendiz = :id',
+                [':id' => $idAprendiz]
+            );
+        } catch (\PDOException $e) {
+            return null;
+        }
+        $correo = trim((string) ($fila['correo'] ?? ''));
+        return $correo !== '' ? $correo : null;
+    }
+
+    /** Guarda el correo del aprendiz (ya validado por el Service). */
+    public function guardarCorreo(int $idAprendiz, string $correo): void
+    {
+        $this->ejecutar(
+            'UPDATE aprendices SET correo = :correo WHERE id_aprendiz = :id',
+            [':correo' => $correo, ':id' => $idAprendiz]
+        );
+    }
+
     /**
      * IDs de los aprendices activos de una ficha.
      *

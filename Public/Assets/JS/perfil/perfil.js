@@ -25,11 +25,15 @@ const perfil = (() => {
   }
 
   function rellenarFormulario(datos, rol) {
-    const nombreCompleto = datos.nombre ?? datos.nombre_completo
-      ?? [datos.nombres, datos.apellidos].filter(Boolean).join(' ')
-      ?? '';
-    setVal('#perfilNombre',    nombreCompleto);
+    const nombreCompleto = [datos.nombres, datos.apellidos].filter(Boolean).join(' ')
+      || datos.nombre || datos.nombre_completo || '';
+    setVal('#perfilNombres',   datos.nombres   ?? '');
+    setVal('#perfilApellidos', datos.apellidos ?? '');
     setVal('#perfilEmail',     datos.correo ?? '');
+    // [Correo del aprendiz] para qué sirve el correo según el rol
+    setTxt('#perfilEmailAyuda', rol === 'aprendiz'
+      ? 'Si olvidas tu contraseña, te enviaremos una temporal a este correo.'
+      : 'Aquí te llega la contraseña temporal si olvidas la tuya.');
     setVal('#perfilDoc',       datos.numero_documento ?? datos.documento ?? '');
     setVal('#perfilRolInput',  rol === 'aprendiz' ? 'Aprendiz' : 'Docente / Instructor');
 
@@ -91,15 +95,20 @@ const perfil = (() => {
     const usuario = window.ATTENDQR_USER;
     if (!usuario) return;
 
-    const nombre = document.getElementById('perfilNombre')?.value.trim();
-    const correo = document.getElementById('perfilEmail')?.value.trim();
+    // Nombres y apellidos van en campos separados (antes se partía "Nombre completo"
+    // adivinando, y al guardar se duplicaban palabras: "Ana Ana Gomez").
+    const nombres   = document.getElementById('perfilNombres')?.value.trim().replace(/\s+/g, ' ');
+    const apellidos = document.getElementById('perfilApellidos')?.value.trim().replace(/\s+/g, ' ');
+    const correo    = document.getElementById('perfilEmail')?.value.trim();
+    const nombre    = [nombres, apellidos].filter(Boolean).join(' ');
 
-    if (!nombre) {
-      AttendQR.toast.warning('El nombre es obligatorio.');
+    if (!nombres || !apellidos) {
+      AttendQR.toast.warning('Los nombres y los apellidos son obligatorios.');
       return;
     }
-    if (usuario.rol !== 'aprendiz' && !correo) {
-      AttendQR.toast.warning('El correo es obligatorio.');
+    // [Correo del aprendiz] obligatorio para todos
+    if (!correo || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) {
+      AttendQR.toast.warning('Ingresa un correo electrónico válido.');
       return;
     }
 
@@ -108,20 +117,10 @@ const perfil = (() => {
     if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
 
     try {
-      let body;
+      const body = { nombres, apellidos, correo };
       if (usuario.rol === 'aprendiz') {
-        // Aprendices: nombres + apellidos (no correo ni telefono)
-        const partes    = nombre.split(/\s+/).filter(Boolean);
-        const apellidos = partes.length > 1 ? partes.slice(-2).join(' ') : '';
-        const nombres   = partes.length > 1 ? partes.slice(0, -2).join(' ') || partes[0] : nombre;
-        body = { nombres, apellidos };
         await Api.aprendices.actualizar(usuario.id, body);
       } else {
-        // Docentes: dividir nombre completo en nombres + apellidos (igual que aprendiz)
-        const partes    = nombre.split(/\s+/).filter(Boolean);
-        const apellidos = partes.length > 1 ? partes.slice(-2).join(' ') : '';
-        const nombres   = partes.length > 1 ? partes.slice(0, -2).join(' ') || partes[0] : nombre;
-        body = { nombres, apellidos, correo };
         await Api.docentes.actualizar(usuario.id, body);
       }
 

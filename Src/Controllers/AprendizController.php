@@ -200,8 +200,8 @@ class AprendizController
             // [Aislamiento] Campos permitidos según el rol. Antes un aprendiz podía
             // cambiarse a sí mismo id_ficha, activo o cuenta_activada.
             $permitidos = AccesoService::esDocente($usuario)
-                ? ['nombres', 'apellidos', 'activo', 'id_ficha']
-                : ['nombres', 'apellidos', 'password_actual', 'password_nueva'];
+                ? ['nombres', 'apellidos', 'activo', 'id_ficha', 'correo']
+                : ['nombres', 'apellidos', 'password_actual', 'password_nueva', 'correo'];
             $cuerpo = array_intersect_key($cuerpo, array_flip($permitidos));
 
             if (empty($cuerpo)) {
@@ -218,7 +218,15 @@ class AprendizController
             // Sincronizar sesión PHP si el aprendiz actualizó su propio perfil
             if (session_status() !== PHP_SESSION_ACTIVE) session_start();
             $usuarioSesion = $_SESSION['usuario'] ?? null;
-            if ($usuarioSesion && (int) $usuarioSesion['id'] === $idAprendiz) {
+            // [Correo del aprendiz] ya registró correo → deja de pedírselo
+            if ($usuarioSesion && ($usuarioSesion['rol'] ?? '') === 'aprendiz'
+                && (int) $usuarioSesion['id'] === $idAprendiz && !empty($cuerpo['correo'])) {
+                $_SESSION['usuario']['requiere_correo'] = false;
+            }
+
+            // (con rol aprendiz: un docente puede tener el mismo número de id que un aprendiz)
+            if ($usuarioSesion && ($usuarioSesion['rol'] ?? '') === 'aprendiz'
+                && (int) $usuarioSesion['id'] === $idAprendiz) {
                 $nombreCompleto = trim(($aprendiz['nombres'] ?? '') . ' ' . ($aprendiz['apellidos'] ?? ''));
                 if ($nombreCompleto !== '') {
                     $_SESSION['usuario']['nombre'] = $nombreCompleto;

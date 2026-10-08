@@ -35,7 +35,24 @@ class AprendizService
             throw new \RuntimeException('Aprendiz no encontrado.', 404);
         }
 
+        // [Correo del aprendiz] se agrega aparte (consulta protegida por si falta la migración)
+        $aprendiz['correo'] = $this->aprendizRepo->obtenerCorreo($idAprendiz);
+
         return $aprendiz;
+    }
+
+    /**
+     * [Correo del aprendiz] Normaliza y valida un correo.
+     *
+     * @throws \RuntimeException 422 si no es un correo válido.
+     */
+    public static function validarCorreo(string $correo): string
+    {
+        $correo = strtolower(trim($correo));
+        if ($correo === '' || mb_strlen($correo) > 120 || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+            throw new \RuntimeException('Ingresa un correo electrónico válido.', 422);
+        }
+        return $correo;
     }
 
     public function listar(
@@ -220,8 +237,14 @@ class AprendizService
      * @throws \RuntimeException 409 — cuenta ya activada
      * @throws \RuntimeException 422 — contraseña muy corta
      */
-    public function activarCuenta(int $idAprendiz, string $password): array
+    public function activarCuenta(int $idAprendiz, string $password, string $correo = ''): array
     {
+        // [Correo del aprendiz] Obligatorio al activar (si la migración ya se corrió).
+        $exigeCorreo = $this->aprendizRepo->correoDisponible();
+        if ($exigeCorreo) {
+            $correo = self::validarCorreo($correo);
+        }
+
         if (mb_strlen($password) < 8) {
             throw new \RuntimeException('La contraseña debe tener al menos 8 caracteres.', 422);
         }
@@ -244,6 +267,10 @@ class AprendizService
             throw new \RuntimeException('Esta cuenta ya fue activada. Inicia sesión normalmente.', 409);
         }
 
+        if ($exigeCorreo) {
+            $this->aprendizRepo->guardarCorreo($idAprendiz, $correo);
+        }
+
         // Datos de sesión (mismo formato que AuthService::loginAprendiz)
         return [
             'id'               => (int) $aprendiz['id_aprendiz'],
@@ -254,6 +281,7 @@ class AprendizService
             'codigo_ficha'     => $aprendiz['codigo_ficha'],
             'nombre_programa'  => $aprendiz['nombre_programa'],
             'rol'              => 'aprendiz',
+            'requiere_correo'  => false,
         ];
     }
 
@@ -490,6 +518,15 @@ class AprendizService
         if (isset($datos['password_nueva'])) {
             $datos['password_hash'] = password_hash((string) $datos['password_nueva'], PASSWORD_BCRYPT);
             unset($datos['password_nueva']);
+        }
+
+        // [Correo del aprendiz] va por su propio método (columna protegida por migración)
+        if (array_key_exists('correo', $datos)) {
+            if (!$this->aprendizRepo->correoDisponible()) {
+                throw new \RuntimeException('El correo aún no está habilitado (falta la migración de la base de datos).', 503);
+            }
+            $this->aprendizRepo->guardarCorreo($idAprendiz, self::validarCorreo((string) $datos['correo']));
+            unset($datos['correo']);
         }
 
         $this->aprendizRepo->actualizar($idAprendiz, $datos);
