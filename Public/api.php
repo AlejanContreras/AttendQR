@@ -92,7 +92,7 @@ define('UTILS_PATH',        SRC_PATH  . '/Utils/');
 // ---------------------------------------------------------------------------
 
 // 3a. Conexión a base de datos
-require_once CONFIG_PATH . 'Database.php';
+require_once CONFIG_PATH . 'database.php';
 
 // 3b. Clase base de Repositories
 require_once REPOSITORIES_PATH . 'BaseRepository.php';

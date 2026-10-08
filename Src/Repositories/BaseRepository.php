@@ -33,9 +33,25 @@ abstract class BaseRepository
      * Obtiene la conexión centralizada desde Database::getConnection().
      * No crea una nueva conexión: reutiliza la instancia ya existente.
      */
+    /** Evita repetir el SET time_zone en cada Repository de la misma petición. */
+    private static bool $zonaHorariaAplicada = false;
+
     public function __construct()
     {
         $this->db = Database::getConnection();
+
+        // El MySQL del hosting puede estar en otra zona horaria (InfinityFree usa
+        // la del Pacífico). Se alinea con PHP (America/Bogota, sin horario de
+        // verano) para que NOW() y CURDATE() coincidan con la hora de Colombia:
+        // cierre automático de sesiones, vencimiento del QR y "asistencias hoy".
+        if (!self::$zonaHorariaAplicada) {
+            try {
+                $this->db->exec("SET time_zone = '" . date('P') . "'");
+            } catch (\PDOException $e) {
+                error_log('No se pudo fijar time_zone de MySQL: ' . $e->getMessage());
+            }
+            self::$zonaHorariaAplicada = true;
+        }
     }
 
     // -------------------------------------------------------------------------
