@@ -33,7 +33,7 @@
     </div>
     <h1 class="login-brand__title">Attend<span>QR</span></h1>
     <p class="login-brand__sub">
-      Sistema Inteligente de Control de Asistencia mediante QR Dinámico para el SENA.
+      Herramienta de apoyo para el control de asistencia de un instructor, mediante códigos QR dinámicos.
     </p>
     <div class="login-brand__features">
       <div class="login-brand__feature">
@@ -73,7 +73,7 @@
         Anti-fraude por token único por sesión
       </div>
     </div>
-    <div class="login-brand__footer">SENA · Sistema de Control de Asistencia</div>
+    <div class="login-brand__footer">AttendQR · Herramienta independiente de control de asistencia</div>
   </div>
 
   <!-- ─── Right form panel ─────────────────────────────────── -->
@@ -121,7 +121,7 @@
               </svg>
             </span>
             <input type="email" id="docenteCorreo" class="form-control"
-                   placeholder="correo@sena.edu.co" autocomplete="email">
+                   placeholder="tucorreo@ejemplo.com" autocomplete="email">
           </div>
         </div>
 

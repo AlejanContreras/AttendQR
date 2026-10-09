@@ -63,7 +63,7 @@ function sidebarIcon(string $name): string {
     </div>
     <div>
       <div class="sidebar__brand-name">AttendQR</div>
-      <div class="sidebar__brand-sub">SENA · Control QR</div>
+      <div class="sidebar__brand-sub">Control de asistencia QR</div>
     </div>
   </div>
 

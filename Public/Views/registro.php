@@ -130,7 +130,7 @@
         Proceso de un solo uso — rápido y seguro
       </div>
     </div>
-    <div class="login-brand__footer">SENA · Sistema de Control de Asistencia</div>
+    <div class="login-brand__footer">AttendQR · Herramienta independiente de control de asistencia</div>
   </div>
 
   <!-- ─── Right form panel ─────────────────────────────────── -->

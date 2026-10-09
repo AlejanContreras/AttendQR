@@ -200,7 +200,7 @@ function mostrarRecuperacion() {
   if (input) {
     input.value       = '';
     input.type        = esDocente ? 'email' : 'text';
-    input.placeholder = esDocente ? 'correo@sena.edu.co' : 'Número de documento';
+    input.placeholder = esDocente ? 'tucorreo@ejemplo.com' : 'Número de documento';
     input.inputMode   = esDocente ? 'email' : 'numeric';
     if (esDocente) input.removeAttribute('pattern'); else input.setAttribute('pattern', '[0-9]{5,15}');
   }

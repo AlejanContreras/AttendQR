@@ -50,7 +50,7 @@ const perfil = (() => {
     const iniciales = nombre !== '—' ? nombre.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase() : '?';
 
     setTxt('#perfilNombreCard', nombre);
-    setTxt('#perfilRolCard',    rol === 'aprendiz' ? 'Aprendiz — SENA' : 'Docente — SENA');
+    setTxt('#perfilRolCard',    rol === 'aprendiz' ? 'Aprendiz' : 'Docente');
     setTxt('#perfilAvatar',     iniciales);
   }
 

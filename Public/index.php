@@ -32,8 +32,8 @@ $userInitials  = strtoupper(
 );
 
 $userSubtitle = $userRole === 'aprendiz'
-    ? 'Aprendiz — SENA'
-    : 'Docente — SENA';
+    ? 'Aprendiz'
+    : 'Docente';
 
 // ─── Vista solicitada ────────────────────────────────────────────────
 $allowedViews = [
