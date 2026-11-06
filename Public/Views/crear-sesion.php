@@ -235,7 +235,7 @@
             <option value="60">60 minutos</option>
           </select>
           <div class="form-hint" style="margin-top:var(--sp-2)">
-            El QR sigue cambiando cada 30 segundos. Puedes cerrar la sesión antes en cualquier momento.
+            El QR sigue cambiando cada 15 segundos. Puedes cerrar la sesión antes en cualquier momento.
           </div>
         </div>
 

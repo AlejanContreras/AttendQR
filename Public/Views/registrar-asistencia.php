@@ -22,7 +22,7 @@
         </div>
         <div>
           <h3 class="card-title">Código QR de clase</h3>
-          <p class="card-subtitle">El token cambia cada 30 segundos</p>
+          <p class="card-subtitle">El token cambia cada 15 segundos</p>
         </div>
       </div>
     </div>
@@ -203,7 +203,7 @@
                       flex-shrink:0;font-size:var(--text-xs);font-weight:var(--fw-bold);color:var(--green-primary)">3</div>
           <div>
             <div style="font-size:var(--text-sm);font-weight:var(--fw-medium);color:var(--text-primary)">¡Listo! La cámara se cierra sola</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted)">Al detectar el QR se registra automáticamente. El token expira en 30 segundos</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted)">Al detectar el QR se registra automáticamente. El token expira en 15 segundos</div>
           </div>
         </div>
 

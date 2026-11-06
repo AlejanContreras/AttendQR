@@ -120,7 +120,7 @@ class SesionAsistenciaModel
             isset($datos['hora_cierre'])             ? (string) $datos['hora_cierre']             : null,
             (int)    ($datos['limite_retardo_minutos']  ?? 10),
             (int)    ($datos['duracion_maxima_minutos'] ?? 240),
-            (int)    ($datos['rotacion_qr_segundos']    ?? 30),
+            (int)    ($datos['rotacion_qr_segundos']    ?? 15),
         );
     }
 }

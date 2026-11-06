@@ -5,7 +5,7 @@
  * 1. Lee ?sesion=ID de la URL
  * 2. Carga detalle de la sesión + token activo
  * 3. Renderiza el QR (librería qrcode.js del CDN o SVG simple)
- * 4. Hace polling al backend cada 30s para obtener el token rotado
+ * 4. Hace polling al backend cada 15s para obtener el token rotado
  * 5. Actualiza contadores via /api/sesiones/estadisticas/{id}
  */
 const qr = (() => {
@@ -15,8 +15,8 @@ const qr = (() => {
   let pollTimer        = null;
   let statsTimer       = null;
   let autoCloseTimer   = null;
-  let remaining        = 30;
-  let ROTATION_SEC     = 30;
+  let remaining        = 15;
+  let ROTATION_SEC     = 15;
   let elapsedSeconds   = 0;
   let elapsedTimer     = null;
   let rotating         = false;
@@ -129,8 +129,8 @@ const qr = (() => {
       if (timerEl) timerEl.textContent = remaining;
       if (barEl)   barEl.style.width = `${(remaining / ROTATION_SEC) * 100}%`;
 
-      if (remaining <= 10 && timerEl) timerEl.classList.add('is-warning');
-      else if (remaining > 10 && timerEl) timerEl.classList.remove('is-warning');
+      if (remaining <= 5 && timerEl) timerEl.classList.add('is-warning');
+      else if (remaining > 5 && timerEl) timerEl.classList.remove('is-warning');
 
       if (remaining <= 0) {
         if (rotating) return;

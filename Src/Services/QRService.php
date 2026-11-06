@@ -17,7 +17,7 @@ declare(strict_types=1);
  */
 class QrService
 {
-    private const SEGUNDOS_FALLBACK = 30;
+    private const SEGUNDOS_FALLBACK = 15;
 
     private QrRepository     $qrRepo;
     private SesionRepository $sesionRepo;

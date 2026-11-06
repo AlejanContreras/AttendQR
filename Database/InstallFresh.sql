@@ -207,7 +207,7 @@ CREATE TABLE IF NOT EXISTS sesiones_asistencia (
                                               COMMENT 'Minutos desde H que cierra la ventana. Superado → rechazado.',
 
   -- ── QR DINÁMICO ──────────────────────────────────────────
-  rotacion_qr_segundos     SMALLINT UNSIGNED  NOT NULL DEFAULT 30
+  rotacion_qr_segundos     SMALLINT UNSIGNED  NOT NULL DEFAULT 15
                                               COMMENT 'Cada cuántos segundos rota el token QR.',
 
   -- ── GEOLOCALIZACIÓN ──────────────────────────────────────

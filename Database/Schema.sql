@@ -212,7 +212,7 @@ CREATE TABLE sesiones_asistencia (
                             COMMENT 'Desde H. Llegada hasta aquí → RETARDO. Superado → rechazado.',
 
   -- ── QR DINÁMICO ──────────────────────────────────────────
-  rotacion_qr_segundos     SMALLINT UNSIGNED NOT NULL DEFAULT 30
+  rotacion_qr_segundos     SMALLINT UNSIGNED NOT NULL DEFAULT 15
                             COMMENT 'Cada cuántos segundos rota el token QR.',
 
   -- Sin UNIQUE(id_ficha, fecha_sesion): un docente puede tener

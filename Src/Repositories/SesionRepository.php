@@ -227,15 +227,18 @@ class SesionRepository extends BaseRepository
         bool    $ubicacionActiva  = false,
         ?float  $latDocente       = null,
         ?float  $lngDocente       = null,
-        ?float  $accuracyDocente  = null
+        ?float  $accuracyDocente  = null,
+        int     $rotacionQrSegundos = 15
     ): int {
         return $this->insertar(
             "INSERT INTO sesiones_asistencia
                  (id_ficha, nombre_materia, fecha_sesion, estado_sesion, hora_apertura,
                   hora_inicio_clase, limite_retardo_minutos, duracion_maxima_minutos,
+                  rotacion_qr_segundos,
                   ubicacion_activa, lat_docente, lng_docente, accuracy_docente)
              VALUES (:id_ficha, :nombre_materia, :fecha, 'abierta', NOW(3),
                      :hora_inicio, :limite_retardo, :duracion_maxima,
+                     :rotacion_qr,
                      :ubicacion_activa, :lat_docente, :lng_docente, :accuracy_docente)",
             [
                 ':id_ficha'          => $idFicha,
@@ -244,6 +247,7 @@ class SesionRepository extends BaseRepository
                 ':hora_inicio'       => $horaInicioClase,
                 ':limite_retardo'    => $limiteRetardoMinutos,
                 ':duracion_maxima'   => $duracionMaximaMinutos,
+                ':rotacion_qr'       => $rotacionQrSegundos,
                 ':ubicacion_activa'  => $ubicacionActiva ? 1 : 0,
                 ':lat_docente'       => $latDocente,
                 ':lng_docente'       => $lngDocente,

@@ -18,6 +18,8 @@ class SesionService
     /** Límites permitidos para la duración de una sesión (ventana de asistencia). */
     private const DURACION_MINIMA_MINUTOS  = 20;
     private const DURACION_MAXIMA_MINUTOS  = 60;
+    /** Cada cuántos segundos cambia el código QR de la sesión. */
+    private const ROTACION_QR_SEGUNDOS     = 15;
 
     private SesionRepository $sesionRepo;
     private QrRepository     $qrRepo;
@@ -94,7 +96,7 @@ class SesionService
         //   1. Lo que elija el docente al iniciar (20–60 min), si eligió algo.
         //   2. Si no, el valor por defecto de la jornada (ej.: noche = 60).
         //   3. Si la jornada no tiene valor configurado, 20 (comportamiento original).
-        // La rotación del QR NO depende de D: sigue siendo cada 30 segundos.
+        // La rotación del QR NO depende de D: cambia cada ROTACION_QR_SEGUNDOS (15 s).
         $limiteRetardoMinutos  = 5;
         $duracionMaximaMinutos = $duracionElegida
             ?? $this->sesionRepo->obtenerDuracionDefectoJornada((int) $ficha['id_jornada'])
@@ -119,10 +121,11 @@ class SesionService
             $ubicacionActiva,
             $latDocente,
             $lngDocente,
-            $accuracyDocente
+            $accuracyDocente,
+            self::ROTACION_QR_SEGUNDOS
         );
 
-        $this->generarPrimerToken($idSesion, 30);
+        $this->generarPrimerToken($idSesion, self::ROTACION_QR_SEGUNDOS);
 
         return $this->sesionRepo->obtenerPorId($idSesion)
             ?? ['id_sesion' => $idSesion, 'id_ficha' => $idFicha, 'estado_sesion' => 'abierta'];
